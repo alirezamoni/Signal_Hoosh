@@ -1,0 +1,2146 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سیگنال هوش - مانیتور هوشمند ایران</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f83f7'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='18' font-weight='800' fill='white' font-family='system-ui'>S</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--bg2:#0e1220;--bg3:#151c2e;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --text:#eef2ff;--text2:#7c8db5;--text3:#3d4f72;
+  --accent:#4f83f7;--green:#0fd17a;--red:#f05252;--amber:#f5a623;
+  --purple:#9b7cfc;--pink:#f472b6;--teal:#22d3ee;
+  --font:'Vazirmatn',system-ui,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+
+/* LOGIN */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(79,131,247,.12) 0%,transparent 60%)}
+.login-box{width:380px;max-width:calc(100vw - 32px);background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:36px 32px}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo-mark{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--purple));display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin-bottom:12px}
+.login-title{font-size:20px;font-weight:700}
+.login-sub{font-size:12px;color:var(--text3);margin-top:3px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;color:var(--text2);margin-bottom:6px;display:block}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color .15s;direction:ltr;text-align:right}
+.form-input:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text3);direction:rtl}
+.btn-primary{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px;font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary:hover{background:#3a6fd8}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.login-error{background:rgba(240,82,82,.1);border:1px solid rgba(240,82,82,.25);border-radius:8px;padding:9px 12px;font-size:12.5px;color:var(--red);margin-bottom:14px;display:none}
+.pass-wrap{position:relative}
+.toggle-pass{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(7,9,15,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 12px;height:54px;display:none;align-items:center;justify-content:space-between;min-width:0;overflow:hidden}
+.topbar-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1}.logo{margin-left:8px;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
+.logo-text{font-size:15px;font-weight:700}
+.logo-text span{color:var(--accent)}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.clock-badge{font-size:13px;font-weight:600;color:var(--text);background:var(--bg3);padding:4px 10px;border-radius:8px;letter-spacing:.03em}
+.refresh-badge{font-size:11px;color:var(--text3);white-space:nowrap}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-chip{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:4px 12px 4px 4px;font-size:12px;color:var(--text2);cursor:pointer}
+.user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.admin-badge{font-size:9.5px;padding:1px 7px;border-radius:4px;background:rgba(155,124,252,.15);color:var(--purple);font-weight:600}
+.btn-sm{display:flex;align-items:center;gap:5px;background:rgba(79,131,247,.1);border:1px solid rgba(79,131,247,.2);color:var(--accent);border-radius:7px;padding:5px 11px;font-size:11.5px;font-family:var(--font);cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-sm:hover{background:rgba(79,131,247,.2)}
+.btn-danger-sm{display:flex;align-items:center;gap:5px;background:rgba(240,82,82,.08);border:1px solid rgba(240,82,82,.2);color:var(--red);border-radius:7px;padding:5px 11px;font-size:11.5px;font-family:var(--font);cursor:pointer;transition:all .15s}
+.btn-danger-sm:hover{background:rgba(240,82,82,.15)}
+
+/* TABS */
+.tabs-bar{padding:0;border-bottom:1px solid var(--border);display:none;align-items:center;background:var(--bg2);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs-bar::-webkit-scrollbar{display:none}
+.tab{padding:14px 16px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;flex-shrink:0}
+.tab{padding:13px 18px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-count{font-size:10px;font-weight:600;background:rgba(79,131,247,.15);color:var(--accent);padding:1px 7px;border-radius:10px}
+.tab.active .tab-count{background:var(--accent);color:#fff}
+
+
+/* ═══ MARKET IRAN ═══ */
+.market-wrap{padding:0;display:none}
+.market-wrap.visible{display:block}
+
+/* کارت‌های خلاصه */
+.market-summary{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+.msum-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.msum-label{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;margin-bottom:6px}
+.msum-val{font-size:18px;font-weight:800;color:var(--text);line-height:1.2}
+.msum-sub{font-size:11px;color:var(--text2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.msum-card.hot .msum-val{color:var(--green)}
+.msum-card.cold .msum-val{color:var(--red)}
+.msum-card.up .msum-val{color:var(--amber)}
+.msum-card.down .msum-val{color:var(--teal)}
+
+/* سورس سلکتور */
+.market-source-bar{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.msrc-btn{font-size:12px;font-weight:600;padding:5px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;transition:all .15s;font-family:var(--font)}
+.msrc-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* جدول محصولات */
+.market-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
+.market-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.market-table th{font-size:10px;font-weight:700;color:var(--text3);text-align:right;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg3);letter-spacing:.05em;white-space:nowrap}
+.market-table td{padding:9px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle;overflow:hidden}
+.market-table tr:last-child td{border-bottom:none}
+.market-table tr:hover td{background:rgba(255,255,255,.02)}
+.market-table tr{cursor:pointer;transition:background .1s}
+.mrank{font-weight:800;font-size:13px;color:var(--text);width:36px;text-align:center}
+.mrank-gold{color:#f5a623}
+.mrank-silver{color:#9b9b9b}
+.mrank-bronze{color:#cd7f32}
+.mprod-img{width:42px;height:42px;border-radius:8px;object-fit:contain;background:var(--bg3);flex-shrink:0}
+.mprod-cell{display:flex;align-items:center;gap:10px}
+.mprod-name{font-weight:600;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;display:block}
+.mprod-brand{font-size:11px;color:var(--text3)}
+.mprice{font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
+.mdelta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.mdelta.up{color:var(--green);background:rgba(15,209,122,.1)}
+.mdelta.down{color:var(--red);background:rgba(240,82,82,.1)}
+.mdelta.flat{color:var(--text3);background:var(--bg3)}
+
+/* بخش تحلیل */
+.market-analysis{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;overflow:hidden}
+.mana-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;min-width:0;overflow:hidden}
+.mana-title{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.mana-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);overflow:hidden}
+.mana-item:last-child{border-bottom:none}
+.mana-rank{font-size:11px;font-weight:700;color:var(--text3);width:22px;flex-shrink:0}
+.mana-name{font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mana-delta{font-size:11px;font-weight:700;flex-shrink:0}
+.mana-delta.up{color:var(--green)}
+.mana-delta.down{color:var(--red)}
+
+/* آمار دسته‌بندی و برند */
+.market-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;overflow:hidden}
+.mcat-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);overflow:hidden}
+.mcat-item:last-child{border-bottom:none}
+.mcat-name{font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mcat-bar-wrap{width:60px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;flex-shrink:0}
+.mcat-bar{height:100%;background:var(--accent);border-radius:3px}
+.mcat-count{font-size:11px;font-weight:700;color:var(--accent);width:24px;text-align:left;flex-shrink:0}
+
+/* Modal جزئیات محصول */
+.market-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.market-modal-bg.open{display:flex}
+.market-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;width:640px;max-width:calc(100vw - 32px);max-height:88vh;overflow-y:auto;padding:24px}
+.mmodal-head{display:flex;gap:16px;margin-bottom:20px}
+.mmodal-img{width:72px;height:72px;border-radius:10px;object-fit:contain;background:var(--bg3);flex-shrink:0}
+.mmodal-info{flex:1}
+.mmodal-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.mmodal-meta{font-size:12px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap}
+.mmodal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.mstat{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
+.mstat-val{font-size:16px;font-weight:800}
+.mstat-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.mmodal-close{position:absolute;top:16px;left:20px;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer}
+.mmodal-section{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.07em;margin:16px 0 8px}
+/* empty state */
+.market-empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.market-empty-icon{font-size:40px;margin-bottom:12px}
+.market-empty-text{font-size:13px}
+.content{padding:18px 20px;max-width:1200px;margin:0 auto;display:none}
+
+/* HOT GRID */
+.section-label{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.section-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em}
+.section-pill{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(240,82,82,.15);color:var(--red);animation:pp 2s infinite}
+@keyframes pp{0%,100%{opacity:1}50%{opacity:.5}}
+.hot-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:22px}
+.hot-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer;transition:all .2s}
+.hot-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.hot-card.new-item{animation:slideIn .5s ease forwards;border-color:rgba(15,209,122,.3)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.rank-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:var(--bg3);color:var(--text2);margin-bottom:7px}
+.rank-num.r1{background:linear-gradient(135deg,#f5a623,#f0852f);color:#fff}
+.rank-num.r2{background:linear-gradient(135deg,#9b9b9b,#777);color:#fff}
+.rank-num.r3{background:linear-gradient(135deg,#cd7f32,#a05c20);color:#fff}
+.hot-keyword{font-size:13px;font-weight:600;margin-bottom:6px;line-height:1.3}
+.hot-meta{display:flex;align-items:flex-end;justify-content:space-between}
+.hot-vol{font-size:17px;font-weight:700;color:var(--red)}
+.hot-unit{font-size:10px;color:var(--text3)}
+.hot-pct{font-size:11.5px;font-weight:600;color:var(--green);background:rgba(15,209,122,.08);padding:2px 7px;border-radius:5px}
+.new-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;background:var(--green);color:#07090f;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle}
+
+/* AI DIGEST */
+.ai-digest{background:linear-gradient(135deg,rgba(79,131,247,.06),rgba(155,124,252,.06));border:1px solid rgba(79,131,247,.18);border-radius:13px;padding:16px 18px;margin-bottom:22px}
+.ai-head-row{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap}
+.ai-chip{display:flex;align-items:center;gap:5px;background:linear-gradient(90deg,var(--accent),var(--purple));color:#fff;font-size:11px;font-weight:600;padding:3px 11px;border-radius:20px}
+.ai-title{font-size:13px;font-weight:600}
+.ai-time{font-size:11px;color:var(--text3);margin-right:auto}
+.ai-body{font-size:13px;color:var(--text2);line-height:1.9}
+.ai-body strong,.ai-body b{color:var(--text);font-weight:600}
+.ai-loading{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)}
+.ai-spinner{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TABLE */
+.trends-table{width:100%;border-collapse:collapse}
+.trends-table thead tr{border-bottom:2px solid var(--border2)}
+.trends-table thead th{padding:8px 11px;font-size:11px;font-weight:600;color:var(--text3);text-align:right;letter-spacing:.04em;white-space:nowrap}
+.trends-table thead th:first-child{width:40px;text-align:center}
+.trends-table tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.trends-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.trends-table tbody tr:last-child{border-bottom:none}
+.trends-table tbody tr.new-row{animation:rowSlide .6s ease forwards}
+@keyframes rowSlide{from{opacity:0;background:rgba(15,209,122,.06)}to{opacity:1;background:transparent}}
+.trends-table tbody td{padding:10px 11px;vertical-align:middle}
+.td-rank{text-align:center;width:40px}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;font-size:10.5px;font-weight:700;background:var(--bg3);color:var(--text3)}
+.rank-badge.top{background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff}
+.kw-main{font-size:13px;font-weight:500}
+.vol-main{font-size:13px;font-weight:700}
+.chg-pill{display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:5px;background:rgba(15,209,122,.1);color:var(--green)}
+.status-active{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--green)}
+.status-active::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block}
+.status-ended{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)}
+.status-ended::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--text3);display:inline-block}
+
+/* ADMIN */
+.admin-panel{padding:18px 20px;max-width:900px;margin:0 auto;display:none}
+.admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.admin-title{font-size:18px;font-weight:700}
+.btn-add{display:flex;align-items:center;gap:6px;background:var(--green);color:#07090f;border:none;border-radius:9px;padding:9px 16px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer}
+.btn-add:hover{background:#0abf6e}
+.users-table{width:100%;border-collapse:collapse;background:var(--bg2);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.users-table thead tr{border-bottom:1px solid var(--border2);background:var(--bg3)}
+.users-table thead th{padding:10px 14px;font-size:11.5px;font-weight:600;color:var(--text3);text-align:right}
+.users-table tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+.users-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.users-table tbody tr:last-child{border-bottom:none}
+.users-table tbody td{padding:11px 14px;font-size:13px;vertical-align:middle}
+.role-pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px}
+.role-super{background:rgba(155,124,252,.15);color:var(--purple)}
+.role-user{background:rgba(79,131,247,.12);color:var(--accent)}
+.active-pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px}
+.active-yes{background:rgba(15,209,122,.1);color:var(--green)}
+.active-no{background:rgba(240,82,82,.1);color:var(--red)}
+.td-actions{display:flex;gap:6px;flex-wrap:wrap}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:500}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:28px 26px;width:380px;max-width:calc(100vw - 32px)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-cancel{background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:8px 16px;font-family:var(--font);font-size:13px;cursor:pointer}
+.modal-error{background:rgba(240,82,82,.1);border:1px solid rgba(240,82,82,.2);border-radius:7px;padding:8px 11px;font-size:12px;color:var(--red);margin-bottom:12px;display:none}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 18px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+.toast.success{border-color:rgba(15,209,122,.3);color:var(--green)}
+.toast.error{border-color:rgba(240,82,82,.3);color:var(--red)}
+
+@media(max-width:860px){.hot-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){
+  .topbar{padding:0 10px;height:52px;gap:8px}
+  .logo-text{display:none}
+  .live-badge{display:none}
+  .clock-badge{display:none}
+  .refresh-badge{display:none}
+  .topbar-left{gap:6px}
+  .topbar-right{gap:6px}
+  .user-chip span:not(.admin-badge){display:none}
+  .user-chip{padding:5px 8px;gap:4px}
+  .user-chip .admin-badge{display:none !important}
+  #adminBtn{font-size:0;padding:7px 9px}
+  #adminBtn::before{content:'⚙️';font-size:15px}
+}
+@media(max-width:580px){
+  .hot-grid{grid-template-columns:repeat(2,1fr)}
+  .content{padding:10px 10px}
+  .trends-table th:nth-child(3),
+  .trends-table td:nth-child(3),
+  .trends-table th:nth-child(4),
+  .trends-table td:nth-child(4),
+  .trends-table th:nth-child(6),
+  .trends-table td:nth-child(6){display:none}
+  .ai-digest{padding:12px}
+  .ai-chip{display:none}
+  .tabs-bar{gap:4px;padding:0 8px}
+  .tab{font-size:11px;padding:8px 10px}
+  .news-inner{padding:10px 10px}
+}
+
+/* ═══ MARKET RESPONSIVE ═══ */
+@media(max-width:900px){
+  .market-summary{grid-template-columns:repeat(3,1fr)}
+  .market-analysis{grid-template-columns:1fr}
+  .market-bottom{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .market-summary{grid-template-columns:repeat(2,1fr)}
+  .market-table th:nth-child(5),
+  .market-table td:nth-child(5),
+  .market-table th:nth-child(6),
+  .market-table td:nth-child(6),
+  .market-table th:nth-child(7),
+  .market-table td:nth-child(7){display:none}
+  .market-table th:nth-child(2),
+  .market-table td:nth-child(2){width:38px;padding:4px 6px}
+  .mprod-img{width:34px;height:34px}
+  .mprod-name{font-size:11.5px;max-width:160px}
+  .mprod-brand{display:none}
+  .mprice{font-size:11px}
+  .market-wrap > div{padding:10px 10px}
+  .msum-card{padding:10px 10px}
+  .msum-val{font-size:15px}
+  .market-modal{padding:16px;border-radius:14px}
+  .mmodal-stats{grid-template-columns:repeat(2,1fr)}
+  .mmodal-head{flex-direction:column}
+}
+
+/* ═══ NEWS — REDESIGNED ═══ */
+.news-wrap{display:none}
+.news-wrap.visible{display:block}
+.news-inner{max-width:1100px;margin:0 auto;padding:18px 20px}
+
+/* گزارش هوشمند */
+.news-digest{background:linear-gradient(135deg,rgba(79,131,247,.06),rgba(155,124,252,.06));border:1px solid rgba(79,131,247,.18);border-radius:16px;padding:16px 18px;margin-bottom:20px}
+.news-digest-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap}
+.news-digest-title{font-size:12px;font-weight:700;color:var(--text2)}
+.news-digest-time{font-size:10px;color:var(--text3);margin-right:auto}
+.news-digest-body{font-size:13px;color:var(--text2);line-height:1.9}
+.news-digest-body strong{color:var(--text);font-weight:600}
+
+/* فیلتر */
+.news-filter{margin-bottom:16px}
+.news-filter-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.news-filter-label{font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap}
+.nfbtn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap}
+.nfbtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.news-cat-filter{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* ── Masonry با CSS columns: عرض ستون‌ها همیشه مساوی، ارتفاع کارت آزاد ── */
+.news-feed{column-count:2;column-gap:14px}
+@media(max-width:760px){.news-feed{column-count:1}}
+
+.news-card{
+  break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;
+  display:inline-block;width:100%;vertical-align:top;
+  background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:16px 18px;margin:0 0 14px;box-sizing:border-box;overflow:hidden;
+  transition:border-color .2s ease,box-shadow .2s ease,opacity .3s ease,transform .3s ease;
+}
+.news-card:hover{border-color:var(--border2)}
+@keyframes newsCardIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.news-card{animation:newsCardIn .35s ease}
+.news-card.news-card-new{border-color:var(--red);animation:newsCardIn .35s ease,newsPulse 2s ease 3}
+.news-card.news-card-removing{opacity:0;transform:scale(.96);margin-bottom:0;max-height:0;padding-top:0;padding-bottom:0;overflow:hidden;transition:all .3s ease}
+@keyframes newsPulse{0%,100%{box-shadow:0 0 0 1px transparent}50%{box-shadow:0 0 0 2px var(--red),0 0 18px rgba(240,82,82,.38)}}
+
+/* هدر کارت — Flexbox، تراز کامل */
+.news-card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.news-ch-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg3)}
+.news-ch-avatar-placeholder{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+.news-ch-info{flex:1;min-width:0}
+.news-ch-name{font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.news-ch-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.news-head-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+
+.news-tg-link{font-size:11px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap;padding:5px 10px;border-radius:8px;border:1px solid rgba(79,131,247,.28);transition:background .15s}
+.news-tg-link:hover{background:rgba(79,131,247,.1)}
+
+/* دکمه حذف — Ghost, گرد، مینیمال (سبک Lucide) */
+.news-del-btn{
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--border2);color:var(--text3);
+  cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;
+  padding:0;
+}
+.news-del-btn:hover{background:rgba(240,82,82,.1);border-color:rgba(240,82,82,.4);color:var(--red)}
+.news-del-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.news-del-btn svg{width:15px;height:15px;pointer-events:none}
+
+/* متن خبر */
+.news-text{font-size:13.5px;color:var(--text);line-height:1.85;direction:rtl;text-align:right;
+  overflow:hidden;transition:max-height .32s ease;overflow-wrap:anywhere;word-break:break-word}
+.news-text a{overflow-wrap:anywhere;word-break:break-all}
+.news-text-collapsed{max-height:6.6em;-webkit-mask-image:linear-gradient(to bottom,#000 70%,transparent 100%);mask-image:linear-gradient(to bottom,#000 70%,transparent 100%)}
+.news-text-expanded{max-height:none}
+.news-read-more{font-size:11.5px;font-weight:600;color:var(--accent);cursor:pointer;margin-top:8px;display:inline-flex;align-items:center;gap:3px;background:none;border:none;font-family:var(--font);padding:0;transition:opacity .15s}
+.news-read-more:hover{opacity:.75}
+.news-read-more svg{width:11px;height:11px;transition:transform .25s ease}
+.news-read-more.is-open svg{transform:rotate(180deg)}
+
+/* تصویر تکی — همون رفتار گالری که درست کار می‌کنه */
+.news-media{margin-top:12px;border-radius:12px;overflow:hidden;position:relative;background:var(--bg3);aspect-ratio:16/10}
+.news-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .35s ease}
+.news-media img.loaded{opacity:1}
+.news-media-fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--text3);font-size:11px;flex-direction:column;gap:6px;z-index:1}
+
+/* گالری چندعکسه — Carousel */
+.news-gallery{margin-top:12px;border-radius:12px;overflow:hidden;position:relative;background:var(--bg3);aspect-ratio:16/10}
+.news-gallery-track{display:flex;height:100%;transition:transform .35s cubic-bezier(.4,0,.2,1);touch-action:pan-y}
+.news-gallery-slide{flex:0 0 100%;height:100%;position:relative;background:var(--bg3)}
+.news-gallery-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .35s ease}
+.news-gallery-slide img.loaded{opacity:1}
+.news-gallery-slide .news-media-fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+.news-gallery-nav{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;z-index:2}
+.news-gallery-nav:hover{background:rgba(0,0,0,.72)}
+.news-gallery-nav:focus-visible{outline:2px solid var(--accent)}
+.news-gallery-nav.prev{right:8px}
+.news-gallery-nav.next{left:8px}
+.news-gallery-nav svg{width:16px;height:16px}
+.news-gallery-counter{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;z-index:2;direction:ltr}
+.news-gallery-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:2}
+.news-gallery-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.45);transition:all .2s;cursor:pointer;border:none;padding:0}
+.news-gallery-dot.active{background:#fff;width:14px;border-radius:3px}
+
+.news-empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.news-admin-btn{font-size:11px;font-weight:600;padding:5px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:var(--font)}
+.news-load-more-btn{padding:9px 26px;font-size:12px;font-weight:600;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:var(--font);transition:all .15s}
+.news-load-more-btn:hover{border-color:var(--accent);color:var(--accent)}
+.news-load-more-btn:disabled{opacity:.5;cursor:default}
+
+@media(prefers-reduced-motion:reduce){
+  .news-card,.news-text,.news-media img,.news-gallery-track,.news-gallery-slide img{transition:none;animation:none}
+}
+
+@media(max-width:600px){
+  .news-inner{padding:10px 10px}
+  .news-card{padding:12px}
+  .news-media{max-height:200px}
+}
+.jobs-wrap{padding:0;display:none}
+.jobs-wrap.visible{display:block}
+.jobs-inner{padding:18px 20px;max-width:1100px;margin:0 auto}
+
+/* کارت‌های آماری */
+.jobs-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.jsum-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px}
+.jsum-label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin-bottom:6px}
+.jsum-val{font-size:22px;font-weight:800;color:var(--text);line-height:1.2}
+.jsum-changes{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.jchg{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
+.jchg.up{color:var(--green);background:rgba(15,209,122,.1)}
+.jchg.down{color:var(--red);background:rgba(240,82,82,.1)}
+.jchg.flat{color:var(--text3);background:var(--bg3)}
+
+/* EHI */
+.ehi-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:20px}
+.ehi-score{font-size:48px;font-weight:800;line-height:1}
+.ehi-score.good{color:var(--green)}
+.ehi-score.ok{color:var(--amber)}
+.ehi-score.bad{color:var(--red)}
+.ehi-label{font-size:12px;color:var(--text2);margin-top:4px}
+.ehi-desc{font-size:12px;color:var(--text3);line-height:1.6}
+
+/* بازه زمانی */
+.jobs-range-bar{display:flex;gap:6px;margin-bottom:16px}
+.jrange-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:var(--font)}
+.jrange-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* نمودار کل */
+.jobs-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.jchart-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px}
+.jchart-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:12px}
+
+/* دسته‌بندی‌ها */
+.jobs-cats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
+.jcat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px}
+.jcat-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px}
+.jcat-count{font-size:20px;font-weight:800;color:var(--accent);margin-bottom:4px}
+.jcat-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.jcat-share{font-size:10px;color:var(--text3);font-weight:600}
+.jcat-chart{height:50px}
+
+/* AI تحلیل */
+.jobs-ai{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px}
+.jobs-ai-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.jobs-ai-text{font-size:12.5px;color:var(--text);line-height:1.8;margin-bottom:12px}
+.jobs-ai-alerts{display:flex;flex-direction:column;gap:6px}
+.jalert{font-size:12px;padding:8px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);line-height:1.5}
+
+@media(max-width:900px){
+  .jobs-summary{grid-template-columns:repeat(2,1fr)}
+  .jobs-charts{grid-template-columns:1fr}
+  .jobs-cats{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .jobs-summary{grid-template-columns:repeat(2,1fr)}
+  .jobs-inner{padding:10px 10px}
+  .jsum-val{font-size:18px}
+  .ehi-score{font-size:36px}
+  .jchg{font-size:9px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-page" id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-mark">S</div>
+      <div class="login-title">سیگنال هوش</div>
+      <div class="login-sub">مانیتور هوشمند ایران</div>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="form-group">
+      <label class="form-label">شماره موبایل</label>
+      <input class="form-input" id="loginMobile" type="tel" placeholder="09123456789" maxlength="11">
+    </div>
+    <div class="form-group">
+      <label class="form-label">پسورد</label>
+      <div class="pass-wrap">
+        <input class="form-input" id="loginPass" type="password" placeholder="••••••••" style="padding-left:38px">
+        <button class="toggle-pass" onclick="togglePass('loginPass',this)" tabindex="-1">👁</button>
+      </div>
+    </div>
+    <button class="btn-primary" id="loginBtn" onclick="doLogin()"><span>ورود</span></button>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar" id="topbar">
+  <div class="topbar-left">
+    <div class="logo" onclick="goHome()" style="cursor:pointer">
+      <div class="logo-mark">S</div>
+      <div class="logo-text">سیگنال<span> هوش</span></div>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>زنده</div>
+    <div class="clock-badge" id="clockEl">--:--</div>
+    <div class="refresh-badge" id="refreshBadge"></div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-sm" id="adminBtn" onclick="showAdmin()" style="display:none">⚙️ تنظیمات</button>
+    <div class="user-chip" onclick="doLogout()">
+      <div class="user-avatar" id="userAvatar">U</div>
+      <span id="userName">کاربر</span>
+      <span class="admin-badge" id="userRoleBadge" style="display:none">ادمین</span>
+      <span style="font-size:11px;color:var(--text3)">↩</span>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar" id="tabsBar">
+  <div class="tab active" onclick="switchTab('trends',this)">ترند سرچ ایران</div>
+  <div class="tab" onclick="switchTab('market',this)">مارکت کالای ایران</div>
+  <div class="tab" onclick="switchTab('jobs',this)">مارکت کار ایران</div>
+  <div class="tab" onclick="switchTab('news',this)">ترند اخبار ایران</div>
+</div>
+
+
+<!-- DASHBOARD -->
+<div class="content" id="dashContent">
+
+  <!-- تحلیل AI — ۴ ساعت اخیر -->
+  <div class="ai-digest" id="aiDigest4h">
+    <div class="ai-head-row">
+      <div class="ai-chip">✦ AI</div>
+      <div class="ai-title">تحلیل هوشمند — ۴ ساعت اخیر</div>
+      <div class="ai-time" id="digestTime4h"></div>
+      <button onclick="refreshDigest('4h')" class="btn-sm" style="margin-right:auto;font-size:11px;padding:3px 8px">↻ بروزرسانی</button>
+    </div>
+    <div class="ai-body" id="aiBody4h">
+      <div class="ai-loading"><div class="ai-spinner"></div> هوش مصنوعی در حال تحلیل...</div>
+    </div>
+  </div>
+
+  <!-- ترندهای ۴ ساعت -->
+  <div class="section-label">
+    <div class="section-title">ترندهای داغ — ۴ ساعت اخیر</div>
+    <div class="section-pill">🔴 زنده</div>
+  </div>
+  <div class="hot-grid" id="hotGrid"></div>
+  <table class="trends-table" id="table4h">
+    <thead><tr><th>#</th><th>کلیدواژه</th><th>حجم جستجو</th><th>رشد</th><th>وضعیت</th><th>زمان</th></tr></thead>
+    <tbody id="tbody4h"></tbody>
+  </table>
+
+  <!-- تحلیل AI — ۲۴ ساعت -->
+  <div class="ai-digest" id="aiDigest24h" style="margin-top:24px">
+    <div class="ai-head-row">
+      <div class="ai-chip">✦ AI</div>
+      <div class="ai-title">تحلیل هوشمند — ۲۴ ساعت اخیر</div>
+      <div class="ai-time" id="digestTime24h"></div>
+      <button onclick="refreshDigest('24h')" class="btn-sm" style="margin-right:auto;font-size:11px;padding:3px 8px">↻ بروزرسانی</button>
+    </div>
+    <div class="ai-body" id="aiBody24h">
+      <div class="ai-loading"><div class="ai-spinner"></div> هوش مصنوعی در حال تحلیل...</div>
+    </div>
+  </div>
+
+  <!-- ترندهای ۲۴ ساعت -->
+  <div class="section-label" style="margin-top:16px">
+    <div class="section-title">ترندهای ۲۴ ساعت اخیر</div>
+    <div class="section-pill" id="count24h">—</div>
+  </div>
+  <table class="trends-table" id="table24h">
+    <thead><tr><th>#</th><th>کلیدواژه</th><th>حجم جستجو</th><th>رشد</th><th>وضعیت</th><th>زمان</th></tr></thead>
+    <tbody id="tbody24h"></tbody>
+  </table>
+
+</div>
+</div>
+
+<!-- MARKET IRAN -->
+<div class="market-wrap" id="marketWrap">
+  <div style="padding:18px 20px;max-width:1200px;margin:0 auto">
+
+    <!-- summary cards -->
+    <div class="market-summary" id="marketSummary">
+      <div class="msum-card"><div class="msum-label">محصولات رصد شده</div><div class="msum-val" id="ms-total">—</div><div class="msum-sub" id="ms-date"></div></div>
+      <div class="msum-card hot" id="ms-hot-card"><div class="msum-label">داغ‌ترین هفته</div><div class="msum-val" id="ms-hot">—</div><div class="msum-sub" id="ms-hot-sub"></div></div>
+      <div class="msum-card cold" id="ms-cold-card"><div class="msum-label">بیشترین افت</div><div class="msum-val" id="ms-cold">—</div><div class="msum-sub" id="ms-cold-sub"></div></div>
+      <div class="msum-card up" id="ms-pup-card"><div class="msum-label">بیشترین گرانی</div><div class="msum-val" id="ms-pup">—</div><div class="msum-sub" id="ms-pup-sub"></div></div>
+      <div class="msum-card down" id="ms-pdown-card"><div class="msum-label">بیشترین ارزانی</div><div class="msum-val" id="ms-pdown">—</div><div class="msum-sub" id="ms-pdown-sub"></div></div>
+    </div>
+
+    <!-- جدول محصولات -->
+    <div class="market-table-wrap">
+      <table class="market-table">
+        <thead>
+          <tr>
+            <th style="width:44px">رتبه</th>
+            <th style="width:52px"></th>
+            <th>محصول</th>
+            <th style="width:120px">قیمت (تومان)</th>
+            <th style="width:90px">دیروز</th>
+            <th style="width:90px">هفته</th>
+            <th style="width:90px">ماه</th>
+          </tr>
+        </thead>
+        <tbody id="marketTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- تحلیل بازار -->
+    <div class="market-analysis">
+      <div class="mana-box">
+        <div class="mana-title">محصولات داغ هفته</div>
+        <div id="marketHot"></div>
+      </div>
+      <div class="mana-box">
+        <div class="mana-title">بیشترین افت فروش</div>
+        <div id="marketCold"></div>
+      </div>
+      <div class="mana-box">
+        <div class="mana-title">تازه‌واردهای Top 50</div>
+        <div id="marketNew"></div>
+      </div>
+      <div class="mana-box">
+        <div class="mana-title">پرفروش‌های ماندگار</div>
+        <div id="marketLegends"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- JOBS MARKET -->
+<div class="jobs-wrap" id="jobsWrap">
+  <div class="jobs-inner">
+
+    <!-- summary cards -->
+    <div class="jobs-summary">
+      <div class="jsum-card">
+        <div class="jsum-label">جابینجا</div>
+        <div class="jsum-val" id="jj-count">—</div>
+        <div class="jsum-changes" id="jj-changes"></div>
+      </div>
+      <div class="jsum-card">
+        <div class="jsum-label">جاب‌ویژن</div>
+        <div class="jsum-val" id="jv-count">—</div>
+        <div class="jsum-changes" id="jv-changes"></div>
+      </div>
+      <div class="jsum-card">
+        <div class="jsum-label">مجموع بازار کار</div>
+        <div class="jsum-val" id="jt-count">—</div>
+        <div class="jsum-changes" id="jt-changes"></div>
+      </div>
+      <div class="ehi-card" style="margin-bottom:0;border-radius:12px">
+        <div>
+          <div class="jsum-label">شاخص سلامت بازار</div>
+          <div class="ehi-score" id="ehi-score">—</div>
+        </div>
+        <div class="ehi-desc" id="ehi-desc">EHI = نسبت آگهی امروز به میانگین ۳۰ روز × ۱۰۰</div>
+      </div>
+    </div>
+
+    <!-- بازه زمانی -->
+    <div class="jobs-range-bar">
+      <span style="font-size:11px;color:var(--text3);font-weight:600;align-self:center">بازه:</span>
+      <button class="jrange-btn active" onclick="setJobRange(7,this)">۷ روز</button>
+      <button class="jrange-btn" onclick="setJobRange(30,this)">۳۰ روز</button>
+      <button class="jrange-btn" onclick="setJobRange(90,this)">۹۰ روز</button>
+      <button class="jrange-btn" onclick="setJobRange(365,this)">یک سال</button>
+    </div>
+
+    <!-- نمودارها -->
+    <div class="jobs-charts">
+      <div class="jchart-box">
+        <div class="jchart-title">روند کل بازار</div>
+        <canvas id="jTotalChart" height="130"></canvas>
+      </div>
+      <div class="jchart-box">
+        <div class="jchart-title">جابینجا vs جاب‌ویژن</div>
+        <canvas id="jSourceChart" height="130"></canvas>
+      </div>
+    </div>
+
+    <!-- تحلیل AI -->
+    <div class="ai-digest" style="margin-bottom:20px">
+      <div class="ai-head-row">
+        <div class="ai-chip">✦ AI</div>
+        <div class="ai-title">تحلیل هوشمند بازار کار</div>
+        <button onclick="loadJobsAI()" class="btn-sm" style="margin-right:auto;font-size:11px;padding:3px 8px">↻ بروزرسانی</button>
+      </div>
+      <div class="ai-body" id="jobsAiText">در حال بارگذاری...</div>
+    </div>
+
+    <!-- دسته‌بندی‌ها -->
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:12px;letter-spacing:.06em">دسته‌های شغلی</div>
+    <div class="jobs-cats" id="jobsCats"></div>
+
+  </div>
+</div>
+
+<!-- NEWS -->
+<div class="news-wrap" id="newsWrap">
+  <div class="news-inner">
+
+    <!-- گزارش عصر -->
+    <div class="news-digest" id="newsDigestBox">
+      <div class="news-digest-head">
+        <div class="ai-chip">✦ AI</div>
+        <div class="news-digest-title">گزارش خبری هوشمند</div>
+        <div class="news-digest-time" id="newsDigestTime">بروزرسانی: هر ۴ ساعت</div>
+        <button onclick="refreshNewsDigest()" class="btn-sm" style="margin-right:auto;font-size:11px;padding:3px 8px">↻ بروزرسانی</button>
+      </div>
+      <div class="news-digest-body" id="newsDigestBody">
+        <div class="ai-loading"><div class="ai-spinner"></div> در حال بارگذاری...</div>
+      </div>
+    </div>
+
+    <!-- فیلتر -->
+    <div class="news-filter">
+      <div class="news-filter-row">
+        <span class="news-filter-label">کانال:</span>
+        <button class="nfbtn active" onclick="filterNews(null,null,this)">همه</button>
+        <div id="newsChannelBtns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <button class="news-admin-btn" id="newsAdminBtn" style="display:none;margin-right:auto" onclick="showAdmin();switchSettingsTab('channels')">+ مدیریت</button>
+      </div>
+      <div class="news-cat-filter" id="newsCatFilter"></div>
+    </div>
+
+    <!-- فید -->
+    <div class="news-feed" id="newsFeed">
+      <div class="news-empty">در حال بارگذاری اخبار...</div>
+    </div>
+    <div id="newsLoadMore" style="display:none;text-align:center;padding:16px">
+      <button class="news-load-more-btn" id="newsLoadMoreBtn" onclick="loadMoreNews()">بارگذاری بیشتر</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- modal افزودن/ویرایش کانال -->
+<div class="modal-overlay" id="channelModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title" id="channelModalTitle">افزودن کانال تلگرام</div>
+    <div class="modal-error" id="channelModalError"></div>
+    <input type="hidden" id="channelEditId">
+    <input type="hidden" id="channelTgId">
+    <div class="form-group">
+      <label class="form-label">یوزرنیم کانال</label>
+      <input class="form-input" id="channelUsername" placeholder="@channelname" style="direction:ltr">
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">یوزرنیم رو از لینک کانال بردار</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">نام کانال</label>
+      <input class="form-input" id="channelTitle" placeholder="نام نمایشی">
+    </div>
+    <div class="form-group">
+      <label class="form-label">دسته‌بندی</label>
+      <select class="form-input" id="channelCategory">
+        <option>حکومت ایران</option>
+        <option>خبرگزاری‌ها</option>
+        <option>حساب‌های اوسینت</option>
+        <option>روزنامه‌نگار</option>
+        <option>مراکز فکری</option>
+        <option>دولت و نظامی</option>
+        <option>چهره سیاسی</option>
+        <option>دانشگاه، سازمان و پژوهشگاه</option>
+        <option>افراد سرشناس و فعال</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('channelModal')">انصراف</button>
+      <button class="btn-primary" style="width:auto;padding:9px 22px" onclick="submitChannel()">ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- MARKET MODAL -->
+<div class="market-modal-bg" id="marketModalBg" onclick="closeMarketModal(event)">
+  <div class="market-modal" id="marketModal" style="position:relative">
+    <button class="mmodal-close" onclick="document.getElementById('marketModalBg').classList.remove('open')">✕</button>
+    <div class="mmodal-head">
+      <img class="mmodal-img" id="mm-img" src="" onerror="this.style.display='none'">
+      <div class="mmodal-info">
+        <div class="mmodal-name" id="mm-name"></div>
+        <div class="mmodal-meta">
+          <span id="mm-brand"></span>
+          <span id="mm-cat"></span>
+          <span id="mm-price"></span>
+        </div>
+      </div>
+    </div>
+    <div class="mmodal-stats">
+      <div class="mstat"><div class="mstat-val" id="mm-rank" style="color:var(--accent)"></div><div class="mstat-lbl">رتبه فعلی</div></div>
+      <div class="mstat"><div class="mstat-val" id="mm-best" style="color:var(--green)"></div><div class="mstat-lbl">بهترین رتبه</div></div>
+      <div class="mstat"><div class="mstat-val" id="mm-days50" style="color:var(--amber)"></div><div class="mstat-lbl">روز در Top 50</div></div>
+      <div class="mstat"><div class="mstat-val" id="mm-days10" style="color:var(--purple)"></div><div class="mstat-lbl">روز در Top 10</div></div>
+    </div>
+    <div class="mmodal-section">نمودار تغییر رتبه</div>
+    <canvas id="mm-rank-chart" height="120"></canvas>
+    <div class="mmodal-section">نمودار تغییر قیمت</div>
+    <canvas id="mm-price-chart" height="100"></canvas>
+  </div>
+</div>
+
+<!-- ADMIN / SETTINGS -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-header">
+    <div class="admin-title">تنظیمات</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm active" id="settingsTabUsers" onclick="switchSettingsTab('users')">کاربران</button>
+      <button class="btn-sm" id="settingsTabChannels" onclick="switchSettingsTab('channels')">کانال‌های خبری</button>
+      <button class="btn-sm" id="settingsTabAI" onclick="switchSettingsTab('ai')">مدل هوش مصنوعی</button>
+    </div>
+  </div>
+
+  <!-- تب کاربران -->
+  <div id="settingsPanelUsers">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn-add" onclick="openAddModal()">+ افزودن کاربر</button>
+    </div>
+    <table class="users-table">
+      <thead><tr><th>نام</th><th>موبایل</th><th>نقش</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+      <tbody id="usersBody"></tbody>
+    </table>
+  </div>
+
+  <!-- تب کانال‌ها -->
+  <div id="settingsPanelChannels" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn-add" onclick="openChannelModal()">+ افزودن کانال</button>
+    </div>
+    <table class="users-table" id="channelsTable">
+      <thead><tr><th>کانال</th><th>یوزرنیم</th><th>دسته‌بندی</th><th>عملیات</th></tr></thead>
+      <tbody id="channelsBody"></tbody>
+    </table>
+  </div>
+
+  <!-- تب مدل AI -->
+  <div id="settingsPanelAI" style="display:none">
+    <div style="margin-bottom:16px;font-size:13px;color:var(--text2)">انتخاب مدل هوش مصنوعی برای تحلیل‌ها و ترجمه‌ها:</div>
+    <div id="aiModelList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div style="margin-top:16px;font-size:11px;color:var(--text3)">مدل پیش‌فرض: openai/gpt-oss-20b:free — همه مدل‌ها رایگان هستند</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box">
+    <div class="modal-title">افزودن کاربر جدید</div>
+    <div class="modal-error" id="addError"></div>
+    <div class="form-group"><label class="form-label">نام (اختیاری)</label><input class="form-input" id="newName" type="text"></div>
+    <div class="form-group"><label class="form-label">شماره موبایل</label><input class="form-input" id="newMobile" type="tel" placeholder="09123456789" maxlength="11"></div>
+    <div class="form-group"><label class="form-label">پسورد</label><div class="pass-wrap"><input class="form-input" id="newPass" type="password" placeholder="حداقل ۶ کاراکتر" style="padding-left:38px"><button class="toggle-pass" onclick="togglePass('newPass',this)" tabindex="-1">👁</button></div></div>
+    <div class="form-group"><label class="form-label">نقش</label><select class="form-input" id="newRole"><option value="user">کاربر عادی</option><option value="superadmin">سوپر ادمین</option></select></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('addModal')">انصراف</button>
+      <button class="btn-primary" style="width:auto;padding:9px 22px" onclick="addUser()">افزودن</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let TOKEN = localStorage.getItem('signal_token') || '';
+let CURRENT_USER = null;
+let currentTab = 'trends';
+let LIVE_4H = [], LIVE_24H = [];
+let lastFetchTime = null;
+let prevKeywords4h = new Set();
+
+// ══ CAT COLORS ══
+const CC = {
+  'اقتصادی':{bg:'rgba(245,166,35,.12)',color:'#f5a623'},
+  'ورزشی':{bg:'rgba(34,211,238,.1)',color:'#22d3ee'},
+  'سیاسی':{bg:'rgba(240,82,82,.1)',color:'#f05252'},
+  'اجتماعی':{bg:'rgba(155,124,252,.1)',color:'#9b7cfc'},
+  'مالی':{bg:'rgba(245,166,35,.1)',color:'#f5a623'},
+  'سرگرمی':{bg:'rgba(244,114,182,.1)',color:'#f472b6'},
+  'مذهبی':{bg:'rgba(79,131,247,.1)',color:'#4f83f7'},
+  'خودرو':{bg:'rgba(15,209,122,.1)',color:'#0fd17a'},
+  'تکنولوژی':{bg:'rgba(79,131,247,.1)',color:'#4f83f7'},
+  'سلامت':{bg:'rgba(34,211,238,.08)',color:'#22d3ee'},
+  'قیمت کالا':{bg:'rgba(245,166,35,.1)',color:'#f5a623'},
+};
+function cs(cat){const c=CC[cat]||{bg:'rgba(255,255,255,.05)',color:'#7c8db5'};return `background:${c.bg};color:${c.color}`}
+
+function cleanKeyword(kw){
+  if(!kw) return '';
+  return kw
+    .replace(/[\u200f\u200e\u202a-\u202e]/g,'')
+    .replace(/\s*[\d۰-۹][\d۰-۹\s٬,.]*(هزار|میلیون)?\+?\s*(جستجو|·|فعال|پیش|ساعت|دقیقه).*$/u,'')
+    .replace(/\s*·.*$/,'')
+    .trim();
+}
+
+function toFa(n) {
+  if (n === null || n === undefined) return '—';
+  return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+}
+function fmtFa(n) {
+  if (!n && n !== 0) return '—';
+  return toFa(Number(n).toLocaleString('en'));
+}
+function fmtVol(v) {
+  if(!v||v===0) return '—';
+  if(v>=1e6) return toFa((v/1e6).toFixed(1))+'M+';
+  if(v>=1000) return toFa(Math.round(v/1000))+'K+';
+  return toFa(v)+'+';
+}
+function fmtDate(iso){if(!iso)return '—';return new Date(iso).toLocaleDateString('fa-IR')}
+function toast(msg,type='success'){const el=document.getElementById('toast');el.textContent=msg;el.className=`toast show ${type}`;setTimeout(()=>el.className='toast',2600)}
+function togglePass(id,btn){const el=document.getElementById(id);el.type=el.type==='password'?'text':'password';btn.textContent=el.type==='password'?'👁':'🙈'}
+function closeModal(id){const el=document.getElementById(id);if(el){el.style.display='none';el.classList.remove('show')}}
+function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block'}
+function hideError(id){document.getElementById(id).style.display='none'}
+
+// ══ CLOCK ══
+function updateClock(){
+  const now=new Date();
+  const h=String(now.getHours()).padStart(2,'0');
+  const m=String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clockEl').textContent=h+':'+m;
+}
+setInterval(updateClock,1000);updateClock();
+
+// ══ REFRESH BADGE ══
+function updateRefreshBadge(){
+  if(!lastFetchTime){return}
+  const diff=Math.floor((Date.now()-lastFetchTime)/60000);
+  const el=document.getElementById('refreshBadge');
+  if(diff<1) el.textContent='آخرین تازه‌سازی: همین الان';
+  else if(diff===1) el.textContent='آخرین تازه‌سازی: ۱ دقیقه پیش';
+  else el.textContent=`آخرین تازه‌سازی: ${diff} دقیقه پیش`;
+}
+setInterval(updateRefreshBadge,30000);
+
+// ══ AUTH ══
+function toEn(str) {
+  return str.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+}
+async function doLogin(){
+  const mobile=toEn(document.getElementById('loginMobile').value.trim());
+  const password=document.getElementById('loginPass').value;
+  hideError('loginError');
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=true;btn.innerHTML='<span>در حال ورود...</span>';
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mobile,password})});
+    const d=await r.json();
+    if(!r.ok){showError('loginError',d.error||'خطا');btn.disabled=false;btn.innerHTML='<span>ورود</span>';return}
+    TOKEN=d.token;localStorage.setItem('signal_token',TOKEN);
+    setUser(d.user);showApp();
+  }catch(e){showError('loginError','خطا در اتصال به سرور');btn.disabled=false;btn.innerHTML='<span>ورود</span>'}
+}
+document.getElementById('loginMobile').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus()});
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+async function checkAuth(){
+  if(!TOKEN){showLogin();return}
+  try{
+    const r=await fetch('/api/auth/me',{headers:{Authorization:`Bearer ${TOKEN}`}});
+    if(!r.ok){showLogin();return}
+    setUser(await r.json());showApp();
+  }catch{showLogin()}
+}
+
+function setUser(u){
+  CURRENT_USER=u;
+  document.getElementById('userAvatar').textContent=(u.name||'U')[0].toUpperCase();
+  document.getElementById('userName').textContent=u.name||u.mobile;
+  if(u.role==='superadmin'){document.getElementById('userRoleBadge').style.display='inline';document.getElementById('adminBtn').style.display='flex'}
+}
+
+function doLogout(){TOKEN='';localStorage.removeItem('signal_token');CURRENT_USER=null;showLogin()}
+
+function showLogin(){
+  document.getElementById('loginPage').style.display='flex';
+  ['topbar','tabsBar','dashContent','adminPanel'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  document.getElementById('marketWrap')?.classList.remove('visible');
+  document.getElementById('jobsWrap')?.classList.remove('visible');
+}
+
+async function showApp(){
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('tabsBar').style.display='flex';
+  document.getElementById('dashContent').style.display='block';
+  document.getElementById('adminPanel').style.display='none';
+  await fetchTrends();
+}
+
+function showAdmin(){
+  document.getElementById('dashContent').style.display='none';
+  document.getElementById('tabsBar').style.display='none';
+  document.getElementById('marketWrap').classList.remove('visible');
+  document.getElementById('jobsWrap').classList.remove('visible');
+  document.getElementById('newsWrap').classList.remove('visible');
+  document.getElementById('adminPanel').style.display='block';
+  switchSettingsTab('users');
+  loadUsers();
+}
+function showDashboard(){document.getElementById('adminPanel').style.display='none';document.getElementById('tabsBar').style.display='flex';document.getElementById('dashContent').style.display='block'}
+
+// ══ TRENDS ══
+async function fetchTrends(){
+  try{
+    const h={'Authorization':`Bearer ${TOKEN}`};
+    const [r4,r24]=await Promise.all([fetch('/api/trends/4h',{headers:h}),fetch('/api/trends/24h',{headers:h})]);
+    if(r4.ok){
+      const d=await r4.json();
+      if(d.trends?.length){
+        const newKws=new Set(d.trends.map(t=>t.keyword));
+        const isFirst=prevKeywords4h.size===0;
+        if(!isFirst) d.trends.forEach(t=>{if(!prevKeywords4h.has(t.keyword))t._isNew=true});
+        prevKeywords4h=newKws;
+        LIVE_4H=d.trends;
+        const c4=document.getElementById('count4h'); if(c4) c4.textContent=LIVE_4H.length;
+      }
+    }
+    if(r24.ok){
+      const d=await r24.json();
+      if(d.trends?.length){LIVE_24H=d.trends;}
+    }
+    lastFetchTime=Date.now();
+    updateRefreshBadge();
+    renderAll();
+  }catch(e){console.warn('fetch error',e.message)}
+}
+setInterval(fetchTrends,5*60*1000);
+
+// ══ RENDER ══
+function renderAll(){
+  renderHotGrid();
+  renderTable(LIVE_4H.slice(10), 'tbody4h', 11);
+  renderTable(LIVE_24H, 'tbody24h', 1);
+  document.getElementById('count24h').textContent = LIVE_24H.length + ' ترند';
+  loadAIDigest4h();
+  loadAIDigest24h();
+}
+
+function renderHotGrid(){
+  const top=LIVE_4H.slice(0,10);
+  document.getElementById('hotGrid').innerHTML=top.map((t,i)=>{
+    const rc=i===0?'r1':i===1?'r2':i===2?'r3':'';
+    const kw=cleanKeyword(t.keyword);
+    const vol=fmtVol(t.vol);
+    const growth=(t.growth||0)>=1000?'۱۰۰۰٪+':toFa(t.growth||0)+'٪';
+    const nb=t._isNew?'<span class="new-badge">جدید</span>':'';
+    return `<div class="hot-card${t._isNew?' new-item':''}">
+      <div class="rank-num ${rc}">${toFa(i+1)}</div>
+      <div class="hot-keyword">${nb}${kw}</div>
+      <div class="hot-meta">
+        <div><div class="hot-vol">${vol}</div><div class="hot-unit">جستجو</div></div>
+        <div class="hot-pct">▲ ${growth}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable(data, tbodyId, startRank){
+  const tbody = document.getElementById(tbodyId);
+  if(!tbody) return;
+  if(!data||!data.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">داده‌ای موجود نیست</td></tr>'; return; }
+  tbody.innerHTML=data.map((t,i)=>{
+    const displayRank=startRank+i;
+    const isTop=displayRank<=3;
+    const kw=cleanKeyword(t.keyword);
+    const vol=fmtVol(t.vol);
+    const growth=(t.growth||0)>=1000?'۱۰۰۰٪+':toFa(t.growth||0)+'٪';
+    const status=t.active?`<span class="status-active">فعال</span>`:`<span class="status-ended">${t.lasted||'پایان'}</span>`;
+    const nb=t._isNew?'<span class="new-badge">جدید</span> ':'';
+    const timeStr=t.time||'—';
+    return `<tr class="${t._isNew?'new-row':''}">
+      <td class="td-rank"><div class="rank-badge${isTop?' top':''}">${toFa(displayRank)}</div></td>
+      <td><div class="kw-main">${nb}${kw}</div></td>
+      <td><div class="vol-main">${vol}</div></td>
+      <td><span class="chg-pill">▲ ${growth}</span></td>
+      <td>${status}</td>
+      <td style="font-size:11px;color:var(--text3)">${timeStr}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══ AI DIGEST — سمت سرور ══
+async function loadAIDigest4h(){
+  try{
+    const r=await fetch('/api/digest/4h',{headers:{Authorization:`Bearer ${TOKEN}`}});
+    if(!r.ok) return;
+    const d=await r.json();
+    if(!d.text) return;
+    const text=d.text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    showDigest('aiBody4h','digestTime4h',text,new Date(d.updatedAt));
+  }catch(e){ console.warn('[digest/4h]',e.message); }
+}
+
+async function loadAIDigest24h(){
+  try{
+    const r=await fetch('/api/digest/24h',{headers:{Authorization:`Bearer ${TOKEN}`}});
+    if(!r.ok) return;
+    const d=await r.json();
+    if(!d.text) return;
+    const text=d.text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    showDigest('aiBody24h','digestTime24h',text,new Date(d.updatedAt));
+  }catch(e){ console.warn('[digest/24h]',e.message); }
+}
+
+function showDigest(bodyId, timeId, text, date){
+  document.getElementById(bodyId).innerHTML=text;
+  document.getElementById(timeId).textContent='آخرین تحلیل: '+(date instanceof Date ? date.toLocaleString('fa-IR') : date);
+}
+
+function refreshAI(type){
+  if(type==='4h') loadAIDigest4h();
+  else loadAIDigest24h();
+}
+
+// polling هر ۱ دقیقه
+setInterval(loadAIDigest4h, 60*1000);
+setInterval(loadAIDigest24h, 60*1000);
+
+
+function switchTab(tab,el){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const isTrend  = tab==='trends';
+  const isMarket = tab==='market';
+  const isJobs   = tab==='jobs';
+  const isNews   = tab==='news';
+  document.getElementById('dashContent').style.display  = isTrend ? 'block' : 'none';
+  document.getElementById('marketWrap').classList.toggle('visible', isMarket);
+  document.getElementById('jobsWrap').classList.toggle('visible', isJobs);
+  document.getElementById('newsWrap').classList.toggle('visible', isNews);
+  if(isMarket) loadMarket();
+  if(isJobs)   loadJobs();
+  if(isNews)   loadNews();
+}
+
+// ══ ADMIN ══
+async function loadUsers(){
+  try{
+    const r=await fetch('/api/admin/users',{headers:{Authorization:`Bearer ${TOKEN}`}});
+    if(!r.ok)return;
+    const users=await r.json();
+    document.getElementById('usersBody').innerHTML=users.map(u=>`
+      <tr>
+        <td><strong>${u.name}</strong></td>
+        <td style="direction:ltr;text-align:right">${u.mobile}</td>
+        <td><span class="role-pill ${u.role==='superadmin'?'role-super':'role-user'}">${u.role==='superadmin'?'سوپر ادمین':'کاربر'}</span></td>
+        <td>${fmtDate(u.createdAt)}</td>
+        <td><span class="active-pill ${u.active?'active-yes':'active-no'}">${u.active?'فعال':'غیرفعال'}</span></td>
+        <td><div class="td-actions">
+          <button class="btn-sm" onclick="toggleUser('${u.id}',${!u.active})">${u.active?'غیرفعال':'فعال‌سازی'}</button>
+          ${CURRENT_USER?.id!==u.id?`<button class="btn-danger-sm" onclick="deleteUser('${u.id}','${u.name}')">حذف</button>`:''}
+        </div></td>
+      </tr>`).join('');
+  }catch{toast('خطا','error')}
+}
+
+function openAddModal(){
+  ['newName','newMobile','newPass'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('newRole').value='user';hideError('addError');
+  document.getElementById('addModal').classList.add('show');
+}
+async function addUser(){
+  hideError('addError');
+  const body={name:document.getElementById('newName').value.trim(),mobile:document.getElementById('newMobile').value.trim(),password:document.getElementById('newPass').value,role:document.getElementById('newRole').value};
+  try{
+    const r=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${TOKEN}`},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok){showError('addError',d.error);return}
+    closeModal('addModal');toast('کاربر اضافه شد ✓');loadUsers();
+  }catch{showError('addError','خطا')}
+}
+async function deleteUser(id,name){
+  if(!confirm(`حذف «${name}»?`))return;
+  try{
+    const r=await fetch(`/api/admin/users/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${TOKEN}`}});
+    const d=await r.json();
+    if(!r.ok){toast(d.error,'error');return}
+    toast('حذف شد');loadUsers();
+  }catch{toast('خطا','error')}
+}
+async function toggleUser(id,active){
+  try{
+    const r=await fetch(`/api/admin/users/${id}/toggle`,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:`Bearer ${TOKEN}`},body:JSON.stringify({active})});
+    if(!r.ok){toast('خطا','error');return}
+    toast(active?'فعال شد':'غیرفعال شد');loadUsers();
+  }catch{toast('خطا','error')}
+}
+
+// ══ MARKET IRAN ══
+const marketSource = 'week';
+let marketCharts = {};
+
+async function mFetch(endpoint) {
+  const r = await fetch(`/api/market/${endpoint}?source=week`, {
+    headers: { Authorization: `Bearer ${TOKEN}` }
+  });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+function fmtPrice(p) {
+  if (!p) return '—';
+  return (p / 10).toLocaleString('fa-IR') + ' ت';
+}
+
+function deltaEl(curr, prev) {
+  if (!prev || curr == null) return '<span class="mdelta flat">▬ —</span>';
+  const d = prev - curr; // عدد کمتر = رتبه بهتر
+  if (d > 0) return `<span class="mdelta up">▲ +${d}</span>`;
+  if (d < 0) return `<span class="mdelta down">▼ ${d}</span>`;
+  return '<span class="mdelta flat">▬ 0</span>';
+}
+
+function rankColor(r) {
+  if (r === 1) return 'mrank-gold';
+  if (r === 2) return 'mrank-silver';
+  if (r === 3) return 'mrank-bronze';
+  return '';
+}
+
+async function loadMarket() {
+  // summary
+  const sum = await mFetch('summary');
+  if (sum) {
+    document.getElementById('ms-total').textContent = (sum.totalProducts || 0).toLocaleString('fa-IR');
+    document.getElementById('ms-date').textContent = sum.latestDate ? new Date(sum.latestDate).toLocaleDateString('fa-IR') : '';
+
+    if (sum.hotProduct) {
+      document.getElementById('ms-hot-card').style.display = '';
+      document.getElementById('ms-hot').textContent = Math.abs(sum.hotProduct.diff) + ' پله';
+      document.getElementById('ms-hot-sub').textContent = sum.hotProduct.name;
+    } else {
+      document.getElementById('ms-hot-card').style.display = 'none';
+    }
+
+    if (sum.coldProduct) {
+      document.getElementById('ms-cold-card').style.display = '';
+      document.getElementById('ms-cold').textContent = sum.coldProduct.diff + ' پله';
+      document.getElementById('ms-cold-sub').textContent = sum.coldProduct.name;
+    } else {
+      document.getElementById('ms-cold-card').style.display = 'none';
+    }
+
+    if (sum.priceUp) {
+      document.getElementById('ms-pup-card').style.display = '';
+      document.getElementById('ms-pup').textContent = fmtPrice(sum.priceUp.price_diff);
+      document.getElementById('ms-pup-sub').textContent = sum.priceUp.name;
+    } else {
+      document.getElementById('ms-pup-card').style.display = 'none';
+    }
+
+    if (sum.priceDown) {
+      document.getElementById('ms-pdown-card').style.display = '';
+      document.getElementById('ms-pdown').textContent = fmtPrice(Math.abs(sum.priceDown.price_diff));
+      document.getElementById('ms-pdown-sub').textContent = sum.priceDown.name;
+    } else {
+      document.getElementById('ms-pdown-card').style.display = 'none';
+    }
+  }
+
+  // جدول
+  const list = await mFetch('list');
+  const tbody = document.getElementById('marketTableBody');
+  if (!list || !list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">
+      <div style="font-size:32px;margin-bottom:8px">⏳</div>
+      داده‌ای موجود نیست — اولین crawl در حال انجام است
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = list.map(p => {
+      const imgEl = p.image_url
+        ? `<img class="mprod-img" src="${p.image_url}" loading="lazy" onerror="this.style.display='none'">`
+        : `<div class="mprod-img" style="display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:18px">📦</div>`;
+      return `
+      <tr onclick="openMarketModal(${p.id},'${marketSource}',${JSON.stringify(p).replace(/'/g,'&#39;')})">
+        <td class="mrank ${rankColor(p.rank)}">${p.rank}</td>
+        <td style="width:52px;padding:6px 8px">${imgEl}</td>
+        <td>
+          <div class="mprod-cell">
+            <div>
+              <span class="mprod-name">${p.name}</span>
+              <div class="mprod-brand">${p.brand || ''}${p.category ? ' · '+p.category : ''}</div>
+            </div>
+          </div>
+        </td>
+        <td class="mprice">${fmtPrice(p.price)}</td>
+        <td>${deltaEl(p.rank, p.prev_rank)}</td>
+        <td>${deltaEl(p.rank, p.rank_7d)}</td>
+        <td>${deltaEl(p.rank, p.rank_30d)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // محصولات داغ
+  const hot = await mFetch('hot');
+  document.getElementById('marketHot').innerHTML = (hot||[]).map((p,i) =>
+    `<div class="mana-item">
+      <span class="mana-rank">${i+1}</span>
+      <span class="mana-name">${p.name}</span>
+      <span class="mana-delta up">▲ +${p.gain}</span>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px">داده کافی نیست</div>';
+
+  // افت فروش
+  const cold = await mFetch('cold');
+  document.getElementById('marketCold').innerHTML = (cold||[]).map((p,i) =>
+    `<div class="mana-item">
+      <span class="mana-rank">${i+1}</span>
+      <span class="mana-name">${p.name}</span>
+      <span class="mana-delta down">▼ -${p.loss}</span>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px">داده کافی نیست</div>';
+
+  // تازه‌واردها
+  const newE = await mFetch('new-entrants');
+  document.getElementById('marketNew').innerHTML = (newE||[]).map(p =>
+    `<div class="mana-item">
+      <span class="mana-rank">${p.rank}</span>
+      <span class="mana-name">${p.name}</span>
+      <span style="font-size:10px;color:var(--green);font-weight:700">NEW</span>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px">داده کافی نیست</div>';
+
+  // ماندگارها
+  const legs = await mFetch('legends');
+  document.getElementById('marketLegends').innerHTML = (legs||[]).map((p,i) =>
+    `<div class="mana-item">
+      <span class="mana-rank">${i+1}</span>
+      <span class="mana-name">${p.name}</span>
+      <span style="font-size:11px;color:var(--amber);font-weight:700">${p.days_in_top50} روز</span>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px">داده کافی نیست</div>';
+
+}
+
+async function openMarketModal(productId, source, product) {
+  document.getElementById('marketModalBg').classList.add('open');
+  document.getElementById('mm-name').textContent  = product.name || '';
+  document.getElementById('mm-brand').textContent = product.brand || '';
+  document.getElementById('mm-cat').textContent   = product.category || '';
+  document.getElementById('mm-price').textContent = fmtPrice(product.price);
+  document.getElementById('mm-rank').textContent  = '#' + (product.rank || '—');
+  const img = document.getElementById('mm-img');
+  if (product.image_url) { img.src = product.image_url; img.style.display = ''; }
+  else img.style.display = 'none';
+
+  const r = await fetch(`/api/market/product/${productId}?source=${source}&days=90`, {
+    headers: { Authorization: `Bearer ${TOKEN}` }
+  });
+  if (!r.ok) return;
+  const { history, stats } = await r.json();
+
+  document.getElementById('mm-best').textContent   = stats?.best_rank  ? '#'+stats.best_rank  : '—';
+  document.getElementById('mm-days50').textContent = stats?.days_in_top50 ?? '—';
+  document.getElementById('mm-days10').textContent = stats?.days_in_top10 ?? '—';
+
+  // نمودارها
+  if (history?.length) {
+    const labels = history.map(h => h.snap_date.slice(5));
+    const ranks  = history.map(h => h.rank);
+    const prices = history.map(h => h.price ? Math.round(h.price/10) : null);
+
+    // نمودار رتبه — معکوس: رتبه ۱ بالا
+    drawChart('mm-rank-chart', 'rank', labels, ranks, 'رتبه', '#4f83f7', true);
+    drawChart('mm-price-chart', 'price', labels, prices, 'قیمت (تومان)', '#0fd17a', false);
+  }
+}
+
+function drawChart(canvasId, chartKey, labels, data, label, color, reverse) {
+  if (marketCharts[chartKey]) { marketCharts[chartKey].destroy(); }
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  marketCharts[chartKey] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label, data,
+        borderColor: color,
+        backgroundColor: color + '18',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 2,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          reverse,
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: '#7c8db5', font: { size: 10 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#7c8db5', font: { size: 10 }, maxTicksLimit: 8 }
+        }
+      }
+    }
+  });
+}
+
+function closeMarketModal(e) {
+  if (e.target.id === 'marketModalBg')
+    document.getElementById('marketModalBg').classList.remove('open');
+}
+
+// ══ JOBS MARKET ══
+let jobRange = 7;
+let jobCharts = {};
+
+const CAT_LABELS = {
+  'human-resources':   'منابع انسانی',
+  'accounting':        'حسابداری',
+  'developer':         'برنامه‌نویسی',
+  'data-science':      'هوش مصنوعی و داده',
+  'digital-marketing': 'دیجیتال مارکتینگ',
+  'driver':            'راننده',
+  'civil':             'مهندسی عمران',
+};
+
+function setJobRange(days, btn) {
+  jobRange = days;
+  document.querySelectorAll('.jrange-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadJobCharts();
+}
+
+async function jFetch(endpoint) {
+  const r = await fetch(`/api/jobs/${endpoint}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+function fmtChange(pct) {
+  if (pct === null || pct === undefined) return '';
+  const cls = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+  const sign = pct > 0 ? '+' : '';
+  return `<span class="jchg ${cls}">${sign}${pct}%</span>`;
+}
+
+function drawJobChart(canvasId, key, labels, datasets) {
+  if (jobCharts[key]) jobCharts[key].destroy();
+  const ctx = document.getElementById(canvasId)?.getContext('2d');
+  if (!ctx) return;
+  jobCharts[key] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: datasets.length > 1, labels: { color: '#7c8db5', font: { size: 10 } } } },
+      scales: {
+        y: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#7c8db5', font: { size: 10 } } },
+        x: { grid: { display: false }, ticks: { color: '#7c8db5', font: { size: 10 }, maxTicksLimit: 7 } }
+      }
+    }
+  });
+}
+
+async function loadJobCharts() {
+  const history = await jFetch(`history?days=${jobRange}`);
+  if (!history?.length) return;
+  const labels = history.map(h => h.snap_date.slice(5));
+  drawJobChart('jTotalChart', 'total', labels, [{
+    label: 'کل بازار', data: history.map(h => h.total),
+    borderColor: '#4f83f7', backgroundColor: '#4f83f718', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 2,
+  }]);
+  drawJobChart('jSourceChart', 'source', labels, [
+    { label: 'جابینجا',   data: history.map(h => h.jobinja),   borderColor: '#0fd17a', backgroundColor: '#0fd17a18', fill: false, tension: 0.4, borderWidth: 2, pointRadius: 2 },
+    { label: 'جاب‌ویژن', data: history.map(h => h.jobvision), borderColor: '#f59e0b', backgroundColor: '#f59e0b18', fill: false, tension: 0.4, borderWidth: 2, pointRadius: 2 },
+  ]);
+
+  // نمودار هر دسته
+  for (const [key] of Object.entries(CAT_LABELS)) {
+    const catHistory = await jFetch(`history/${key}?days=${jobRange}`);
+    if (catHistory?.length && jobCharts[`cat-${key}`]) {
+      jobCharts[`cat-${key}`].data.labels = catHistory.map(h => h.snap_date.slice(5));
+      jobCharts[`cat-${key}`].data.datasets[0].data = catHistory.map(h => h.count);
+      jobCharts[`cat-${key}`].update();
+    }
+  }
+}
+
+async function loadJobs() {
+  // summary
+  const sum = await jFetch('summary');
+  if (sum) {
+    const jj = sum.sources?.jobinja;
+    const jv = sum.sources?.jobvision;
+    const jt = sum.total;
+
+    document.getElementById('jj-count').textContent = (jj?.count||0).toLocaleString('fa-IR');
+    document.getElementById('jj-changes').innerHTML = `
+      ${fmtChange(jj?.vs_yesterday)} <span style="font-size:9px;color:var(--text3)">دیروز</span>
+      ${fmtChange(jj?.vs_week)} <span style="font-size:9px;color:var(--text3)">هفته</span>
+      ${fmtChange(jj?.vs_month)} <span style="font-size:9px;color:var(--text3)">ماه</span>`;
+
+    document.getElementById('jv-count').textContent = (jv?.count||0).toLocaleString('fa-IR');
+    document.getElementById('jv-changes').innerHTML = `
+      ${fmtChange(jv?.vs_yesterday)} <span style="font-size:9px;color:var(--text3)">دیروز</span>
+      ${fmtChange(jv?.vs_week)} <span style="font-size:9px;color:var(--text3)">هفته</span>
+      ${fmtChange(jv?.vs_month)} <span style="font-size:9px;color:var(--text3)">ماه</span>`;
+
+    document.getElementById('jt-count').textContent = (jt?.count||0).toLocaleString('fa-IR');
+    document.getElementById('jt-changes').innerHTML = `
+      ${fmtChange(jt?.vs_yesterday)} <span style="font-size:9px;color:var(--text3)">دیروز</span>
+      ${fmtChange(jt?.vs_week)} <span style="font-size:9px;color:var(--text3)">هفته</span>
+      ${fmtChange(jt?.vs_month)} <span style="font-size:9px;color:var(--text3)">ماه</span>`;
+
+    // EHI
+    const ehi = sum.ehi;
+    const ehiEl = document.getElementById('ehi-score');
+    const ehiDesc = document.getElementById('ehi-desc');
+    if (ehi) {
+      ehiEl.textContent = ehi;
+      ehiEl.className = 'ehi-score ' + (ehi >= 105 ? 'good' : ehi >= 95 ? 'ok' : 'bad');
+      ehiDesc.textContent = ehi >= 105 ? 'بازار رو به رشد است' : ehi >= 95 ? 'بازار در وضعیت پایدار' : 'بازار در حال افت است';
+    }
+
+    // دسته‌بندی‌ها
+    const catsEl = document.getElementById('jobsCats');
+    catsEl.innerHTML = Object.entries(sum.categories || {}).map(([key, val]) => `
+      <div class="jcat-card">
+        <div class="jcat-name">${CAT_LABELS[key] || key}</div>
+        <div class="jcat-count">${(val.count||0).toLocaleString('fa-IR')}</div>
+        <div class="jcat-meta">
+          <span class="jchg ${(val.vs_week||0)>0?'up':(val.vs_week||0)<0?'down':'flat'}">${(val.vs_week||0)>0?'+':''}${val.vs_week ?? '—'}% هفته</span>
+          <span class="jchg ${(val.vs_month||0)>0?'up':(val.vs_month||0)<0?'down':'flat'}">${(val.vs_month||0)>0?'+':''}${val.vs_month ?? '—'}% ماه</span>
+          <span class="jcat-share">سهم: ${val.share}%</span>
+        </div>
+        <canvas class="jcat-chart" id="jcat-${key}"></canvas>
+      </div>`).join('');
+
+    // نمودارهای کوچک دسته‌بندی
+    for (const [key] of Object.entries(CAT_LABELS)) {
+      const h = await jFetch(`history/${key}?days=30`);
+      if (h?.length) {
+        const ctx = document.getElementById(`jcat-${key}`)?.getContext('2d');
+        if (ctx) {
+          if (jobCharts[`cat-${key}`]) jobCharts[`cat-${key}`].destroy();
+          jobCharts[`cat-${key}`] = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: h.map(x=>x.snap_date.slice(5)),
+              datasets: [{ data: h.map(x=>x.count), borderColor:'#4f83f7', borderWidth:1.5, pointRadius:0, tension:0.4, fill:true, backgroundColor:'#4f83f710' }]
+            },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{x:{display:false},y:{display:false}} }
+          });
+        }
+      }
+    }
+  }
+
+  // نمودارهای کلی
+  loadJobCharts();
+
+  // AI تحلیل
+  loadJobsAI();
+}
+
+// ══ SETTINGS TABS ══
+function switchSettingsTab(tab) {
+  document.getElementById('settingsPanelUsers').style.display    = tab==='users'    ? 'block' : 'none';
+  document.getElementById('settingsPanelChannels').style.display = tab==='channels' ? 'block' : 'none';
+  document.getElementById('settingsPanelAI').style.display       = tab==='ai'       ? 'block' : 'none';
+  document.getElementById('settingsTabUsers').classList.toggle('active', tab==='users');
+  document.getElementById('settingsTabChannels').classList.toggle('active', tab==='channels');
+  document.getElementById('settingsTabAI').classList.toggle('active', tab==='ai');
+  if(tab==='channels') loadSettingsChannels();
+  if(tab==='ai') loadAIModels();
+}
+
+async function loadAIModels() {
+  const listEl = document.getElementById('aiModelList');
+  listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px">در حال بارگذاری مدل‌ها...</div>';
+  try {
+    const r = await fetch('/api/settings/ai-models', {headers:{Authorization:'Bearer '+TOKEN}});
+    const d = await r.json();
+    const models = d.models || [];
+    const current = d.current;
+
+    const pinned = models.filter(m=>m.pinned);
+    const otherFree = models.filter(m=>m.free && !m.pinned);
+    const paid = models.filter(m=>!m.free);
+
+    function modelCard(m) {
+      const isCur = m.id === current;
+      const tag = m.pinned ? '<span style="font-size:9px;background:var(--green);color:#fff;padding:1px 6px;border-radius:3px;margin-right:4px">پیش‌فرض</span>'
+                : m.free   ? '<span style="font-size:9px;background:rgba(15,209,122,.15);color:var(--green);padding:1px 6px;border-radius:3px;margin-right:4px">رایگان</span>'
+                : '<span style="font-size:9px;background:rgba(245,158,11,.15);color:#f59e0b;padding:1px 6px;border-radius:3px;margin-right:4px">پولی</span>';
+      return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid ${isCur?'var(--accent)':'var(--border)'};background:${isCur?'rgba(79,131,247,.08)':'var(--bg3)'};cursor:pointer;transition:all .15s">
+        <input type="radio" name="aiModel" value="${m.id}" ${isCur?'checked':''} onchange="setAIModel('${m.id}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center">${tag}${m.name}</div>
+          <div style="font-size:10px;color:var(--text3);direction:ltr;margin-top:2px">${m.id}</div>
+        </div>
+        ${isCur?'<span style="font-size:10px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;flex-shrink:0">فعال</span>':''}
+      </label>`;
+    }
+
+    let html = '';
+    if (pinned.length) html += `<div style="font-size:11px;font-weight:700;color:var(--text3);margin:4px 0">مدل‌های پیشنهادی</div>${pinned.map(modelCard).join('')}`;
+    if (otherFree.length) html += `<div style="font-size:11px;font-weight:700;color:var(--text3);margin:12px 0 4px">سایر مدل‌های رایگان (${otherFree.length})</div>
+      <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">${otherFree.map(modelCard).join('')}</div>`;
+    if (paid.length) html += `<div style="font-size:11px;font-weight:700;color:var(--text3);margin:12px 0 4px">مدل‌های پولی (${paid.length})</div>
+      <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">${paid.map(modelCard).join('')}</div>`;
+
+    listEl.innerHTML = html;
+  } catch(e) {
+    listEl.innerHTML = '<div style="color:var(--red);font-size:12px">خطا در بارگذاری مدل‌ها</div>';
+  }
+}
+
+async function setAIModel(modelId) {
+  try {
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify({key:'ai_model', value:modelId})});
+    toast('مدل AI تغییر کرد');
+    loadAIModels();
+  } catch(e) {}
+}
+
+async function refreshDigest(type) {
+  const bodyId = type==='4h' ? 'aiBody4h' : 'aiBody24h';
+  document.getElementById(bodyId).innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div> در حال بروزرسانی...</div>';
+  try {
+    await fetch('/api/digest/'+type+'/refresh', {method:'POST', headers:{Authorization:'Bearer '+TOKEN}});
+    setTimeout(() => type==='4h' ? loadAIDigest4h() : loadAIDigest24h(), 5000);
+  } catch(e) {}
+}
+
+// AI تحلیل مارکت کار
+async function loadJobsAI() {
+  try {
+    const r = await fetch('/api/jobs/ai-analysis', {headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok) return;
+    const d = await r.json();
+    const el = document.getElementById('jobsAiText');
+    if(el && d.analysis) el.innerHTML = d.analysis.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  } catch(e) {}
+}
+
+async function loadSettingsChannels() {
+  const tbody = document.getElementById('channelsBody');
+  if(!tbody) return;
+  try {
+    const r = await fetch('/api/news/channels', {headers:{Authorization:'Bearer '+TOKEN}});
+    if (!r.ok) return;
+    _channelsData = await r.json();
+    if (!_channelsData.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3)">کانالی اضافه نشده</td></tr>';
+      return;
+    }
+    tbody.innerHTML = _channelsData.map(c =>
+      '<tr>' +
+      '<td>' + (c.title||'—') + '</td>' +
+      '<td style="direction:ltr;color:var(--text3)">' + (c.username||'—') + '</td>' +
+      '<td><span style="font-size:11px;background:var(--bg3);padding:2px 8px;border-radius:8px">' + (c.category||'—') + '</span></td>' +
+      '<td style="display:flex;gap:6px">' +
+      '<button class="btn-sm" onclick="_chEdit(' + c.id + ')">ویرایش</button>' +
+      '<button class="btn-sm" style="color:var(--red);border-color:var(--red)" onclick="_chDel(' + c.id + ')">حذف</button>' +
+      '</td></tr>'
+    ).join('');
+  } catch(e) { console.error('loadSettingsChannels:', e); }
+}
+
+function _chEdit(id) {
+  const c = _channelsData.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('channelEditId').value = id;
+  document.getElementById('channelTgId').value = c.tg_id||'';
+  document.getElementById('channelUsername').value = c.username||'';
+  document.getElementById('channelTitle').value = c.title||'';
+  document.getElementById('channelCategory').value = c.category||'خبرگزاری\u200cها';
+  document.getElementById('channelModalTitle').textContent = 'ویرایش کانال';
+  document.getElementById('channelModalError').textContent = '';
+  document.getElementById('channelModal').style.display = 'flex';
+}
+
+async function _chDel(id) {
+  const c = _channelsData.find(x => x.id === id);
+  if (!confirm('کانال "' + (c?c.title:id) + '" حذف شود؟')) return;
+  try {
+    const r = await fetch('/api/news/channels/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+    const d = await r.json();
+    if (d.ok) { toast('کانال حذف شد'); loadSettingsChannels(); }
+    else alert(d.error||'خطا');
+  } catch(e) { alert(e.message); }
+}
+
+function openChannelModal() {
+  document.getElementById('channelEditId').value = '';
+  document.getElementById('channelTgId').value = '';
+  document.getElementById('channelUsername').value = '';
+  document.getElementById('channelTitle').value = '';
+  document.getElementById('channelCategory').value = 'خبرگزاری\u200cها';
+  document.getElementById('channelModalTitle').textContent = 'افزودن کانال';
+  document.getElementById('channelModalError').textContent = '';
+  document.getElementById('channelModal').style.display = 'flex';
+}
+
+async function submitChannel() {
+  const editId   = document.getElementById('channelEditId').value;
+  const username = document.getElementById('channelUsername').value.trim();
+  const title    = document.getElementById('channelTitle').value.trim();
+  const category = document.getElementById('channelCategory').value;
+  const errEl    = document.getElementById('channelModalError');
+  errEl.style.display = 'none';
+
+  if (!username || !title) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'یوزرنیم و نام الزامی است';
+    return;
+  }
+
+  const cleanUser = username.startsWith('@') ? username : '@'+username;
+  const tg_id = editId
+    ? (document.getElementById('channelTgId').value || cleanUser)
+    : cleanUser;
+
+  try {
+    const url    = editId ? '/api/news/channels/'+editId : '/api/news/channels';
+    const method = editId ? 'PATCH' : 'POST';
+    const r = await fetch(url, {
+      method: method,
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify({tg_id:tg_id, username:cleanUser, title:title, category:category, photo_url:null}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('channelModal').style.display = 'none';
+      toast(editId ? 'کانال ویرایش شد' : 'کانال اضافه شد');
+      loadSettingsChannels();
+    } else {
+      errEl.style.display = 'block';
+      errEl.textContent = d.error || 'خطا در ذخیره';
+    }
+  } catch(e) {
+    errEl.style.display = 'block';
+    errEl.textContent = e.message;
+  }
+}
+
+// ══ NEWS — بازطراحی کامل ══
+let newsChannelFilter = null;
+let newsCatFilter = null;
+let _newsOffset = 0;
+const NEWS_PAGE = 20;
+let _renderedNewsIds = new Set();      // ID خبرهایی که الان روی صفحه هستن
+let _newsExpandState = new Map();      // id -> bool (باز/بسته) — مستقل از رندر مجدد
+let _newsGalleryIndex = new Map();     // id -> index اسلاید فعلی
+let _newsBaselineSet = false;          // بعد از اولین لود، اضافه‌شده‌های بعدی "جدید" محسوب میشن
+let _newsPollTimer = null;
+let _newsDelegated = false;
+
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+const ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const ICON_ARROW_L = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+const ICON_ARROW_R = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+const ICON_IMG_ERR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;opacity:.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60) return 'همین الان';
+  if (diff < 3600) return toFa(Math.floor(diff/60)) + ' دقیقه پیش';
+  if (diff < 86400) return toFa(Math.floor(diff/3600)) + ' ساعت پیش';
+  return toFa(Math.floor(diff/86400)) + ' روز پیش';
+}
+
+function parseTgText(text) {
+  if (!text) return '';
+  const links = [];
+  // اول markdown link: [متن](url)
+  let t = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, label, url) => {
+    if (url.includes('t.me/')) return label;
+    const placeholder = `__LINK${links.length}__`;
+    links.push(`<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent)">${label}</a>`);
+    return placeholder;
+  });
+  // بعد لینک خام
+  t = t.replace(/(https?:\/\/[^\s\n<>]+)/g, (url) => {
+    if (url.includes('t.me/')) return '';
+    const short = url.length > 55 ? url.slice(0,52)+'...' : url;
+    const placeholder = `__LINK${links.length}__`;
+    links.push(`<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent)">${short}</a>`);
+    return placeholder;
+  });
+  t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  t = t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g,'<strong>$1</strong>');
+  t = t.replace(/@(\w+)/g,'<span style="color:var(--accent);opacity:.7">@$1</span>');
+  t = t.replace(/#(\S+)/g,'<span style="color:var(--accent);opacity:.8">#$1</span>');
+  t = t.replace(/\n/g,'<br>');
+  links.forEach((link, i) => { t = t.split(`__LINK${i}__`).join(link); });
+  return t.trim();
+}
+
+// ── استخراج لیست عکس‌ها از media_url (تک یا آرایه JSON) ──
+function parseMediaUrls(n) {
+  if (!n.media_url) return [];
+  // ویدیو و سند عکس ندارن
+  if (n.media_type === 'video' || n.media_type === 'document') return [];
+  let raw = n.media_url;
+  if (typeof raw !== 'string') return [];
+  raw = raw.trim();
+  if (!raw) return [];
+  // آرایه JSON (چندعکسه)
+  if (raw.startsWith('[')) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr.filter(u => typeof u === 'string' && u.length > 20);
+    } catch(e) { return []; }
+  }
+  // تک عکس
+  if (raw.startsWith('data:') || raw.startsWith('http') || raw.startsWith('/')) return [raw];
+  return [];
+}
+function resolveMediaSrc(url) {
+  return url.startsWith('data:') ? url : '/api/news/media?url='+encodeURIComponent(url);
+}
+
+// ── ساخت HTML یک کارت ──
+function buildNewsCardHTML(n, isNew) {
+  const displayText = n.text_fa || n.text || '';
+  const parsedText = parseTgText(displayText);
+  const isLong = displayText.length > 260;
+  const expanded = _newsExpandState.get(n.id) === true;
+  const textClass = isLong && !expanded ? 'news-text-collapsed' : (isLong ? 'news-text-expanded' : '');
+
+  const images = parseMediaUrls(n);
+  let mediaHtml = '';
+  if (images.length === 1) {
+    mediaHtml = `<div class="news-media">
+      <img src="${resolveMediaSrc(images[0])}" loading="lazy" alt="تصویر خبر"
+        onload="this.classList.add('loaded')"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="news-media-fallback">${ICON_IMG_ERR}<span>تصویر در دسترس نیست</span></div>
+    </div>`;
+  } else if (images.length > 1) {
+    _newsGalleryIndex.set(n.id, 0);
+    const slides = images.map((url,i) => `<div class="news-gallery-slide">
+        <img src="${resolveMediaSrc(url)}" loading="${i===0?'eager':'lazy'}" alt="تصویر ${toFa(i+1)}"
+          onload="this.classList.add('loaded')"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="news-media-fallback">${ICON_IMG_ERR}</div>
+      </div>`).join('');
+    const dots = images.map((_,i) => `<button class="news-gallery-dot${i===0?' active':''}" data-action="gallery-dot" data-id="${n.id}" data-idx="${i}" aria-label="اسلاید ${toFa(i+1)}"></button>`).join('');
+    mediaHtml = `<div class="news-gallery" id="gallery-${n.id}" tabindex="0" role="group" aria-label="گالری تصاویر خبر" data-count="${images.length}">
+      <div class="news-gallery-track" style="transform:translateX(0)">${slides}</div>
+      <button class="news-gallery-nav prev" data-action="gallery-nav" data-id="${n.id}" data-dir="-1" aria-label="تصویر قبلی">${ICON_ARROW_R}</button>
+      <button class="news-gallery-nav next" data-action="gallery-nav" data-id="${n.id}" data-dir="1" aria-label="تصویر بعدی">${ICON_ARROW_L}</button>
+      <div class="news-gallery-counter" id="gallery-counter-${n.id}">${toFa(1)} / ${toFa(images.length)}</div>
+      <div class="news-gallery-dots">${dots}</div>
+    </div>`;
+  }
+
+  const tgLink = n.tg_link ? `<a class="news-tg-link" href="${n.tg_link}" target="_blank" rel="noopener">↗ منبع</a>` : '';
+  const delBtn = CURRENT_USER?.role==='superadmin'
+    ? `<button class="news-del-btn" data-action="delete-news" data-id="${n.id}" title="حذف خبر" aria-label="حذف این خبر">${ICON_TRASH}</button>`
+    : '';
+  const avatar = n.channel_photo
+    ? `<img src="${n.channel_photo}" class="news-ch-avatar" alt="" onerror="this.outerHTML='<div class=&quot;news-ch-avatar-placeholder&quot;>${(n.channel_title||'?')[0]}</div>'">`
+    : `<div class="news-ch-avatar-placeholder">${(n.channel_title||'?')[0]}</div>`;
+
+  const readMoreBtn = isLong
+    ? `<button class="news-read-more${expanded?' is-open':''}" data-action="toggle-read" data-id="${n.id}">
+        <span>${expanded?'کمتر':'بیشتر بخوان'}</span>${ICON_CHEVRON}
+      </button>`
+    : '';
+
+  return `<div class="news-card${isNew?' news-card-new':''}" id="newscard-${n.id}" data-news-id="${n.id}">
+    <div class="news-card-head">
+      ${avatar}
+      <div class="news-ch-info">
+        <div class="news-ch-name">${n.channel_title||'نامشخص'}</div>
+        <div class="news-ch-meta">${timeAgo(n.published_at)}${n.channel_username?' · '+n.channel_username:''}</div>
+      </div>
+      <div class="news-head-actions">${tgLink}${delBtn}</div>
+    </div>
+    ${mediaHtml}
+    <div class="news-text ${textClass}" id="newstext-${n.id}" dir="auto">${parsedText}</div>
+    ${readMoreBtn}
+  </div>`;
+}
+
+// ── delegated events — یک بار bind میشه، هیچوقت با رندر مجدد از دست نمیره ──
+function ensureNewsDelegation() {
+  if (_newsDelegated) return;
+  _newsDelegated = true;
+  const feed = document.getElementById('newsFeed');
+
+  feed.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-action="delete-news"]');
+    if (del) { deleteNews(del.dataset.id); return; }
+    const read = e.target.closest('[data-action="toggle-read"]');
+    if (read) { toggleReadMore(read.dataset.id); return; }
+    const nav = e.target.closest('[data-action="gallery-nav"]');
+    if (nav) { galleryStep(nav.dataset.id, parseInt(nav.dataset.dir)); return; }
+    const dot = e.target.closest('[data-action="gallery-dot"]');
+    if (dot) { galleryGoto(dot.dataset.id, parseInt(dot.dataset.idx)); return; }
+  });
+
+  feed.addEventListener('keydown', (e) => {
+    const gallery = e.target.closest('.news-gallery');
+    if (!gallery) return;
+    const id = gallery.id.replace('gallery-','');
+    if (e.key === 'ArrowLeft') { galleryStep(id, 1); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { galleryStep(id, -1); e.preventDefault(); }
+  });
+
+  // Swipe روی موبایل
+  let touchStartX = null, touchGalleryId = null;
+  feed.addEventListener('touchstart', (e) => {
+    const gallery = e.target.closest('.news-gallery');
+    if (!gallery) return;
+    touchStartX = e.touches[0].clientX;
+    touchGalleryId = gallery.id.replace('gallery-','');
+  }, {passive:true});
+  feed.addEventListener('touchend', (e) => {
+    if (touchStartX === null || !touchGalleryId) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) galleryStep(touchGalleryId, dx > 0 ? -1 : 1); // RTL: swipe راست=قبلی
+    touchStartX = null; touchGalleryId = null;
+  }, {passive:true});
+}
+
+function galleryGoto(id, idx) {
+  const root = document.getElementById('gallery-'+id);
+  if (!root) return;
+  const count = parseInt(root.dataset.count);
+  idx = Math.max(0, Math.min(count-1, idx));
+  _newsGalleryIndex.set(id, idx);
+  const track = root.querySelector('.news-gallery-track');
+  track.style.transform = `translateX(${idx*100}%)`;
+  root.querySelectorAll('.news-gallery-dot').forEach((d,i)=>d.classList.toggle('active', i===idx));
+  const counter = document.getElementById('gallery-counter-'+id);
+  if (counter) counter.textContent = `${toFa(idx+1)} / ${toFa(count)}`;
+}
+function galleryStep(id, dir) {
+  const cur = _newsGalleryIndex.get(id) || 0;
+  galleryGoto(id, cur + dir);
+}
+
+function toggleReadMore(id) {
+  const wasExpanded = _newsExpandState.get(id) === true;
+  const nowExpanded = !wasExpanded;
+  _newsExpandState.set(id, nowExpanded);
+
+  const textEl = document.getElementById('newstext-'+id);
+  const btn = document.querySelector(`[data-action="toggle-read"][data-id="${id}"]`);
+  if (textEl) {
+    textEl.classList.toggle('news-text-collapsed', !nowExpanded);
+    textEl.classList.toggle('news-text-expanded', nowExpanded);
+  }
+  if (btn) {
+    btn.classList.toggle('is-open', nowExpanded);
+    btn.querySelector('span').textContent = nowExpanded ? 'کمتر' : 'بیشتر بخوان';
+  }
+}
+
+async function deleteNews(id) {
+  if (!confirm('این خبر حذف شود؟')) return;
+  const card = document.getElementById('newscard-'+id);
+  try {
+    await fetch('/api/news/news/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+    if (card) {
+      card.classList.add('news-card-removing');
+      setTimeout(() => { card.remove(); _renderedNewsIds.delete(String(id)); }, 300);
+    }
+  } catch(e) { alert(e.message); }
+}
+
+// ── حالت‌های رندر: replace (لود اولیه/تغییر فیلتر) | append (بارگذاری بیشتر - قدیمی‌تر) | prepend (پول - خبر جدید) ──
+function renderNewsFeed(news, mode='replace') {
+  const feed = document.getElementById('newsFeed');
+  ensureNewsDelegation();
+
+  if (mode === 'replace') {
+    _renderedNewsIds.clear();
+    feed.innerHTML = '';
+    if (!news.length) {
+      feed.innerHTML = '<div class="news-empty"><div style="font-size:32px;margin-bottom:8px">📡</div>هنوز خبری دریافت نشده</div>';
+      _newsBaselineSet = true;
+      return;
+    }
+  }
+
+  const fresh = news.filter(n => !_renderedNewsIds.has(String(n.id)));
+  if (!fresh.length) return;
+
+  const isPollNew = mode === 'prepend' && _newsBaselineSet;
+  const html = fresh.map(n => buildNewsCardHTML(n, isPollNew)).join('');
+  fresh.forEach(n => _renderedNewsIds.add(String(n.id)));
+
+  if (mode === 'prepend') {
+    feed.insertAdjacentHTML('afterbegin', html);
+    if (isPollNew) {
+      fresh.forEach(n => {
+        setTimeout(() => {
+          const el = document.getElementById('newscard-'+n.id);
+          if (el) el.classList.remove('news-card-new');
+        }, 6200);
+      });
+    }
+  } else {
+    feed.insertAdjacentHTML('beforeend', html);
+  }
+  _newsBaselineSet = true;
+}
+
+async function loadNews() {
+  try {
+    const r = await fetch('/api/news/digest', {headers:{Authorization:'Bearer '+TOKEN}});
+    if (r.ok) {
+      const d = await r.json();
+      const text = (d.text||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+      document.getElementById('newsDigestBody').innerHTML = text || 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود';
+      if (d.created_at) document.getElementById('newsDigestTime').textContent = 'بروزرسانی: '+timeAgo(d.created_at);
+    } else {
+      document.getElementById('newsDigestBody').innerHTML = 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود';
+    }
+  } catch(e) { document.getElementById('newsDigestBody').innerHTML = 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود'; }
+
+  try {
+    const r = await fetch('/api/news/channels', {headers:{Authorization:'Bearer '+TOKEN}});
+    if (r.ok) {
+      const channels = await r.json();
+      document.getElementById('newsChannelBtns').innerHTML = channels.map(c =>
+        '<button class="nfbtn" onclick="filterNews('+c.id+',null,this)">'+c.title+'</button>'
+      ).join('');
+      const cats = [...new Set(channels.map(c=>c.category).filter(Boolean))];
+      document.getElementById('newsCatFilter').innerHTML = cats.length
+        ? '<span class="news-filter-label">دسته:</span>' + cats.map(cat =>
+            '<button class="nfbtn" onclick="filterNews(null,`'+cat+'`,this)">'+cat+'</button>'
+          ).join('') : '';
+      if (CURRENT_USER?.role==='superadmin') document.getElementById('newsAdminBtn').style.display='';
+    }
+  } catch(e) {}
+
+  await refreshNewsFeed();
+  if (_newsPollTimer) clearInterval(_newsPollTimer);
+  _newsPollTimer = setInterval(pollNewNews, 5000);
+}
+
+function filterNews(channelId, cat, btn) {
+  if (channelId !== undefined) newsChannelFilter = channelId;
+  if (cat !== undefined) newsCatFilter = cat;
+  document.querySelectorAll('.nfbtn').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  _newsBaselineSet = false; // فیلتر عوض شد، رندر کامل مجاز است
+  refreshNewsFeed();
+}
+
+async function fetchNewsPage(offset) {
+  let url = `/api/news/feed?limit=${NEWS_PAGE}&offset=${offset}`;
+  if (newsChannelFilter) url += '&channel='+newsChannelFilter;
+  const r = await fetch(url, {headers:{Authorization:'Bearer '+TOKEN}});
+  if (!r.ok) return [];
+  let news = await r.json();
+  if (newsCatFilter) {
+    const cr = await fetch('/api/news/channels',{headers:{Authorization:'Bearer '+TOKEN}});
+    const channels = await cr.json();
+    const catIds = new Set(channels.filter(c=>c.category===newsCatFilter).map(c=>c.id));
+    news = news.filter(n=>catIds.has(n.channel_id));
+  }
+  return news;
+}
+
+// لود اولیه یا تغییر فیلتر — رندر کامل
+async function refreshNewsFeed() {
+  _newsOffset = 0;
+  const news = await fetchNewsPage(0);
+  renderNewsFeed(news, 'replace');
+  document.getElementById('newsLoadMore').style.display = news.length >= NEWS_PAGE ? 'block' : 'none';
+}
+
+// Polling دوره‌ای — فقط خبر جدید prepend میشه، کارت‌های موجود دست‌نخورده می‌مونن
+async function pollNewNews() {
+  if (_loadingMore) return; // موقع بارگذاری بیشتر، poll نکن
+  const news = await fetchNewsPage(0);
+  renderNewsFeed(news, 'prepend');
+}
+
+let _loadingMore = false;
+
+async function loadMoreNews() {
+  if (_loadingMore) return;
+  _loadingMore = true;
+  _newsOffset += NEWS_PAGE;
+  const btn = document.getElementById('newsLoadMoreBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'در حال بارگذاری...'; }
+  try {
+    const news = await fetchNewsPage(_newsOffset);
+    renderNewsFeed(news, 'append');
+    document.getElementById('newsLoadMore').style.display = news.length >= NEWS_PAGE ? 'block' : 'none';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'بارگذاری بیشتر'; }
+    _loadingMore = false;
+  }
+}
+
+async function refreshNewsDigest() {
+  document.getElementById('newsDigestBody').innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div> در حال تولید گزارش...</div>';
+  try {
+    await fetch('/api/news/digest/generate', {method:'POST', headers:{Authorization:'Bearer '+TOKEN}});
+    setTimeout(async () => {
+      const r = await fetch('/api/news/digest', {headers:{Authorization:'Bearer '+TOKEN}});
+      if(r.ok) {
+        const d = await r.json();
+        const text = (d.text||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+        document.getElementById('newsDigestBody').innerHTML = text || 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود';
+        if(d.created_at) document.getElementById('newsDigestTime').textContent = 'بروزرسانی: '+timeAgo(d.created_at);
+      }
+    }, 8000);
+  } catch(e) {}
+}
+
+function goHome() {
+  document.querySelectorAll('.tab').forEach((t,i) => { if(i===0) t.classList.add('active'); else t.classList.remove('active'); });
+  document.getElementById('dashContent').style.display = 'block';
+  document.getElementById('marketWrap').classList.remove('visible');
+  document.getElementById('jobsWrap').classList.remove('visible');
+  document.getElementById('newsWrap').classList.remove('visible');
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('tabsBar').style.display = 'flex';
+  currentTab = 'trends';
+}
+
+checkAuth();
+</script>
+</body>
+</html>

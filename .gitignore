@@ -1,0 +1,17 @@
+node_modules/
+venv/
+data/
+
+# نسخه قدیمی/بلااستفاده که هنوز کلید قدیمی OpenRouter را دارد و توسط Express سرو نمی‌شود
+# (public/index.html نسخه واقعی است). قبل از push عمومی حذفش نکردیم چون تصمیم حذف با کاربر است.
+/index.html
+*.db
+*.db-shm
+*.db-wal
+*.session
+*.session-journal
+.env
+.env.local
+*.log
+.DS_Store
+public/channel-photos/*.jpg
