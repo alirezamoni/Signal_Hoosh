@@ -475,6 +475,48 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   .ehi-score{font-size:36px}
   .jchg{font-size:9px}
 }
+
+/* ═══ ONLINE USERS (ADMIN) ═══ */
+.online-panel{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px}
+.online-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.online-count{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--green)}
+.online-count .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.online-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.online-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px}
+.online-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.online-info{min-width:0;flex:1}
+.online-name{font-size:12px;font-weight:600;color:var(--text)}
+.online-meta{font-size:10px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.online-tab-badge{font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(79,131,247,.12);color:var(--accent);font-weight:600}
+.online-idle{font-size:9px;color:var(--text3)}
+
+/* ═══ NEWS STATS ═══ */
+.news-stats-panel{margin-bottom:20px}
+.news-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.nstat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.nstat-label{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;margin-bottom:6px}
+.nstat-val{font-size:22px;font-weight:800;color:var(--text);line-height:1.2}
+.nstat-sub{font-size:10px;color:var(--text2);margin-top:3px}
+.news-stats-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.nstat-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px}
+.nstat-box-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.nstat-list{list-style:none;padding:0}
+.nstat-list li{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.nstat-list li:last-child{border-bottom:none}
+.nstat-list-name{color:var(--text)}
+.nstat-list-val{font-weight:700;color:var(--accent)}
+.nstat-bar-wrap{margin-top:4px;height:4px;border-radius:2px;background:var(--bg3)}
+.nstat-bar{height:100%;border-radius:2px;background:var(--accent);transition:width .3s}
+@media(max-width:900px){.news-stats-grid{grid-template-columns:repeat(3,1fr)}.news-stats-row{grid-template-columns:1fr}}
+@media(max-width:600px){.news-stats-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ═══ WORD CLOUD ═══ */
+.wordcloud-section{margin-top:28px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px}
+.wordcloud-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.wordcloud-container{min-height:260px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;padding:10px}
+.wc-word{display:inline-block;padding:4px 10px;border-radius:8px;cursor:default;transition:transform .15s,opacity .15s;line-height:1.3;white-space:nowrap}
+.wc-word:hover{transform:scale(1.12);opacity:.85}
+.wc-word.active::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;animation:pulse 2s infinite}
 </style>
 </head>
 <body>
@@ -583,6 +625,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <thead><tr><th>#</th><th>کلیدواژه</th><th>حجم جستجو</th><th>رشد</th><th>وضعیت</th><th>زمان</th></tr></thead>
     <tbody id="tbody24h"></tbody>
   </table>
+
+  <!-- ابرکلمات -->
+  <div class="wordcloud-section" id="wordcloudSection">
+    <div class="wordcloud-title">
+      <span style="font-size:16px">☁</span> ابرکلمات ترند ایران
+      <span style="font-size:10px;color:var(--text3);font-weight:400;margin-right:auto" id="wordcloudTime"></span>
+    </div>
+    <div class="wordcloud-container" id="wordcloudContainer">
+      <div style="color:var(--text3);font-size:12px">در حال بارگذاری...</div>
+    </div>
+  </div>
 
 </div>
 </div>
@@ -713,6 +766,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 <div class="news-wrap" id="newsWrap">
   <div class="news-inner">
 
+    <!-- آمار اخبار -->
+    <div class="news-stats-panel" id="newsStatsPanel">
+      <div class="news-stats-grid" id="newsStatsGrid"></div>
+      <div class="news-stats-row" id="newsStatsRow"></div>
+    </div>
+
     <!-- گزارش عصر -->
     <div class="news-digest" id="newsDigestBox">
       <div class="news-digest-head">
@@ -819,6 +878,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <div class="admin-title">تنظیمات</div>
     <div style="display:flex;gap:8px">
       <button class="btn-sm active" id="settingsTabUsers" onclick="switchSettingsTab('users')">کاربران</button>
+      <button class="btn-sm" id="settingsTabOnline" onclick="switchSettingsTab('online')">آنلاین</button>
       <button class="btn-sm" id="settingsTabChannels" onclick="switchSettingsTab('channels')">کانال‌های خبری</button>
       <button class="btn-sm" id="settingsTabAI" onclick="switchSettingsTab('ai')">مدل هوش مصنوعی</button>
     </div>
@@ -833,6 +893,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
       <thead><tr><th>نام</th><th>موبایل</th><th>نقش</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr></thead>
       <tbody id="usersBody"></tbody>
     </table>
+  </div>
+
+  <!-- تب کاربران آنلاین -->
+  <div id="settingsPanelOnline" style="display:none">
+    <div class="online-panel">
+      <div class="online-header">
+        <div class="online-count"><div class="live-dot"></div><span id="onlineCountText">۰ کاربر آنلاین</span></div>
+      </div>
+      <div class="online-grid" id="onlineUsersGrid">
+        <div style="color:var(--text3);font-size:12px">در حال بارگذاری...</div>
+      </div>
+    </div>
   </div>
 
   <!-- تب کانال‌ها -->
@@ -934,6 +1006,13 @@ function updateClock(){
 }
 setInterval(updateClock,1000);updateClock();
 
+// ══ HEARTBEAT ══
+function sendHeartbeat(){
+  if(!TOKEN) return;
+  fetch('/api/heartbeat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN,'X-Current-Tab':currentTab},body:JSON.stringify({tab:currentTab})}).catch(()=>{});
+}
+setInterval(sendHeartbeat,30000);
+
 // ══ REFRESH BADGE ══
 function updateRefreshBadge(){
   if(!lastFetchTime){return}
@@ -1000,6 +1079,7 @@ async function showApp(){
   document.getElementById('tabsBar').style.display='flex';
   document.getElementById('dashContent').style.display='block';
   document.getElementById('adminPanel').style.display='none';
+  sendHeartbeat();
   await fetchTrends();
 }
 
@@ -1050,6 +1130,7 @@ function renderAll(){
   document.getElementById('count24h').textContent = LIVE_24H.length + ' ترند';
   loadAIDigest4h();
   loadAIDigest24h();
+  loadWordCloud();
 }
 
 function renderHotGrid(){
@@ -1575,11 +1656,15 @@ async function loadJobs() {
 // ══ SETTINGS TABS ══
 function switchSettingsTab(tab) {
   document.getElementById('settingsPanelUsers').style.display    = tab==='users'    ? 'block' : 'none';
+  document.getElementById('settingsPanelOnline').style.display   = tab==='online'   ? 'block' : 'none';
   document.getElementById('settingsPanelChannels').style.display = tab==='channels' ? 'block' : 'none';
   document.getElementById('settingsPanelAI').style.display       = tab==='ai'       ? 'block' : 'none';
   document.getElementById('settingsTabUsers').classList.toggle('active', tab==='users');
+  document.getElementById('settingsTabOnline').classList.toggle('active', tab==='online');
   document.getElementById('settingsTabChannels').classList.toggle('active', tab==='channels');
   document.getElementById('settingsTabAI').classList.toggle('active', tab==='ai');
+  if(tab==='users') loadUsers();
+  if(tab==='online') loadOnlineUsers();
   if(tab==='channels') loadSettingsChannels();
   if(tab==='ai') loadAIModels();
 }
@@ -2023,6 +2108,9 @@ function renderNewsFeed(news, mode='replace') {
 }
 
 async function loadNews() {
+  // آمار اخبار
+  loadNewsStats();
+
   try {
     const r = await fetch('/api/news/digest', {headers:{Authorization:'Bearer '+TOKEN}});
     if (r.ok) {
@@ -2127,6 +2215,198 @@ async function refreshNewsDigest() {
       }
     }, 8000);
   } catch(e) {}
+}
+
+// ══════════════════════════════════════
+//  کاربران آنلاین (ادمین)
+// ══════════════════════════════════════
+const TAB_LABELS = {'trends':'ترند سرچ','market':'مارکت کالا','jobs':'مارکت کار','news':'اخبار'};
+let _onlinePollTimer = null;
+
+async function loadOnlineUsers() {
+  try {
+    const r = await fetch('/api/admin/online-users',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok) return;
+    const d = await r.json();
+    document.getElementById('onlineCountText').textContent = toFa(d.count) + ' کاربر آنلاین';
+    const grid = document.getElementById('onlineUsersGrid');
+    if(!d.users.length) {
+      grid.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px">هیچ کاربری آنلاین نیست</div>';
+      return;
+    }
+    grid.innerHTML = d.users.map(u => {
+      const idle = u.idleSeconds < 10 ? 'فعال' : u.idleSeconds < 60 ? toFa(u.idleSeconds) + ' ثانیه پیش' : toFa(Math.floor(u.idleSeconds/60)) + ' دقیقه پیش';
+      const tabLabel = TAB_LABELS[u.currentTab] || u.currentTab || '—';
+      return `<div class="online-card">
+        <div class="online-avatar">${(u.name||'U')[0].toUpperCase()}</div>
+        <div class="online-info">
+          <div class="online-name">${u.name}${u.role==='superadmin'?' <span class="admin-badge">ادمین</span>':''}</div>
+          <div class="online-meta">
+            <span class="online-tab-badge">${tabLabel}</span>
+            <span class="online-idle">${idle}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // auto-refresh
+    if(_onlinePollTimer) clearInterval(_onlinePollTimer);
+    _onlinePollTimer = setInterval(loadOnlineUsers, 10000);
+  } catch(e) {
+    document.getElementById('onlineUsersGrid').innerHTML = '<div style="color:var(--red);font-size:12px">خطا در بارگذاری</div>';
+  }
+}
+
+// ══════════════════════════════════════
+//  آمار اخبار
+// ══════════════════════════════════════
+async function loadNewsStats() {
+  try {
+    const r = await fetch('/api/news/stats',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok) return;
+    const s = await r.json();
+
+    // کارت‌های آماری
+    document.getElementById('newsStatsGrid').innerHTML = `
+      <div class="nstat-card">
+        <div class="nstat-label">کل اخبار</div>
+        <div class="nstat-val">${fmtFa(s.totalNews)}</div>
+        <div class="nstat-sub">در ۳۰ روز اخیر</div>
+      </div>
+      <div class="nstat-card">
+        <div class="nstat-label">اخبار امروز</div>
+        <div class="nstat-val" style="color:var(--green)">${fmtFa(s.todayNews)}</div>
+        <div class="nstat-sub">۲۴ ساعت اخیر</div>
+      </div>
+      <div class="nstat-card">
+        <div class="nstat-label">این هفته</div>
+        <div class="nstat-val" style="color:var(--accent)">${fmtFa(s.weekNews)}</div>
+        <div class="nstat-sub">۷ روز اخیر</div>
+      </div>
+      <div class="nstat-card">
+        <div class="nstat-label">میانگین روزانه</div>
+        <div class="nstat-val">${fmtFa(s.avgDaily)}</div>
+        <div class="nstat-sub">۳۰ روز اخیر</div>
+      </div>
+      <div class="nstat-card">
+        <div class="nstat-label">کانال‌های فعال</div>
+        <div class="nstat-val" style="color:var(--purple)">${fmtFa(s.totalChannels)}</div>
+      </div>
+    `;
+
+    // جعبه‌های تفصیلی
+    let rowHtml = '';
+
+    // فعال‌ترین کانال‌ها
+    if(s.topChannels?.length) {
+      const maxCount = s.topChannels[0]?.news_count || 1;
+      rowHtml += `<div class="nstat-box">
+        <div class="nstat-box-title">فعال‌ترین کانال‌ها (هفته اخیر)</div>
+        <ul class="nstat-list">${s.topChannels.map(c => `
+          <li>
+            <div style="flex:1;min-width:0">
+              <div class="nstat-list-name">${c.title}</div>
+              <div class="nstat-bar-wrap"><div class="nstat-bar" style="width:${Math.round(c.news_count/maxCount*100)}%"></div></div>
+            </div>
+            <span class="nstat-list-val">${fmtFa(c.news_count)} خبر</span>
+          </li>`).join('')}
+        </ul>
+      </div>`;
+    }
+
+    // توزیع دسته‌بندی
+    if(s.categoryStats?.length) {
+      const totalCat = s.categoryStats.reduce((sum,c) => sum+c.count, 0) || 1;
+      rowHtml += `<div class="nstat-box">
+        <div class="nstat-box-title">توزیع دسته‌بندی اخبار (هفته اخیر)</div>
+        <ul class="nstat-list">${s.categoryStats.map(c => `
+          <li>
+            <div style="flex:1;min-width:0">
+              <div class="nstat-list-name">${c.category}</div>
+              <div class="nstat-bar-wrap"><div class="nstat-bar" style="width:${Math.round(c.count/totalCat*100)}%;background:var(--purple)"></div></div>
+            </div>
+            <span class="nstat-list-val">${fmtFa(c.count)}</span>
+          </li>`).join('')}
+        </ul>
+      </div>`;
+    }
+
+    // ساعات شلوغ
+    if(s.hourlyStats?.length) {
+      const maxH = Math.max(...s.hourlyStats.map(h=>h.count),1);
+      rowHtml += `<div class="nstat-box">
+        <div class="nstat-box-title">ساعات شلوغ خبررسانی (هفته اخیر)</div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding-top:8px">
+          ${Array.from({length:24},(_,i)=>{
+            const h = s.hourlyStats.find(x=>x.hour===i);
+            const count = h?.count||0;
+            const pct = Math.max(Math.round(count/maxH*100),2);
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${toFa(i)}:۰۰ — ${fmtFa(count)} خبر">
+              <div style="width:100%;background:${count>maxH*0.7?'var(--accent)':'var(--bg3)'};border-radius:2px;height:${pct}%;min-height:2px;transition:height .3s"></div>
+              <span style="font-size:8px;color:var(--text3)">${i%4===0?toFa(i):''}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }
+
+    // توزیع زبانی
+    if(s.langStats?.length) {
+      const langLabels = {'fa':'فارسی','en':'انگلیسی','ar':'عربی'};
+      const totalLang = s.langStats.reduce((sum,l) => sum+l.count, 0) || 1;
+      rowHtml += `<div class="nstat-box">
+        <div class="nstat-box-title">توزیع زبانی اخبار (هفته اخیر)</div>
+        <ul class="nstat-list">${s.langStats.map(l => `
+          <li>
+            <div style="flex:1;min-width:0">
+              <div class="nstat-list-name">${langLabels[l.lang]||l.lang}</div>
+              <div class="nstat-bar-wrap"><div class="nstat-bar" style="width:${Math.round(l.count/totalLang*100)}%;background:var(--teal)"></div></div>
+            </div>
+            <span class="nstat-list-val">${toFa(Math.round(l.count/totalLang*100))}٪</span>
+          </li>`).join('')}
+        </ul>
+      </div>`;
+    }
+
+    document.getElementById('newsStatsRow').innerHTML = rowHtml;
+  } catch(e) {
+    console.warn('[news-stats]', e.message);
+  }
+}
+
+// ══════════════════════════════════════
+//  ابرکلمات (Word Cloud)
+// ══════════════════════════════════════
+async function loadWordCloud() {
+  try {
+    const r = await fetch('/api/trends/wordcloud',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok) return;
+    const d = await r.json();
+    if(!d.words?.length) {
+      document.getElementById('wordcloudContainer').innerHTML = '<div style="color:var(--text3);font-size:12px">داده‌ای موجود نیست</div>';
+      return;
+    }
+    if(d.updatedAt) {
+      document.getElementById('wordcloudTime').textContent = 'آخرین بروزرسانی: ' + new Date(d.updatedAt).toLocaleString('fa-IR');
+    }
+
+    // normalize weights
+    const maxW = Math.max(...d.words.map(w=>w.weight),1);
+    const minW = Math.min(...d.words.map(w=>w.weight),0);
+    const range = maxW - minW || 1;
+
+    const container = document.getElementById('wordcloudContainer');
+    container.innerHTML = d.words.map(w => {
+      // map weight to font size: 11px to 42px
+      const norm = (w.weight - minW) / range;
+      const size = Math.round(11 + norm * 31);
+      const opacity = 0.55 + norm * 0.45;
+      const c = CC[w.cat] || {bg:'rgba(255,255,255,.05)',color:'#7c8db5'};
+      const activeClass = w.active ? ' active' : '';
+      return `<span class="wc-word${activeClass}" style="font-size:${size}px;color:${c.color};opacity:${opacity};background:${c.bg}" title="${w.text} | ${fmtVol(w.weight)} جستجو | ${w.cat||'—'} | رشد ${toFa(w.growth||0)}٪">${cleanKeyword(w.text)}</span>`;
+    }).join('');
+  } catch(e) {
+    console.warn('[wordcloud]', e.message);
+  }
 }
 
 function goHome() {

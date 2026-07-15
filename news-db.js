@@ -138,6 +138,83 @@ function getLatestDigest() {
   return db.prepare('SELECT * FROM news_digest ORDER BY created_at DESC LIMIT 1').get();
 }
 
+// ── آمار اخبار ──────────────────────────────────────────
+function getNewsStats() {
+  const totalNews = db.prepare('SELECT COUNT(*) as c FROM news').get()?.c || 0;
+  const totalChannels = db.prepare('SELECT COUNT(*) as c FROM channels WHERE active=1').get()?.c || 0;
+
+  // اخبار امروز
+  const todayNews = db.prepare(`SELECT COUNT(*) as c FROM news WHERE published_at >= datetime('now','-24 hours')`).get()?.c || 0;
+
+  // اخبار این هفته
+  const weekNews = db.prepare(`SELECT COUNT(*) as c FROM news WHERE published_at >= datetime('now','-7 days')`).get()?.c || 0;
+
+  // فعال‌ترین کانال‌ها (top 5)
+  const topChannels = db.prepare(`
+    SELECT c.title, c.category, COUNT(n.id) as news_count
+    FROM news n JOIN channels c ON c.id = n.channel_id
+    WHERE n.published_at >= datetime('now','-7 days')
+    GROUP BY n.channel_id
+    ORDER BY news_count DESC LIMIT 5
+  `).all();
+
+  // تعداد اخبار هر دسته (7 روز اخیر)
+  const categoryStats = db.prepare(`
+    SELECT c.category, COUNT(n.id) as count
+    FROM news n JOIN channels c ON c.id = n.channel_id
+    WHERE n.published_at >= datetime('now','-7 days') AND c.category IS NOT NULL
+    GROUP BY c.category
+    ORDER BY count DESC
+  `).all();
+
+  // آمار روزانه (۱۴ روز اخیر)
+  const dailyStats = db.prepare(`
+    SELECT date(n.published_at) as day, COUNT(*) as count
+    FROM news n
+    WHERE n.published_at >= datetime('now','-14 days')
+    GROUP BY day
+    ORDER BY day ASC
+  `).all();
+
+  // توزیع زبانی (7 روز اخیر)
+  const langStats = db.prepare(`
+    SELECT lang, COUNT(*) as count
+    FROM news
+    WHERE published_at >= datetime('now','-7 days')
+    GROUP BY lang ORDER BY count DESC
+  `).all();
+
+  // میانگین اخبار روزانه (۳۰ روز اخیر)
+  const avgDaily = db.prepare(`
+    SELECT AVG(cnt) as avg FROM (
+      SELECT COUNT(*) as cnt FROM news
+      WHERE published_at >= datetime('now','-30 days')
+      GROUP BY date(published_at)
+    )
+  `).get()?.avg || 0;
+
+  // ساعات شلوغ (7 روز اخیر)
+  const hourlyStats = db.prepare(`
+    SELECT CAST(strftime('%H', published_at) AS INTEGER) as hour, COUNT(*) as count
+    FROM news
+    WHERE published_at >= datetime('now','-7 days')
+    GROUP BY hour ORDER BY hour ASC
+  `).all();
+
+  return {
+    totalNews,
+    totalChannels,
+    todayNews,
+    weekNews,
+    avgDaily: Math.round(avgDaily),
+    topChannels,
+    categoryStats,
+    dailyStats,
+    langStats,
+    hourlyStats,
+  };
+}
+
 // ── Cleanup ──────────────────────────────────────────────
 function cleanup() {
   // فقط ۳۰ روز نگه دار
@@ -150,4 +227,4 @@ function deleteNews(id) {
   db.prepare('DELETE FROM news WHERE id=?').run(id);
 }
 
-module.exports = { upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, cleanup };
+module.exports = { upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup };

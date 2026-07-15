@@ -14,6 +14,7 @@ require('dotenv').config();
 
 const express  = require('express');
 const cors     = require('cors');
+const cookieParser = require('cookie-parser');
 const path     = require('path');
 const fs       = require('fs');
 const https    = require('https');
@@ -32,12 +33,47 @@ const app  = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: true, credentials: true }));
+app.use(cookieParser());
 app.use(express.json({ limit: '40mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ════════════════════════════════════
+//  ONLINE USERS TRACKING (in-memory)
+// ════════════════════════════════════
+const _onlineUsers = new Map(); // userId → { id, name, mobile, role, lastSeen, ip, currentTab }
+const ONLINE_TIMEOUT = 2 * 60 * 1000; // ۲ دقیقه بدون فعالیت = آفلاین
+
+function trackOnlineUser(req) {
+  if (!req.user) return;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
+  _onlineUsers.set(req.user.id, {
+    id: req.user.id,
+    name: req.user.name || req.user.mobile,
+    mobile: req.user.mobile,
+    role: req.user.role,
+    lastSeen: Date.now(),
+    ip,
+    currentTab: req.headers['x-current-tab'] || null,
+  });
+}
+
+// پاکسازی کاربران آفلاین هر ۳۰ ثانیه
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, u] of _onlineUsers) {
+    if (now - u.lastSeen > ONLINE_TIMEOUT) _onlineUsers.delete(id);
+  }
+}, 30000);
+
+// ════════════════════════════════════
 //  AUTH
 // ════════════════════════════════════
+
+// middleware ثبت فعالیت کاربر بعد از احراز هویت
+function trackActivity(req, res, next) {
+  trackOnlineUser(req);
+  next();
+}
 
 app.post('/api/auth/login', (req, res) => {
   const { mobile, password } = req.body;
@@ -51,9 +87,21 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
+  trackOnlineUser(req);
   const user = db.findById(req.user.id);
   if (!user) return res.status(401).json({ error: 'کاربر یافت نشد' });
   res.json(user);
+});
+
+// heartbeat — فرانت هر ۳۰ ثانیه صدا می‌زنه
+app.post('/api/heartbeat', requireAuth, (req, res) => {
+  if (req.body?.tab) {
+    // ذخیره تب فعلی
+    const existing = _onlineUsers.get(req.user.id);
+    if (existing) existing.currentTab = req.body.tab;
+  }
+  trackOnlineUser(req);
+  res.json({ ok: true });
 });
 
 // ════════════════════════════════════
@@ -98,6 +146,26 @@ app.patch('/api/admin/users/:id/toggle', requireSuperAdmin, (req, res) => {
     const user = db.toggleActive(req.params.id, !!req.body.active);
     res.json(user);
   } catch (e) { res.status(404).json({ error: e.message }); }
+});
+
+// ── کاربران آنلاین (فقط ادمین‌ها) ──
+app.get('/api/admin/online-users', requireSuperAdmin, (req, res) => {
+  const now = Date.now();
+  const online = [];
+  for (const [, u] of _onlineUsers) {
+    if (now - u.lastSeen <= ONLINE_TIMEOUT) {
+      online.push({
+        id: u.id,
+        name: u.name,
+        mobile: u.mobile,
+        role: u.role,
+        currentTab: u.currentTab,
+        lastSeen: new Date(u.lastSeen).toISOString(),
+        idleSeconds: Math.floor((now - u.lastSeen) / 1000),
+      });
+    }
+  }
+  res.json({ count: online.length, users: online });
 });
 
 // ════════════════════════════════════
@@ -269,6 +337,32 @@ app.get('/api/trends/24h', requireAuth, (req, res) => {
   const data = load('h24');
   if (!data) return res.status(503).json({ error: 'داده آماده نشده' });
   res.json(data);
+});
+
+// ── ابرکلمات ترکیبی از ۴h و ۲۴h ──
+app.get('/api/trends/wordcloud', requireAuth, (req, res) => {
+  const d4  = load('h4');
+  const d24 = load('h24');
+  const words = new Map(); // keyword → { text, weight, cat, active }
+  function addTrends(data) {
+    if (!data?.trends) return;
+    for (const t of data.trends) {
+      const kw = (t.keyword || '').replace(/[\u200f\u200e\u202a-\u202e]/g, '').trim();
+      if (!kw) continue;
+      const existing = words.get(kw);
+      if (existing) {
+        existing.weight = Math.max(existing.weight, t.vol || 0);
+        existing.growth = Math.max(existing.growth || 0, t.growth || 0);
+        if (t.active) existing.active = true;
+      } else {
+        words.set(kw, { text: kw, weight: t.vol || 1, cat: t.cat || '', active: !!t.active, growth: t.growth || 0 });
+      }
+    }
+  }
+  addTrends(d4);
+  addTrends(d24);
+  const result = [...words.values()].sort((a, b) => b.weight - a.weight);
+  res.json({ words: result, updatedAt: d4?.updatedAt || d24?.updatedAt || null });
 });
 
 app.get('/api/status', requireAuth, (req, res) => {

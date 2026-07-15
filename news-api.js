@@ -33,7 +33,10 @@ router.get('/channels', (req, res) => {
 });
 
 router.get('/categories', (req, res) => {
-  res.json(CATEGORIES);
+  // دسته‌بندی‌ها از DB کانال‌ها ساخته می‌شود
+  const channels = newsDB.getChannels();
+  const cats = [...new Set(channels.map(c => c.category).filter(Boolean))];
+  res.json(cats);
 });
 
 // افزودن کانال
@@ -72,6 +75,12 @@ router.get('/digest', (req, res) => {
   const digest = newsDB.getLatestDigest();
   if (!digest) return res.status(503).json({ error: 'digest not ready' });
   res.json(digest);
+});
+
+router.get('/stats', (req, res) => {
+  try {
+    res.json(newsDB.getNewsStats());
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/digest/generate', async (req, res) => {
