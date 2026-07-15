@@ -512,7 +512,66 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 @media(max-width:900px){.news-stats-grid{grid-template-columns:repeat(3,1fr)}.news-stats-row{grid-template-columns:1fr}}
 @media(max-width:600px){.news-stats-grid{grid-template-columns:repeat(2,1fr)}}
 
-/* ═══ TRENDS STATS ═══ */
+/* ═══ FINANCE TAB ═══ */
+.finance-wrap{padding:0;display:none}
+.finance-wrap.visible{display:block}
+.finance-inner{padding:18px 20px;max-width:1200px;margin:0 auto}
+
+/* KPI Cards */
+.fin-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.fin-kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px;position:relative;overflow:hidden;transition:border-color .2s}
+.fin-kpi-card:hover{border-color:var(--border2)}
+.fin-kpi-card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:var(--accent)}
+.fin-kpi-card.gold::before{background:var(--amber)}
+.fin-kpi-card.coin::before{background:var(--purple)}
+.fin-kpi-card.ounce::before{background:var(--teal)}
+.fin-kpi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.fin-kpi-name{font-size:13px;font-weight:700;color:var(--text2)}
+.fin-kpi-icon{font-size:18px}
+.fin-kpi-price{font-size:26px;font-weight:800;color:var(--text);line-height:1.2;direction:ltr}
+.fin-kpi-change{font-size:12px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:6px;direction:ltr}
+.fin-kpi-change.up{color:var(--green)}
+.fin-kpi-change.down{color:var(--red)}
+.fin-kpi-sub{font-size:11px;color:var(--text3);margin-top:6px;display:flex;gap:12px}
+.fin-kpi-sub span{display:flex;align-items:center;gap:3px}
+.fin-kpi-bubble{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;margin-top:6px}
+.fin-kpi-bubble.pos{background:rgba(15,209,122,.12);color:var(--green)}
+.fin-kpi-bubble.neg{background:rgba(240,82,82,.12);color:var(--red)}
+.fin-sparkline{height:40px;margin-top:8px}
+@media(max-width:900px){.fin-kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.fin-kpi-grid{grid-template-columns:1fr}.fin-kpi-price{font-size:22px}}
+
+/* Market table */
+.fin-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
+.fin-table{width:100%;border-collapse:collapse}
+.fin-table th{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;padding:10px 14px;text-align:right;border-bottom:1px solid var(--border)}
+.fin-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12.5px}
+.fin-table tbody tr{cursor:pointer;transition:background .15s}
+.fin-table tbody tr:hover{background:var(--bg3)}
+.fin-table tbody tr:last-child td{border-bottom:none}
+.fin-table .fin-name{font-weight:600;color:var(--text)}
+.fin-table .fin-price{font-weight:700;color:var(--text);direction:ltr}
+.fin-table .fin-chg{font-size:11px;font-weight:600;direction:ltr}
+.fin-table .fin-chg.up{color:var(--green)}
+.fin-table .fin-chg.down{color:var(--red)}
+
+/* Detail modal */
+.fin-modal{display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+.fin-modal.show{display:flex}
+.fin-modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;width:640px;max-width:calc(100vw-32px);max-height:88vh;overflow-y:auto;padding:24px}
+.fin-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.fin-modal-title{font-size:18px;font-weight:800;color:var(--text)}
+.fin-modal-close{background:none;border:none;color:var(--text3);font-size:24px;cursor:pointer;transition:color .15s}
+.fin-modal-close:hover{color:var(--text)}
+.fin-modal-price{font-size:28px;font-weight:800;color:var(--text);direction:ltr;margin-bottom:4px}
+.fin-modal-time{font-size:11px;color:var(--text3);margin-bottom:16px}
+.fin-modal-changes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.fin-chg-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px}
+.fin-chg-label{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px}
+.fin-chg-val{font-size:16px;font-weight:700;direction:ltr}
+.fin-chg-val.up{color:var(--green)}
+.fin-chg-val.down{color:var(--red)}
+.fin-chart-wrap{height:200px;position:relative;margin-top:8px}
 .trends-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
 .tstat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .tstat-label{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;margin-bottom:6px}
@@ -580,6 +639,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   <div class="tab" onclick="switchTab('market',this)">مارکت کالای ایران</div>
   <div class="tab" onclick="switchTab('jobs',this)">مارکت کار ایران</div>
   <div class="tab" onclick="switchTab('news',this)">ترند اخبار ایران</div>
+  <div class="tab" onclick="switchTab('finance',this)">ترند بازارهای مالی</div>
 </div>
 
 
@@ -878,6 +938,65 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <canvas id="mm-rank-chart" height="120"></canvas>
     <div class="mmodal-section">نمودار تغییر قیمت</div>
     <canvas id="mm-price-chart" height="100"></canvas>
+  </div>
+</div>
+
+<!-- FINANCE -->
+<div class="finance-wrap" id="financeWrap">
+  <div class="finance-inner">
+    <!-- KPI Cards -->
+    <div class="fin-kpi-grid" id="finKpiGrid">
+      <div class="fin-kpi-card" onclick="openFinanceModal('usd')">
+        <div class="fin-kpi-header"><span class="fin-kpi-name">دلار آزاد</span><span class="fin-kpi-icon">💵</span></div>
+        <div class="fin-kpi-price" id="finKpiUsd">—</div>
+        <div class="fin-kpi-change" id="finKpiUsdChg">—</div>
+        <div class="fin-kpi-sub" id="finKpiUsdSub"></div>
+        <canvas class="fin-sparkline" id="sparkUsd"></canvas>
+      </div>
+      <div class="fin-kpi-card gold" onclick="openFinanceModal('gold18')">
+        <div class="fin-kpi-header"><span class="fin-kpi-name">طلای ۱۸ عیار</span><span class="fin-kpi-icon">🥇</span></div>
+        <div class="fin-kpi-price" id="finKpiGold">—</div>
+        <div class="fin-kpi-change" id="finKpiGoldChg">—</div>
+        <div class="fin-kpi-sub" id="finKpiGoldSub"></div>
+        <canvas class="fin-sparkline" id="sparkGold"></canvas>
+      </div>
+      <div class="fin-kpi-card coin" onclick="openFinanceModal('coin')">
+        <div class="fin-kpi-header"><span class="fin-kpi-name">سکه امامی</span><span class="fin-kpi-icon">🪙</span></div>
+        <div class="fin-kpi-price" id="finKpiCoin">—</div>
+        <div class="fin-kpi-change" id="finKpiCoinChg">—</div>
+        <div class="fin-kpi-bubble" id="finKpiCoinBubble" style="display:none"></div>
+        <canvas class="fin-sparkline" id="sparkCoin"></canvas>
+      </div>
+      <div class="fin-kpi-card ounce" onclick="openFinanceModal('ounce')">
+        <div class="fin-kpi-header"><span class="fin-kpi-name">انس جهانی طلا</span><span class="fin-kpi-icon">🌍</span></div>
+        <div class="fin-kpi-price" id="finKpiOunce">—</div>
+        <div class="fin-kpi-change" id="finKpiOunceChg">—</div>
+        <div class="fin-kpi-sub" id="finKpiOunceSub"></div>
+        <canvas class="fin-sparkline" id="sparkOunce"></canvas>
+      </div>
+    </div>
+
+    <!-- Market Table -->
+    <div class="fin-table-wrap">
+      <table class="fin-table">
+        <thead><tr><th>نماد</th><th>قیمت آخر</th><th>تغییر</th><th>درصد</th><th>کمترین</th><th>بیشترین</th></tr></thead>
+        <tbody id="finTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Finance Detail Modal -->
+<div class="fin-modal" id="financeModal" onclick="if(event.target===this)closeFinanceModal()">
+  <div class="fin-modal-box">
+    <div class="fin-modal-head">
+      <div class="fin-modal-title" id="financeModalTitle">—</div>
+      <button class="fin-modal-close" onclick="closeFinanceModal()">×</button>
+    </div>
+    <div class="fin-modal-price" id="financeModalPrice">—</div>
+    <div class="fin-modal-time" id="financeModalTime">—</div>
+    <div class="fin-modal-changes" id="financeModalChanges"></div>
+    <div class="fin-chart-wrap"><canvas id="financeChart"></canvas></div>
   </div>
 </div>
 
@@ -1245,17 +1364,20 @@ function switchTab(tab,el){
   currentTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  const isTrend  = tab==='trends';
-  const isMarket = tab==='market';
-  const isJobs   = tab==='jobs';
-  const isNews   = tab==='news';
+  const isTrend   = tab==='trends';
+  const isMarket  = tab==='market';
+  const isJobs    = tab==='jobs';
+  const isNews    = tab==='news';
+  const isFinance = tab==='finance';
   document.getElementById('dashContent').style.display  = isTrend ? 'block' : 'none';
   document.getElementById('marketWrap').classList.toggle('visible', isMarket);
   document.getElementById('jobsWrap').classList.toggle('visible', isJobs);
   document.getElementById('newsWrap').classList.toggle('visible', isNews);
-  if(isMarket) loadMarket();
-  if(isJobs)   loadJobs();
-  if(isNews)   loadNews();
+  document.getElementById('financeWrap').classList.toggle('visible', isFinance);
+  if(isMarket)  loadMarket();
+  if(isJobs)    loadJobs();
+  if(isNews)    loadNews();
+  if(isFinance) loadFinance();
 }
 
 // ══ ADMIN ══
@@ -2513,9 +2635,228 @@ function goHome() {
   document.getElementById('marketWrap').classList.remove('visible');
   document.getElementById('jobsWrap').classList.remove('visible');
   document.getElementById('newsWrap').classList.remove('visible');
+  document.getElementById('financeWrap').classList.remove('visible');
   document.getElementById('adminPanel').style.display = 'none';
   document.getElementById('tabsBar').style.display = 'flex';
   currentTab = 'trends';
+}
+
+// ══════════════════════════════════════
+//  ترند بازارهای مالی
+// ══════════════════════════════════════
+let _finPoll = null;
+let _finChart = null;
+
+const FIN_KPI_MAP = {
+  usd:    { priceId:'finKpiUsd',   chgId:'finKpiUsdChg',   subId:'finKpiUsdSub',   sparkId:'sparkUsd' },
+  gold18: { priceId:'finKpiGold',  chgId:'finKpiGoldChg',  subId:'finKpiGoldSub',  sparkId:'sparkGold' },
+  coin:   { priceId:'finKpiCoin',  chgId:'finKpiCoinChg',  subId:null,              sparkId:'sparkCoin' },
+  ounce:  { priceId:'finKpiOunce', chgId:'finKpiOunceChg', subId:'finKpiOunceSub', sparkId:'sparkOunce' },
+};
+
+function fmtFinPrice(n, unit) {
+  if (n == null || isNaN(n)) return '—';
+  const v = Math.round(n);
+  if (unit === 'دلار' || unit === 'نقطه') return v.toLocaleString('en-US');
+  return v.toLocaleString('en-US');
+}
+
+function fmtFinChg(change, pct, unit) {
+  if (change == null && pct == null) return '<span style="color:var(--text3)">—</span>';
+  const dir = (change != null && change >= 0) ? 'up' : 'down';
+  const arrow = dir === 'up' ? '▲' : '▼';
+  const chgStr = change != null ? Math.abs(change).toLocaleString('en-US') : '0';
+  const pctStr = pct != null ? Math.abs(pct).toFixed(2) + '%' : '0%';
+  return `<span class="${dir}">${arrow} ${chgStr} (${pctStr})</span>`;
+}
+
+async function loadFinance() {
+  try {
+    const r = await fetch('/api/finance/latest', {headers:{Authorization:'Bearer '+TOKEN}});
+    if (!r.ok) return;
+    const d = await r.json();
+
+    // KPI cards
+    for (const [sym, map] of Object.entries(FIN_KPI_MAP)) {
+      const item = d.markets.find(m => m.symbol === sym);
+      if (!item) continue;
+      const priceEl = document.getElementById(map.priceId);
+      const chgEl = document.getElementById(map.chgId);
+      if (priceEl) priceEl.textContent = fmtFinPrice(item.price, item.unit);
+      if (chgEl) chgEl.innerHTML = fmtFinChg(item.change, item.change_pct, item.unit);
+      if (map.subId) {
+        const subEl = document.getElementById(map.subId);
+        if (subEl) {
+          let sub = '';
+          if (item.low) sub += `<span>کم: ${item.low.toLocaleString('en-US')}</span>`;
+          if (item.high) sub += `<span>بیش: ${item.high.toLocaleString('en-US')}</span>`;
+          if (sym === 'gold18') {
+            const mesghal = d.markets.find(m => m.symbol === 'mesghal');
+            if (mesghal) sub += `<span>مثقال: ${mesghal.price.toLocaleString('en-US')}</span>`;
+          }
+          if (sym === 'ounce') sub += `<span>دلار</span>`;
+          subEl.innerHTML = sub;
+        }
+      }
+      // coin bubble
+      if (sym === 'coin' && item.bubble != null) {
+        const bubbleEl = document.getElementById('finKpiCoinBubble');
+        if (bubbleEl) {
+          const isPos = item.bubble >= 0;
+          bubbleEl.className = 'fin-kpi-bubble ' + (isPos ? 'pos' : 'neg');
+          bubbleEl.style.display = 'inline-block';
+          bubbleEl.textContent = 'حباب: ' + Math.abs(Math.round(item.bubble)).toLocaleString('en-US') + ' ریال' + (isPos ? ' ▲' : ' ▼');
+        }
+      }
+      // sparkline
+      if (item.sparkline?.length > 1 && map.sparkId) {
+        drawSparkline(map.sparkId, item.sparkline.map(s => s.price), item.change_pct >= 0);
+      }
+    }
+
+    // market table
+    const tbody = document.getElementById('finTableBody');
+    const tableSyms = ['usd','gold18','mesghal','coin','ounce','tether','oil_brent','bitcoin','stock_market'];
+    tbody.innerHTML = tableSyms.map(sym => {
+      const item = d.markets.find(m => m.symbol === sym);
+      if (!item) return '';
+      const dir = item.change_pct != null ? (item.change_pct >= 0 ? 'up' : 'down') : '';
+      const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '';
+      return `<tr onclick="openFinanceModal('${item.symbol}')">
+        <td class="fin-name">${item.name}</td>
+        <td class="fin-price">${item.price.toLocaleString('en-US')}</td>
+        <td class="fin-chg ${dir}">${arrow} ${item.change != null ? Math.abs(item.change).toLocaleString('en-US') : '—'}</td>
+        <td class="fin-chg ${dir}">${item.change_pct != null ? Math.abs(item.change_pct).toFixed(2) + '%' : '—'}</td>
+        <td style="direction:ltr;color:var(--text3)">${item.low ? item.low.toLocaleString('en-US') : '—'}</td>
+        <td style="direction:ltr;color:var(--text3)">${item.high ? item.high.toLocaleString('en-US') : '—'}</td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    console.warn('[finance]', e.message);
+  }
+
+  // auto-refresh هر ۶۰ ثانیه
+  if (_finPoll) clearInterval(_finPoll);
+  _finPoll = setInterval(loadFinance, 60000);
+}
+
+// رسم sparkline مینی
+function drawSparkline(canvasId, data, isUp) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !data?.length) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = 80;
+  ctx.scale(2, 2);
+  const cw = canvas.offsetWidth, ch = 40;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const step = cw / (data.length - 1);
+  const color = isUp ? '#0fd17a' : '#f05252';
+  ctx.clearRect(0, 0, cw, ch);
+  // area
+  ctx.beginPath();
+  ctx.moveTo(0, ch);
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = ch - ((v - min) / range) * (ch - 4) - 2;
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(cw, ch);
+  ctx.closePath();
+  ctx.fillStyle = isUp ? 'rgba(15,209,122,.12)' : 'rgba(240,82,82,.12)';
+  ctx.fill();
+  // line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = ch - ((v - min) / range) * (ch - 4) - 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// modal جزئیات
+async function openFinanceModal(symbol) {
+  const modal = document.getElementById('financeModal');
+  modal.classList.add('show');
+
+  try {
+    const [detailsR, histR] = await Promise.all([
+      fetch('/api/finance/' + symbol, {headers:{Authorization:'Bearer '+TOKEN}}),
+      fetch('/api/finance/' + symbol + '/history?hours=24', {headers:{Authorization:'Bearer '+TOKEN}}),
+    ]);
+
+    if (detailsR.ok) {
+      const d = await detailsR.json();
+      const cur = d.current;
+      document.getElementById('financeModalTitle').textContent = cur.name;
+      document.getElementById('financeModalPrice').textContent = cur.price.toLocaleString('en-US') + (cur.unit ? ' ' + cur.unit : '');
+      document.getElementById('financeModalTime').textContent = 'آخرین بروزرسانی: ' + new Date(cur.timestamp).toLocaleString('fa-IR');
+
+      const changes = [
+        { label: 'تغییر روزانه',     data: d.daily },
+        { label: 'تغییر ۳ ماهه',     data: d.quarterly },
+        { label: 'تغییر ۶ ماهه',     data: d.semiannual },
+        { label: 'نوسان سالیانه',   data: d.yearly },
+      ];
+      document.getElementById('financeModalChanges').innerHTML = changes.map(c => {
+        if (!c.data) return `<div class="fin-chg-card"><div class="fin-chg-label">${c.label}</div><div class="fin-chg-val" style="color:var(--text3)">—</div></div>`;
+        const dir = c.data.change >= 0 ? 'up' : 'down';
+        return `<div class="fin-chg-card">
+          <div class="fin-chg-label">${c.label}</div>
+          <div class="fin-chg-val ${dir}">${c.data.change >= 0 ? '+' : ''}${Math.round(c.data.change).toLocaleString('en-US')} (${c.data.pct >= 0 ? '+' : ''}${c.data.pct.toFixed(2)}%)</div>
+        </div>`;
+      }).join('');
+    }
+
+    if (histR.ok) {
+      const h = await histR.json();
+      drawFinanceChart(h.history);
+    }
+  } catch(e) {
+    console.warn('[finance-modal]', e.message);
+  }
+}
+
+function closeFinanceModal() {
+  document.getElementById('financeModal').classList.remove('show');
+  if (_finChart) { _finChart.destroy(); _finChart = null; }
+}
+
+function drawFinanceChart(history) {
+  const ctx = document.getElementById('financeChart');
+  if (!ctx || !history?.length) return;
+  if (_finChart) _finChart.destroy();
+  _finChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: history.map(h => new Date(h.timestamp).toLocaleTimeString('fa-IR')),
+      datasets: [{
+        data: history.map(h => h.price),
+        borderColor: '#4f83f7',
+        backgroundColor: 'rgba(79,131,247,.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#3d4f72', maxTicksLimit: 6, font: { size: 9 } }, grid: { display: false } },
+        y: { ticks: { color: '#3d4f72', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+      },
+      interaction: { mode: 'index', intersect: false },
+    }
+  });
 }
 
 checkAuth();

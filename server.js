@@ -23,6 +23,8 @@ const { signToken, requireAuth, requireSuperAdmin } = require('./auth');
 const { startScheduler, load, loadRssLive } = require('./crawler');
 const { startMarketScheduler } = require('./market-crawler');
 const marketRouter = require('./market-api');
+const financeRouter = require('./finance-api');
+const financeCrawler = require('./finance-crawler');
 const { startJobScheduler } = require('./job-crawler');
 const jobRouter = require('./job-api');
 const { startDigestScheduler, loadDigest, refresh4h, refresh24h } = require('./ai-digest');
@@ -168,6 +170,7 @@ app.get('/api/admin/online-users', requireSuperAdmin, (req, res) => {
 app.use('/api/market', requireAuth, marketRouter);
 app.use('/api/jobs', requireAuth, jobRouter);
 app.use('/api/news', requireAuth, newsRouter);
+app.use('/api/finance', requireAuth, financeRouter);
 
 // media proxy برای عکس/ویدیو تلگرام
 app.get('/api/news/media', requireAuth, (req, res) => {
@@ -400,5 +403,6 @@ app.listen(PORT, () => {
   startMarketScheduler();
   startJobScheduler();
   startDigestScheduler();
+  financeCrawler.startScheduler();
   startNewsBot();
 });
