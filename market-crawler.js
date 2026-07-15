@@ -16,7 +16,7 @@ async function getBrowser() {
   if (browser && browser.isConnected()) return browser;
   browser = await puppeteer.launch({
     executablePath: CONFIG.chromePath,
-    headless: true,
+    headless: 'new',
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
   return browser;
