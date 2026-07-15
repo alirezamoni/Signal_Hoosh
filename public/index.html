@@ -6,7 +6,6 @@
 <title>سیگنال هوش - مانیتور هوشمند ایران</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f83f7'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='18' font-weight='800' fill='white' font-family='system-ui'>S</text></svg>">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -511,17 +510,31 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 @media(max-width:900px){.news-stats-grid{grid-template-columns:repeat(3,1fr)}.news-stats-row{grid-template-columns:1fr}}
 @media(max-width:600px){.news-stats-grid{grid-template-columns:repeat(2,1fr)}}
 
-/* ═══ WORD CLOUD ═══ */
-.wordcloud-section{margin-top:28px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px}
-.wordcloud-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.wordcloud-container{position:relative;width:100%;min-height:500px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:12px}
-.wordcloud-container canvas{display:block;width:100%;height:auto;border-radius:12px}
-.wordcloud-empty{text-align:center;padding:80px 20px;color:var(--text3);font-size:13px}
-.wc-spinner{display:flex;align-items:center;justify-content:center;gap:8px;padding:80px 20px;color:var(--text3);font-size:13px}
-.wc-spinner .ai-spinner{display:inline-block;width:20px;height:20px;border:2.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.wc-legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
-.wc-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+/* ═══ LOADING ANIMATION ═══ */
+.loader-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px}
+.loader-letters{display:flex;gap:2px}
+.loader-letter{display:inline-block;font-size:1.6rem;font-weight:700;color:var(--accent);font-family:var(--font);animation:loaderBounce .6s ease-in-out infinite alternate}
+.loader-letter:nth-child(1){animation-delay:0s}
+.loader-letter:nth-child(2){animation-delay:.05s}
+.loader-letter:nth-child(3){animation-delay:.1s}
+.loader-letter:nth-child(4){animation-delay:.15s}
+.loader-letter:nth-child(5){animation-delay:.2s}
+.loader-letter:nth-child(6){animation-delay:.25s}
+.loader-letter:nth-child(7){animation-delay:.3s}
+.loader-letter:nth-child(8){animation-delay:.35s}
+.loader-letter:nth-child(9){animation-delay:.4s}
+@keyframes loaderBounce{from{transform:translateY(0);opacity:1}to{transform:translateY(-12px);opacity:.3}}
+.loader-bar{width:80px;height:4px;background:linear-gradient(90deg,transparent,var(--accent),transparent);border-radius:2px;animation:loaderSlide 1.2s ease-in-out infinite}
+@keyframes loaderSlide{0%{transform:translateX(-40px)}100%{transform:translateX(40px)}}
+
+/* ═══ TRENDS STATS ═══ */
+.trends-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.tstat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.tstat-label{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;margin-bottom:6px}
+.tstat-val{font-size:22px;font-weight:800;color:var(--text);line-height:1.2}
+.tstat-sub{font-size:10px;color:var(--text2);margin-top:3px}
+@media(max-width:900px){.trends-stats-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.trends-stats-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -584,6 +597,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 <!-- DASHBOARD -->
 <div class="content" id="dashContent">
 
+  <!-- آمار ترند -->
+  <div class="trends-stats-grid" id="trendsStatsGrid">
+    <div class="tstat-card"><div class="tstat-label">ترندهای ۴ ساعت</div><div class="tstat-val" id="tstat4h">—</div><div class="tstat-sub">کلیدواژه فعال</div></div>
+    <div class="tstat-card"><div class="tstat-label">ترندهای ۲۴ ساعت</div><div class="tstat-val" id="tstat24h">—</div><div class="tstat-sub">کلیدواژه فعال</div></div>
+    <div class="tstat-card"><div class="tstat-label">ترندهای جدید</div><div class="tstat-val" id="tstatNew" style="color:var(--green)">—</div><div class="tstat-sub">از آخرین بررسی</div></div>
+    <div class="tstat-card"><div class="tstat-label">بیشترین رشد</div><div class="tstat-val" id="tstatTopGrowth" style="color:var(--accent)">—</div><div class="tstat-sub" id="tstatTopGrowthKw">—</div></div>
+    <div class="tstat-card"><div class="tstat-label">دسته غالب</div><div class="tstat-val" id="tstatTopCat" style="color:var(--purple)">—</div><div class="tstat-sub" id="tstatTopCatCount">—</div></div>
+  </div>
+
   <!-- تحلیل AI — ۴ ساعت اخیر -->
   <div class="ai-digest" id="aiDigest4h">
     <div class="ai-head-row">
@@ -593,7 +615,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
       <button onclick="refreshDigest('4h')" class="btn-sm" style="margin-right:auto;font-size:11px;padding:3px 8px">↻ بروزرسانی</button>
     </div>
     <div class="ai-body" id="aiBody4h">
-      <div class="ai-loading"><div class="ai-spinner"></div> هوش مصنوعی در حال تحلیل...</div>
+      <div class="ai-loading">هوش مصنوعی در حال تحلیل...</div>
     </div>
   </div>
 
@@ -617,7 +639,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
       <button onclick="refreshDigest('24h')" class="btn-sm" style="margin-right:auto;font-size:11px;padding:3px 8px">↻ بروزرسانی</button>
     </div>
     <div class="ai-body" id="aiBody24h">
-      <div class="ai-loading"><div class="ai-spinner"></div> هوش مصنوعی در حال تحلیل...</div>
+      <div class="ai-loading">هوش مصنوعی در حال تحلیل...</div>
     </div>
   </div>
 
@@ -630,18 +652,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <thead><tr><th>#</th><th>کلیدواژه</th><th>حجم جستجو</th><th>رشد</th><th>وضعیت</th><th>زمان</th></tr></thead>
     <tbody id="tbody24h"></tbody>
   </table>
-
-  <!-- ابرکلمات -->
-  <div class="wordcloud-section" id="wordcloudSection">
-    <div class="wordcloud-title">
-      <span style="font-size:18px">☁</span> ابرکلمات جامع ایران
-      <span style="font-size:10px;color:var(--text3);font-weight:400;margin-right:auto" id="wordcloudTime"></span>
-    </div>
-    <div class="wordcloud-container" id="wordcloudContainer">
-      <div class="wc-spinner"><div class="ai-spinner"></div> در حال بارگذاری ابرکلمات...</div>
-    </div>
-    <div class="wc-legend" id="wcLegend"></div>
-  </div>
 
 </div>
 </div>
@@ -1003,6 +1013,15 @@ function closeModal(id){const el=document.getElementById(id);if(el){el.style.dis
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block'}
 function hideError(id){document.getElementById(id).style.display='none'}
 
+// لودینگ "Generating" — HTML قابل استفاده
+function generatingHTML() {
+  const letters = 'Generating'.split('');
+  return `<div class="loader-wrapper">
+    <div class="loader-letters">${letters.map(l=>`<span class="loader-letter">${l}</span>`).join('')}</div>
+    <div class="loader-bar"></div>
+  </div>`;
+}
+
 // ══ CLOCK ══
 function updateClock(){
   const now=new Date();
@@ -1130,13 +1149,13 @@ setInterval(fetchTrends,5*60*1000);
 
 // ══ RENDER ══
 function renderAll(){
+  renderTrendsStats();
   renderHotGrid();
   renderTable(LIVE_4H.slice(10), 'tbody4h', 11);
   renderTable(LIVE_24H, 'tbody24h', 1);
   document.getElementById('count24h').textContent = LIVE_24H.length + ' ترند';
   loadAIDigest4h();
   loadAIDigest24h();
-  loadWordCloud();
 }
 
 function renderHotGrid(){
@@ -1727,7 +1746,7 @@ async function setAIModel(modelId) {
 
 async function refreshDigest(type) {
   const bodyId = type==='4h' ? 'aiBody4h' : 'aiBody24h';
-  document.getElementById(bodyId).innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div> در حال بروزرسانی...</div>';
+  document.getElementById(bodyId).innerHTML = generatingHTML();
   try {
     await fetch('/api/digest/'+type+'/refresh', {method:'POST', headers:{Authorization:'Bearer '+TOKEN}});
     setTimeout(() => type==='4h' ? loadAIDigest4h() : loadAIDigest24h(), 5000);
@@ -1851,6 +1870,7 @@ let newsChannelFilter = null;
 let newsCatFilter = null;
 let _newsOffset = 0;
 const NEWS_PAGE = 20;
+let _channelsCache = null;              // cache کانال‌ها — جلوگیری از fetch مجدد
 let _renderedNewsIds = new Set();      // ID خبرهایی که الان روی صفحه هستن
 let _newsExpandState = new Map();      // id -> bool (باز/بسته) — مستقل از رندر مجدد
 let _newsGalleryIndex = new Map();     // id -> index اسلاید فعلی
@@ -2114,25 +2134,44 @@ function renderNewsFeed(news, mode='replace') {
 }
 
 async function loadNews() {
-  // آمار اخبار
-  loadNewsStats();
+  // لودینگ فوری
+  document.getElementById('newsDigestBody').innerHTML = generatingHTML();
+  document.getElementById('newsFeed').innerHTML = '<div class="news-empty">' + generatingHTML() + '</div>';
 
-  try {
-    const r = await fetch('/api/news/digest', {headers:{Authorization:'Bearer '+TOKEN}});
-    if (r.ok) {
-      const d = await r.json();
+  const h = {Authorization:'Bearer '+TOKEN};
+
+  // همه fetchها موازی — سریع‌تر
+  const [statsR, digestR, channelsR, feedR] = await Promise.allSettled([
+    fetch('/api/news/stats', {headers:h}),
+    fetch('/api/news/digest', {headers:h}),
+    fetch('/api/news/channels', {headers:h}),
+    fetch(`/api/news/feed?limit=${NEWS_PAGE}&offset=0`, {headers:h}),
+  ]);
+
+  // آمار
+  if (statsR.status === 'fulfilled' && statsR.value.ok) {
+    try { loadNewsStats(await statsR.value.json()); } catch(e) {}
+  }
+
+  // digest
+  if (digestR.status === 'fulfilled' && digestR.value.ok) {
+    try {
+      const d = await digestR.value.json();
       const text = (d.text||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
       document.getElementById('newsDigestBody').innerHTML = text || 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود';
       if (d.created_at) document.getElementById('newsDigestTime').textContent = 'بروزرسانی: '+timeAgo(d.created_at);
-    } else {
+    } catch(e) {
       document.getElementById('newsDigestBody').innerHTML = 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود';
     }
-  } catch(e) { document.getElementById('newsDigestBody').innerHTML = 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود'; }
+  } else {
+    document.getElementById('newsDigestBody').innerHTML = 'گزارش هوشمند پس از دریافت اخبار تولید می‌شود';
+  }
 
-  try {
-    const r = await fetch('/api/news/channels', {headers:{Authorization:'Bearer '+TOKEN}});
-    if (r.ok) {
-      const channels = await r.json();
+  // channels — cache کن برای استفاده در fetchNewsPage
+  if (channelsR.status === 'fulfilled' && channelsR.value.ok) {
+    try {
+      const channels = await channelsR.value.json();
+      _channelsCache = channels;
       document.getElementById('newsChannelBtns').innerHTML = channels.map(c =>
         '<button class="nfbtn" onclick="filterNews('+c.id+',null,this)">'+c.title+'</button>'
       ).join('');
@@ -2142,12 +2181,26 @@ async function loadNews() {
             '<button class="nfbtn" onclick="filterNews(null,`'+cat+'`,this)">'+cat+'</button>'
           ).join('') : '';
       if (CURRENT_USER?.role==='superadmin') document.getElementById('newsAdminBtn').style.display='';
-    }
-  } catch(e) {}
+    } catch(e) {}
+  }
 
-  await refreshNewsFeed();
+  // feed
+  if (feedR.status === 'fulfilled' && feedR.value.ok) {
+    try {
+      let news = await feedR.value.json();
+      if (newsCatFilter && _channelsCache) {
+        const catIds = new Set(_channelsCache.filter(c=>c.category===newsCatFilter).map(c=>c.id));
+        news = news.filter(n=>catIds.has(n.channel_id));
+      }
+      renderNewsFeed(news, 'replace');
+      document.getElementById('newsLoadMore').style.display = news.length >= NEWS_PAGE ? 'block' : 'none';
+    } catch(e) {
+      document.getElementById('newsFeed').innerHTML = '<div class="news-empty">خطا در بارگذاری اخبار</div>';
+    }
+  }
+
   if (_newsPollTimer) clearInterval(_newsPollTimer);
-  _newsPollTimer = setInterval(pollNewNews, 5000);
+  _newsPollTimer = setInterval(pollNewNews, 8000);
 }
 
 function filterNews(channelId, cat, btn) {
@@ -2165,10 +2218,8 @@ async function fetchNewsPage(offset) {
   const r = await fetch(url, {headers:{Authorization:'Bearer '+TOKEN}});
   if (!r.ok) return [];
   let news = await r.json();
-  if (newsCatFilter) {
-    const cr = await fetch('/api/news/channels',{headers:{Authorization:'Bearer '+TOKEN}});
-    const channels = await cr.json();
-    const catIds = new Set(channels.filter(c=>c.category===newsCatFilter).map(c=>c.id));
+  if (newsCatFilter && _channelsCache) {
+    const catIds = new Set(_channelsCache.filter(c=>c.category===newsCatFilter).map(c=>c.id));
     news = news.filter(n=>catIds.has(n.channel_id));
   }
   return news;
@@ -2208,7 +2259,7 @@ async function loadMoreNews() {
 }
 
 async function refreshNewsDigest() {
-  document.getElementById('newsDigestBody').innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div> در حال تولید گزارش...</div>';
+  document.getElementById('newsDigestBody').innerHTML = generatingHTML();
   try {
     await fetch('/api/news/digest/generate', {method:'POST', headers:{Authorization:'Bearer '+TOKEN}});
     setTimeout(async () => {
@@ -2266,12 +2317,9 @@ async function loadOnlineUsers() {
 // ══════════════════════════════════════
 //  آمار اخبار
 // ══════════════════════════════════════
-async function loadNewsStats() {
+async function loadNewsStats(s) {
+  if (!s) return;
   try {
-    const r = await fetch('/api/news/stats',{headers:{Authorization:'Bearer '+TOKEN}});
-    if(!r.ok) return;
-    const s = await r.json();
-
     // کارت‌های آماری
     document.getElementById('newsStatsGrid').innerHTML = `
       <div class="nstat-card">
@@ -2381,118 +2429,33 @@ async function loadNewsStats() {
 }
 
 // ══════════════════════════════════════
-//  ابرکلمات (Word Cloud — canvas با کیفیت بالا)
+//  آمار ترند
 // ══════════════════════════════════════
-let _wcData = null;
-const WC_COLORS = { // رنگ دسته‌بندی‌ها
-  'ترند جستجو': '#4f83f7',
-  'پرفروش دیجی‌کالا': '#0fd17a',
-  'بازار کار': '#f5a623',
-  'خبرگزاری‌ها': '#9b7cfc',
-};
-const WC_FALLBACK_COLORS = ['#22d3ee','#f472b6','#f05252','#7c8db5'];
+function renderTrendsStats() {
+  // تعداد ترندهای ۴h و ۲۴h
+  document.getElementById('tstat4h').textContent = toFa(LIVE_4H.length);
+  document.getElementById('tstat24h').textContent = toFa(LIVE_24H.length);
 
-async function loadWordCloud() {
-  const container = document.getElementById('wordcloudContainer');
-  if (!container) return;
+  // ترندهای جدید
+  const newCount = LIVE_4H.filter(t => t._isNew).length + LIVE_24H.filter(t => t._isNew).length;
+  document.getElementById('tstatNew').textContent = toFa(newCount);
 
-  if (!_wcData) {
-    container.innerHTML = '<div class="wc-spinner"><div class="ai-spinner"></div> در حال بارگذاری ابرکلمات...</div>';
-    try {
-      const r = await fetch('/api/trends/wordcloud', {headers:{Authorization:'Bearer '+TOKEN}});
-      if(!r.ok) return;
-      const d = await r.json();
-      if(!d.words?.length) {
-        container.innerHTML = '<div class="wordcloud-empty">داده‌ای موجود نیست</div>';
-        return;
-      }
-      _wcData = d;
-      if(d.updatedAt) {
-        document.getElementById('wordcloudTime').textContent = 'آخرین بروزرسانی: ' + new Date(d.updatedAt).toLocaleString('fa-IR');
-      }
-    } catch(e) {
-      container.innerHTML = '<div class="wordcloud-empty">خطا در بارگذاری</div>';
-      return;
-    }
+  // بیشترین رشد
+  const allTrends = [...LIVE_4H, ...LIVE_24H];
+  const topGrowth = allTrends.reduce((max, t) => (t.growth > (max?.growth || 0) ? t : max), null);
+  if (topGrowth) {
+    document.getElementById('tstatTopGrowth').textContent = toFa(topGrowth.growth) + '٪';
+    document.getElementById('tstatTopGrowthKw').textContent = cleanKeyword(topGrowth.keyword).slice(0, 20);
   }
 
-  const words = _wcData.words;
-
-  // نرمال‌سازی وزن‌ها
-  const maxW = Math.max(...words.map(w=>w.weight), 1);
-  const minW = Math.min(...words.map(w=>w.weight), 0);
-  const range = maxW - minW || 1;
-
-  // آماده‌سازی داده: [کلمه, اندازه, رنگ]
-  const list = [];
-  const catColors = {}; // برای legend
-  for (const w of words) {
-    const kw = (w.text || '').replace(/[\u200f\u200e\u202a-\u202e]/g, '').trim();
-    if (!kw) continue;
-    const norm = (w.weight - minW) / range;
-    const size = Math.round(14 + norm * 46); // ۱۴px تا ۶۰px
-    const color = WC_COLORS[w.cat] || WC_FALLBACK_COLORS[Object.keys(catColors).length % WC_FALLBACK_COLORS.length];
-    catColors[w.cat] = color;
-    list.push([kw, size, color]);
+  // دسته غالب
+  const catCounts = {};
+  allTrends.forEach(t => { if (t.cat) catCounts[t.cat] = (catCounts[t.cat] || 0) + 1; });
+  const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
+  if (topCat) {
+    document.getElementById('tstatTopCat').textContent = topCat[0];
+    document.getElementById('tstatTopCatCount').textContent = toFa(topCat[1]) + ' ترند';
   }
-
-  if (!list.length) {
-    container.innerHTML = '<div class="wordcloud-empty">داده‌ای موجود نیست</div>';
-    return;
-  }
-
-  // ساخت canvas با کیفیت بالا (Retina-ready)
-  const dpr = window.devicePixelRatio || 1;
-  const rect = container.getBoundingClientRect();
-  const cssWidth = Math.min(rect.width || 1000, 1200);
-  const cssHeight = Math.min(Math.max(500, cssWidth * 0.5), 650);
-
-  container.innerHTML = '<canvas id="wcCanvas"></canvas>';
-  const canvas = document.getElementById('wcCanvas');
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
-  canvas.width = cssWidth * dpr;
-  canvas.height = cssHeight * dpr;
-
-  // legend
-  const legendEl = document.getElementById('wcLegend');
-  const catEntries = Object.entries(catColors).filter(([name]) => name);
-  legendEl.innerHTML = catEntries.map(([name, color]) =>
-    `<span class="wc-legend-item"><span style="width:10px;height:10px;border-radius:3px;background:${color};display:inline-block"></span>${name}</span>`
-  ).join('');
-
-  if (typeof WordCloud === 'undefined') {
-    container.innerHTML = '<div class="wordcloud-empty">کتابخانه ابرکلمات بارگذاری نشده</div>';
-    return;
-  }
-
-  WordCloud(canvas, {
-    list: list,
-    fontFamily: 'Vazirmatn, system-ui, sans-serif',
-    fontWeight: function(word, idx) { return idx < 5 ? '800' : idx < 20 ? '700' : '600'; },
-    color: function(word, idx) { return list[idx] ? list[idx][2] : '#7c8db5'; },
-    backgroundColor: 'transparent',
-    rotateRatio: 0.4,
-    rotationSteps: 2,
-    rotationRange: [-30, 30],
-    minRotation: -30,
-    maxRotation: 30,
-    spiral: 'archimedean',
-    drawOutOfBound: false,
-    shrinkToFit: true,
-    gridSize: Math.round(12 * dpr),
-    weightFactor: function(size) { return size * dpr; },
-    clearCanvas: true,
-    hover: function(item, dim, ev) {
-      if (item) canvas.style.cursor = 'pointer';
-      else canvas.style.cursor = 'default';
-    },
-    click: function(item) {
-      if (item) {
-        window.open('https://www.google.com/search?q=' + encodeURIComponent(item[0]), '_blank');
-      }
-    },
-  });
 }
 
 function goHome() {
