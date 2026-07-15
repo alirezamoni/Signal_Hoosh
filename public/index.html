@@ -601,8 +601,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   <div class="trends-stats-grid" id="trendsStatsGrid">
     <div class="tstat-card"><div class="tstat-label">ترندهای ۴ ساعت</div><div class="tstat-val" id="tstat4h">—</div><div class="tstat-sub">کلیدواژه فعال</div></div>
     <div class="tstat-card"><div class="tstat-label">ترندهای ۲۴ ساعت</div><div class="tstat-val" id="tstat24h">—</div><div class="tstat-sub">کلیدواژه فعال</div></div>
-    <div class="tstat-card"><div class="tstat-label">ترندهای جدید</div><div class="tstat-val" id="tstatNew" style="color:var(--green)">—</div><div class="tstat-sub">از آخرین بررسی</div></div>
-    <div class="tstat-card"><div class="tstat-label">بیشترین رشد</div><div class="tstat-val" id="tstatTopGrowth" style="color:var(--accent)">—</div><div class="tstat-sub" id="tstatTopGrowthKw">—</div></div>
+    <div class="tstat-card"><div class="tstat-label">ترندهای فعال</div><div class="tstat-val" id="tstatActive" style="color:var(--green)">—</div><div class="tstat-sub">از کل ترندها</div></div>
+    <div class="tstat-card"><div class="tstat-label">میانگین رشد</div><div class="tstat-val" id="tstatAvgGrowth" style="color:var(--accent)">—</div><div class="tstat-sub" id="tstatTopGrowthKw">—</div></div>
     <div class="tstat-card"><div class="tstat-label">دسته غالب</div><div class="tstat-val" id="tstatTopCat" style="color:var(--purple)">—</div><div class="tstat-sub" id="tstatTopCatCount">—</div></div>
   </div>
 
@@ -2432,29 +2432,36 @@ async function loadNewsStats(s) {
 //  آمار ترند
 // ══════════════════════════════════════
 function renderTrendsStats() {
-  // تعداد ترندهای ۴h و ۲۴h
+  const allTrends = [...LIVE_4H, ...LIVE_24H];
+
+  // تعداد ترندها
   document.getElementById('tstat4h').textContent = toFa(LIVE_4H.length);
   document.getElementById('tstat24h').textContent = toFa(LIVE_24H.length);
 
-  // ترندهای جدید
-  const newCount = LIVE_4H.filter(t => t._isNew).length + LIVE_24H.filter(t => t._isNew).length;
-  document.getElementById('tstatNew').textContent = toFa(newCount);
+  // ترندهای فعال (active = true)
+  const activeCount = allTrends.filter(t => t.active).length;
+  document.getElementById('tstatActive').textContent = toFa(activeCount);
 
-  // بیشترین رشد
-  const allTrends = [...LIVE_4H, ...LIVE_24H];
-  const topGrowth = allTrends.reduce((max, t) => (t.growth > (max?.growth || 0) ? t : max), null);
-  if (topGrowth) {
-    document.getElementById('tstatTopGrowth').textContent = toFa(topGrowth.growth) + '٪';
-    document.getElementById('tstatTopGrowthKw').textContent = cleanKeyword(topGrowth.keyword).slice(0, 20);
+  // میانگین رشد + بیشترین رشد
+  if (allTrends.length) {
+    const avgGrowth = Math.round(allTrends.reduce((s, t) => s + (t.growth || 0), 0) / allTrends.length);
+    document.getElementById('tstatAvgGrowth').textContent = toFa(avgGrowth) + '٪';
+    const topGrowth = allTrends.reduce((max, t) => (t.growth > (max?.growth || 0) ? t : max), null);
+    if (topGrowth) {
+      document.getElementById('tstatTopGrowthKw').textContent = 'بیشترین: ' + cleanKeyword(topGrowth.keyword).slice(0, 18) + ' (' + toFa(topGrowth.growth) + '٪)';
+    }
   }
 
   // دسته غالب
   const catCounts = {};
-  allTrends.forEach(t => { if (t.cat) catCounts[t.cat] = (catCounts[t.cat] || 0) + 1; });
-  const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
-  if (topCat) {
-    document.getElementById('tstatTopCat').textContent = topCat[0];
-    document.getElementById('tstatTopCatCount').textContent = toFa(topCat[1]) + ' ترند';
+  allTrends.forEach(t => { if (t.cat && t.cat.trim()) catCounts[t.cat] = (catCounts[t.cat] || 0) + 1; });
+  const catEntries = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+  if (catEntries.length) {
+    document.getElementById('tstatTopCat').textContent = catEntries[0][0];
+    document.getElementById('tstatTopCatCount').textContent = toFa(catEntries[0][1]) + ' ترند';
+  } else {
+    document.getElementById('tstatTopCat').textContent = '—';
+    document.getElementById('tstatTopCatCount').textContent = 'دسته‌بندی نشده';
   }
 }
 

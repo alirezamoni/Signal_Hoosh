@@ -145,12 +145,18 @@ async function scrapeTrends(url, label) {
   }
 }
 
-// ── AI دسته‌بندی ──────────────────────────────────────────
+// ── AI دسته‌بندی (با fallback مدل‌های رایگان) ──────────────
+const FREE_MODELS = [
+  'openai/gpt-oss-20b:free',
+  'nvidia/nemotron-nano-12b-v2-vl:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+];
+
 async function aiCategorize(trends) {
   if (!trends.length) return trends;
-  try {
-    const keywords = trends.map((t,i)=>`${i+1}. ${t.keyword}`).join('\n');
-    const prompt = `این لیست کلیدواژه‌های ترند جستجو در ایران است. برای هر کدام یک دسته‌بندی فارسی مناسب بنویس.
+  const keywords = trends.map((t,i)=>`${i+1}. ${t.keyword}`).join('\n');
+  const prompt = `این لیست کلیدواژه‌های ترند جستجو در ایران است. برای هر کدام یک دسته‌بندی فارسی مناسب بنویس.
 
 ${keywords}
 
@@ -159,44 +165,66 @@ ${keywords}
 
 دسته‌بندی‌های مجاز (فقط از این‌ها): ورزشی، اقتصادی، سیاسی، سرگرمی، اجتماعی، مذهبی، تکنولوژی، خودرو، سلامت، مالی، قیمت کالا، علم`;
 
-    const body = JSON.stringify({
-      model: settingsDB.get('ai_model', 'openai/gpt-oss-20b:free'),
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 600,
-    });
+  // مدل‌های امتحان: اول مدل تنظیمات، بعد fallback
+  const preferred = settingsDB.get('ai_model', 'openai/gpt-oss-20b:free');
+  const models = [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
 
-    const result = await new Promise((resolve, reject) => {
-      const req = https.request({
-        hostname: 'openrouter.ai',
-        path: '/api/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${CONFIG.openrouterKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://signal.ir',
-          'X-Title': 'Signal Crawler',
-          'Content-Length': Buffer.byteLength(body),
-        },
-      }, res => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+  for (const model of models) {
+    try {
+      const body = JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 600,
       });
-      req.on('error', reject);
-      req.write(body);
-      req.end();
-    });
 
-    const text = result.choices?.[0]?.message?.content || '{}';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return trends;
-    const catMap = JSON.parse(jsonMatch[0]);
-    console.log('[AI] categories assigned');
-    return trends.map((t,i) => ({ ...t, cat: catMap[String(i+1)] || '' }));
-  } catch(e) {
-    console.warn('[AI categorize] error:', e.message);
-    return trends;
+      const result = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'openrouter.ai',
+          path: '/api/v1/chat/completions',
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${CONFIG.openrouterKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://signal.ir',
+            'X-Title': 'Signal Crawler',
+            'Content-Length': Buffer.byteLength(body),
+          },
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+        });
+        req.on('error', reject);
+        req.setTimeout(25000, () => { req.destroy(); reject(new Error('timeout')); });
+        req.write(body);
+        req.end();
+      });
+
+      const text = result.choices?.[0]?.message?.content || '';
+      if (!text || result.error) {
+        console.warn(`[AI categorize] ${model}: ${result.error?.message?.slice(0,60)||'no output'}`);
+        continue;
+      }
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.warn(`[AI categorize] ${model}: no JSON in response`);
+        continue;
+      }
+      const catMap = JSON.parse(jsonMatch[0]);
+      // چک کن که حداقل یک دسته غیرخالی داریم
+      const hasCats = Object.values(catMap).some(v => v && v.trim());
+      if (!hasCats) {
+        console.warn(`[AI categorize] ${model}: all categories empty`);
+        continue;
+      }
+      console.log(`[AI] categories assigned (${model})`);
+      return trends.map((t,i) => ({ ...t, cat: catMap[String(i+1)] || '' }));
+    } catch(e) {
+      console.warn(`[AI categorize] ${model} error:`, e.message);
+    }
   }
+  console.warn('[AI categorize] all models failed, returning without categories');
+  return trends;
 }
 
 function save(key, data) {
