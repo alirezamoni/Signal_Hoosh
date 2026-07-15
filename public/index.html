@@ -6,6 +6,7 @@
 <title>سیگنال هوش - مانیتور هوشمند ایران</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f83f7'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='18' font-weight='800' fill='white' font-family='system-ui'>S</text></svg>">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -513,10 +514,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 /* ═══ WORD CLOUD ═══ */
 .wordcloud-section{margin-top:28px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px}
 .wordcloud-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.wordcloud-container{min-height:260px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;padding:10px}
-.wc-word{display:inline-block;padding:4px 10px;border-radius:8px;cursor:default;transition:transform .15s,opacity .15s;line-height:1.3;white-space:nowrap}
-.wc-word:hover{transform:scale(1.12);opacity:.85}
-.wc-word.active::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;animation:pulse 2s infinite}
+.wordcloud-container{position:relative;width:100%;min-height:400px;display:flex;align-items:center;justify-content:center}
+.wordcloud-container canvas{max-width:100%;height:auto!important;border-radius:12px}
+.wordcloud-empty{text-align:center;padding:60px 20px;color:var(--text3);font-size:12px}
+.wordcloud-controls{display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.wc-ctrl{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:5px 12px;cursor:pointer;transition:all .15s}
+.wc-ctrl:hover{border-color:var(--accent);color:var(--accent)}
+.wc-ctrl input{accent-color:var(--accent)}
+.wc-ctrl select{background:var(--bg2);color:var(--text);border:none;border-radius:4px;font-family:var(--font);font-size:11px;outline:none}
+.wc-spinner{display:flex;align-items:center;justify-content:center;gap:8px;padding:60px 20px;color:var(--text3);font-size:12px}
+.wc-spinner .ai-spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -633,7 +641,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
       <span style="font-size:10px;color:var(--text3);font-weight:400;margin-right:auto" id="wordcloudTime"></span>
     </div>
     <div class="wordcloud-container" id="wordcloudContainer">
-      <div style="color:var(--text3);font-size:12px">در حال بارگذاری...</div>
+      <div class="wc-spinner"><div class="ai-spinner"></div> در حال بارگذاری ابرکلمات...</div>
+    </div>
+    <div class="wordcloud-controls">
+      <label class="wc-ctrl">
+        چرخش
+        <input type="checkbox" id="wcRotate" checked onchange="loadWordCloud()">
+      </label>
+      <label class="wc-ctrl">
+        چیدمان
+        <select id="wcSpiral" onchange="loadWordCloud()">
+          <option value="archimedean">مارپیچ</option>
+          <option value="rectangular">مستطیلی</option>
+        </select>
+      </label>
+      <button class="wc-ctrl" onclick="loadWordCloud()" style="cursor:pointer">↻ بازچینی</button>
     </div>
   </div>
 
@@ -1011,7 +1033,7 @@ function sendHeartbeat(){
   if(!TOKEN) return;
   fetch('/api/heartbeat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN,'X-Current-Tab':currentTab},body:JSON.stringify({tab:currentTab})}).catch(()=>{});
 }
-setInterval(sendHeartbeat,30000);
+setInterval(sendHeartbeat,15000);
 
 // ══ REFRESH BADGE ══
 function updateRefreshBadge(){
@@ -2218,7 +2240,7 @@ async function refreshNewsDigest() {
 }
 
 // ══════════════════════════════════════
-//  کاربران آنلاین (ادمین)
+//  کاربران آنلاین (ادمین) — auto-refresh
 // ══════════════════════════════════════
 const TAB_LABELS = {'trends':'ترند سرچ','market':'مارکت کالا','jobs':'مارکت کار','news':'اخبار'};
 let _onlinePollTimer = null;
@@ -2237,10 +2259,11 @@ async function loadOnlineUsers() {
     grid.innerHTML = d.users.map(u => {
       const idle = u.idleSeconds < 10 ? 'فعال' : u.idleSeconds < 60 ? toFa(u.idleSeconds) + ' ثانیه پیش' : toFa(Math.floor(u.idleSeconds/60)) + ' دقیقه پیش';
       const tabLabel = TAB_LABELS[u.currentTab] || u.currentTab || '—';
-      return `<div class="online-card">
+      const isMe = CURRENT_USER?.id === u.id;
+      return `<div class="online-card"${isMe?' style="border-color:var(--accent);background:rgba(79,131,247,.06)"':''}>
         <div class="online-avatar">${(u.name||'U')[0].toUpperCase()}</div>
         <div class="online-info">
-          <div class="online-name">${u.name}${u.role==='superadmin'?' <span class="admin-badge">ادمین</span>':''}</div>
+          <div class="online-name">${u.name}${u.role==='superadmin'?' <span class="admin-badge">ادمین</span>':''}${isMe?' <span style="font-size:9px;color:var(--text3)">(شما)</span>':''}</div>
           <div class="online-meta">
             <span class="online-tab-badge">${tabLabel}</span>
             <span class="online-idle">${idle}</span>
@@ -2248,9 +2271,9 @@ async function loadOnlineUsers() {
         </div>
       </div>`;
     }).join('');
-    // auto-refresh
+    // auto-refresh هر ۵ ثانیه — فقط وقتی تب آنلاین قابل‌مشاهده است
     if(_onlinePollTimer) clearInterval(_onlinePollTimer);
-    _onlinePollTimer = setInterval(loadOnlineUsers, 10000);
+    _onlinePollTimer = setInterval(loadOnlineUsers, 5000);
   } catch(e) {
     document.getElementById('onlineUsersGrid').innerHTML = '<div style="color:var(--red);font-size:12px">خطا در بارگذاری</div>';
   }
@@ -2374,39 +2397,104 @@ async function loadNewsStats() {
 }
 
 // ══════════════════════════════════════
-//  ابرکلمات (Word Cloud)
+//  ابرکلمات (Word Cloud — canvas-based)
 // ══════════════════════════════════════
+let _wcData = null;
+
 async function loadWordCloud() {
-  try {
-    const r = await fetch('/api/trends/wordcloud',{headers:{Authorization:'Bearer '+TOKEN}});
-    if(!r.ok) return;
-    const d = await r.json();
-    if(!d.words?.length) {
-      document.getElementById('wordcloudContainer').innerHTML = '<div style="color:var(--text3);font-size:12px">داده‌ای موجود نیست</div>';
+  const container = document.getElementById('wordcloudContainer');
+  if (!container) return;
+
+  // اگر داده از قبل هست، فقط دوباره رندر کن
+  if (!_wcData) {
+    container.innerHTML = '<div class="wc-spinner"><div class="ai-spinner"></div> در حال بارگذاری ابرکلمات...</div>';
+    try {
+      const r = await fetch('/api/trends/wordcloud', {headers:{Authorization:'Bearer '+TOKEN}});
+      if(!r.ok) return;
+      const d = await r.json();
+      if(!d.words?.length) {
+        container.innerHTML = '<div class="wordcloud-empty">داده‌ای موجود نیست</div>';
+        return;
+      }
+      _wcData = d;
+      if(d.updatedAt) {
+        document.getElementById('wordcloudTime').textContent = 'آخرین بروزرسانی: ' + new Date(d.updatedAt).toLocaleString('fa-IR');
+      }
+    } catch(e) {
+      container.innerHTML = '<div class="wordcloud-empty">خطا در بارگذاری</div>';
       return;
     }
-    if(d.updatedAt) {
-      document.getElementById('wordcloudTime').textContent = 'آخرین بروزرسانی: ' + new Date(d.updatedAt).toLocaleString('fa-IR');
-    }
-
-    // normalize weights
-    const maxW = Math.max(...d.words.map(w=>w.weight),1);
-    const minW = Math.min(...d.words.map(w=>w.weight),0);
-    const range = maxW - minW || 1;
-
-    const container = document.getElementById('wordcloudContainer');
-    container.innerHTML = d.words.map(w => {
-      // map weight to font size: 11px to 42px
-      const norm = (w.weight - minW) / range;
-      const size = Math.round(11 + norm * 31);
-      const opacity = 0.55 + norm * 0.45;
-      const c = CC[w.cat] || {bg:'rgba(255,255,255,.05)',color:'#7c8db5'};
-      const activeClass = w.active ? ' active' : '';
-      return `<span class="wc-word${activeClass}" style="font-size:${size}px;color:${c.color};opacity:${opacity};background:${c.bg}" title="${w.text} | ${fmtVol(w.weight)} جستجو | ${w.cat||'—'} | رشد ${toFa(w.growth||0)}٪">${cleanKeyword(w.text)}</span>`;
-    }).join('');
-  } catch(e) {
-    console.warn('[wordcloud]', e.message);
   }
+
+  const words = _wcData.words;
+  const withRotation = document.getElementById('wcRotate')?.checked ?? true;
+  const spiral = document.getElementById('wcSpiral')?.value || 'archimedean';
+
+  // رنگ‌ها برای ابر
+  const palette = ['#4f83f7','#0fd17a','#f5a623','#9b7cfc','#22d3ee','#f472b6','#f05252','#7c8db5'];
+  function getCatColor(cat) {
+    const c = CC[cat];
+    return c?.color || palette[Math.floor(Math.random()*palette.length)];
+  }
+
+  // آماده‌سازی داده برای wordcloud2.js: [word, size, color, ...]
+  const maxW = Math.max(...words.map(w=>w.weight), 1);
+  const minW = Math.min(...words.map(w=>w.weight), 0);
+  const range = maxW - minW || 1;
+
+  const list = words.map(w => {
+    const norm = (w.weight - minW) / range;
+    const size = Math.round(12 + norm * 42); // ۱۲px تا ۵۴px
+    const color = getCatColor(w.cat);
+    const kw = cleanKeyword(w.text);
+    return [kw, size, color];
+  }).filter(([text]) => text.length > 0);
+
+  // ساخت canvas
+  const width = Math.min(container.clientWidth || 800, 1000);
+  const height = 400;
+
+  container.innerHTML = '<canvas id="wcCanvas" width="' + width + '" height="' + height + '"></canvas>';
+  const canvas = document.getElementById('wcCanvas');
+
+  if (typeof WordCloud === 'undefined') {
+    container.innerHTML = '<div class="wordcloud-empty">کتابخانه ابرکلمات بارگذاری نشده</div>';
+    return;
+  }
+
+  WordCloud(canvas, {
+    list: list,
+    fontFamily: 'Vazirmatn, system-ui, sans-serif',
+    fontWeight: function(word, idx) { return idx < 5 ? '800' : idx < 15 ? '700' : '500'; },
+    color: function(word, idx) { return list[idx] ? list[idx][2] : palette[idx % palette.length]; },
+    backgroundColor: 'transparent',
+    rotateRatio: withRotation ? 0.5 : 0,
+    rotationSteps: 2,
+    rotationRange: [-45, 45],
+    minRotation: -45,
+    maxRotation: 45,
+    spiral: spiral,
+    drawOutOfBound: false,
+    shrinkToFit: true,
+    gridSize: Math.round(8 * width / 800),
+    weightFactor: function(size) { return size; },
+    hover: function(item, dim, ev) {
+      if (item) canvas.style.cursor = 'pointer';
+      else canvas.style.cursor = 'default';
+    },
+    click: function(item) {
+      if (item) {
+        const kw = item[0];
+        // جستجوی کلیدواژه در گوگل
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(kw), '_blank');
+      }
+    },
+  });
+
+  // اگر رندر ناموفق بود (کلمات جا نشدن)، حجم canvas رو بزرگتر کن
+  canvas.addEventListener('wordcloudstop', function() {
+    // موفقیت
+  });
 }
 
 function goHome() {

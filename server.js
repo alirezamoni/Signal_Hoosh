@@ -69,12 +69,6 @@ setInterval(() => {
 //  AUTH
 // ════════════════════════════════════
 
-// middleware ثبت فعالیت کاربر بعد از احراز هویت
-function trackActivity(req, res, next) {
-  trackOnlineUser(req);
-  next();
-}
-
 app.post('/api/auth/login', (req, res) => {
   const { mobile, password } = req.body;
   if (!mobile || !password)
