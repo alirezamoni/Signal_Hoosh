@@ -56,6 +56,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .admin-badge{font-size:9.5px;padding:1px 7px;border-radius:4px;background:rgba(155,124,252,.15);color:var(--purple);font-weight:600}
 .btn-sm{display:flex;align-items:center;gap:5px;background:rgba(79,131,247,.1);border:1px solid rgba(79,131,247,.2);color:var(--accent);border-radius:7px;padding:5px 11px;font-size:11.5px;font-family:var(--font);cursor:pointer;transition:all .15s;white-space:nowrap}
 .btn-sm:hover{background:rgba(79,131,247,.2)}
+.online-badge{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--green);background:rgba(15,209,122,.1);border:1px solid rgba(15,209,122,.2);border-radius:7px;padding:3px 9px;white-space:nowrap}
+.online-badge .live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
 .btn-danger-sm{display:flex;align-items:center;gap:5px;background:rgba(240,82,82,.08);border:1px solid rgba(240,82,82,.2);color:var(--red);border-radius:7px;padding:5px 11px;font-size:11.5px;font-family:var(--font);cursor:pointer;transition:all .15s}
 .btn-danger-sm:hover{background:rgba(240,82,82,.15)}
 
@@ -510,23 +512,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 @media(max-width:900px){.news-stats-grid{grid-template-columns:repeat(3,1fr)}.news-stats-row{grid-template-columns:1fr}}
 @media(max-width:600px){.news-stats-grid{grid-template-columns:repeat(2,1fr)}}
 
-/* ═══ LOADING ANIMATION ═══ */
-.loader-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px}
-.loader-letters{display:flex;gap:2px}
-.loader-letter{display:inline-block;font-size:1.6rem;font-weight:700;color:var(--accent);font-family:var(--font);animation:loaderBounce .6s ease-in-out infinite alternate}
-.loader-letter:nth-child(1){animation-delay:0s}
-.loader-letter:nth-child(2){animation-delay:.05s}
-.loader-letter:nth-child(3){animation-delay:.1s}
-.loader-letter:nth-child(4){animation-delay:.15s}
-.loader-letter:nth-child(5){animation-delay:.2s}
-.loader-letter:nth-child(6){animation-delay:.25s}
-.loader-letter:nth-child(7){animation-delay:.3s}
-.loader-letter:nth-child(8){animation-delay:.35s}
-.loader-letter:nth-child(9){animation-delay:.4s}
-@keyframes loaderBounce{from{transform:translateY(0);opacity:1}to{transform:translateY(-12px);opacity:.3}}
-.loader-bar{width:80px;height:4px;background:linear-gradient(90deg,transparent,var(--accent),transparent);border-radius:2px;animation:loaderSlide 1.2s ease-in-out infinite}
-@keyframes loaderSlide{0%{transform:translateX(-40px)}100%{transform:translateX(40px)}}
-
 /* ═══ TRENDS STATS ═══ */
 .trends-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
 .tstat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
@@ -575,6 +560,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <div class="refresh-badge" id="refreshBadge"></div>
   </div>
   <div class="topbar-right">
+    <div class="online-badge" id="onlineBadge" style="display:none" title="کاربران آنلاین">
+      <div class="live-dot"></div>
+      <span id="onlineBadgeCount">۰</span>
+    </div>
     <button class="btn-sm" id="adminBtn" onclick="showAdmin()" style="display:none">⚙️ تنظیمات</button>
     <div class="user-chip" onclick="doLogout()">
       <div class="user-avatar" id="userAvatar">U</div>
@@ -852,6 +841,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
         <option>دانشگاه، سازمان و پژوهشگاه</option>
         <option>افراد سرشناس و فعال</option>
       </select>
+</div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border-radius:10px">
+      <input type="checkbox" id="channelNeedsTranslation" checked style="accent-color:var(--accent);width:18px;height:18px;cursor:pointer">
+      <label for="channelNeedsTranslation" style="font-size:12px;color:var(--text2);cursor:pointer">نیاز به ترجمه (متن‌های غیرفارسی ترجمه شوند)</label>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('channelModal')">انصراف</button>
@@ -929,7 +922,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
       <button class="btn-add" onclick="openChannelModal()">+ افزودن کانال</button>
     </div>
     <table class="users-table" id="channelsTable">
-      <thead><tr><th>کانال</th><th>یوزرنیم</th><th>دسته‌بندی</th><th>عملیات</th></tr></thead>
+      <thead><tr><th>کانال</th><th>یوزرنیم</th><th>دسته‌بندی</th><th>ترجمه</th><th>عملیات</th></tr></thead>
       <tbody id="channelsBody"></tbody>
     </table>
   </div>
@@ -1013,15 +1006,6 @@ function closeModal(id){const el=document.getElementById(id);if(el){el.style.dis
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block'}
 function hideError(id){document.getElementById(id).style.display='none'}
 
-// لودینگ "Generating" — HTML قابل استفاده
-function generatingHTML() {
-  const letters = 'Generating'.split('');
-  return `<div class="loader-wrapper">
-    <div class="loader-letters">${letters.map(l=>`<span class="loader-letter">${l}</span>`).join('')}</div>
-    <div class="loader-bar"></div>
-  </div>`;
-}
-
 // ══ CLOCK ══
 function updateClock(){
   const now=new Date();
@@ -1031,12 +1015,30 @@ function updateClock(){
 }
 setInterval(updateClock,1000);updateClock();
 
-// ══ HEARTBEAT ══
+// ══ HEARTBEAT + آنلاین ══
 function sendHeartbeat(){
   if(!TOKEN) return;
   fetch('/api/heartbeat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN,'X-Current-Tab':currentTab},body:JSON.stringify({tab:currentTab})}).catch(()=>{});
+  // اگه ادمین هست، تعداد آنلاین رو هم بگیر
+  if (CURRENT_USER?.role==='superadmin') fetchOnlineCount();
 }
 setInterval(sendHeartbeat,15000);
+
+async function fetchOnlineCount() {
+  try {
+    const r = await fetch('/api/admin/online-users',{headers:{Authorization:'Bearer '+TOKEN}});
+    if (!r.ok) return;
+    const d = await r.json();
+    const badge = document.getElementById('onlineBadge');
+    const countEl = document.getElementById('onlineBadgeCount');
+    if (d.count > 0) {
+      badge.style.display = 'flex';
+      countEl.textContent = toFa(d.count);
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch(e) {}
+}
 
 // ══ REFRESH BADGE ══
 function updateRefreshBadge(){
@@ -1746,7 +1748,7 @@ async function setAIModel(modelId) {
 
 async function refreshDigest(type) {
   const bodyId = type==='4h' ? 'aiBody4h' : 'aiBody24h';
-  document.getElementById(bodyId).innerHTML = generatingHTML();
+  document.getElementById(bodyId).innerHTML = '<div class="ai-loading">در حال تحلیل...</div>';
   try {
     await fetch('/api/digest/'+type+'/refresh', {method:'POST', headers:{Authorization:'Bearer '+TOKEN}});
     setTimeout(() => type==='4h' ? loadAIDigest4h() : loadAIDigest24h(), 5000);
@@ -1780,6 +1782,7 @@ async function loadSettingsChannels() {
       '<td>' + (c.title||'—') + '</td>' +
       '<td style="direction:ltr;color:var(--text3)">' + (c.username||'—') + '</td>' +
       '<td><span style="font-size:11px;background:var(--bg3);padding:2px 8px;border-radius:8px">' + (c.category||'—') + '</span></td>' +
+      '<td><span style="font-size:10px;padding:2px 8px;border-radius:4px;' + (c.needs_translation===0?'background:rgba(240,82,82,.1);color:var(--red)':'background:rgba(15,209,122,.1);color:var(--green)') + '">' + (c.needs_translation===0?'خیر':'بله') + '</span></td>' +
       '<td style="display:flex;gap:6px">' +
       '<button class="btn-sm" onclick="_chEdit(' + c.id + ')">ویرایش</button>' +
       '<button class="btn-sm" style="color:var(--red);border-color:var(--red)" onclick="_chDel(' + c.id + ')">حذف</button>' +
@@ -1795,7 +1798,8 @@ function _chEdit(id) {
   document.getElementById('channelTgId').value = c.tg_id||'';
   document.getElementById('channelUsername').value = c.username||'';
   document.getElementById('channelTitle').value = c.title||'';
-  document.getElementById('channelCategory').value = c.category||'خبرگزاری\u200cها';
+  document.getElementById('channelCategory').value = c.category||'خبرگزاری‌ها';
+  document.getElementById('channelNeedsTranslation').checked = c.needs_translation !== 0;
   document.getElementById('channelModalTitle').textContent = 'ویرایش کانال';
   document.getElementById('channelModalError').textContent = '';
   document.getElementById('channelModal').style.display = 'flex';
@@ -1817,7 +1821,8 @@ function openChannelModal() {
   document.getElementById('channelTgId').value = '';
   document.getElementById('channelUsername').value = '';
   document.getElementById('channelTitle').value = '';
-  document.getElementById('channelCategory').value = 'خبرگزاری\u200cها';
+  document.getElementById('channelCategory').value = 'خبرگزاری‌ها';
+  document.getElementById('channelNeedsTranslation').checked = true;
   document.getElementById('channelModalTitle').textContent = 'افزودن کانال';
   document.getElementById('channelModalError').textContent = '';
   document.getElementById('channelModal').style.display = 'flex';
@@ -1845,10 +1850,14 @@ async function submitChannel() {
   try {
     const url    = editId ? '/api/news/channels/'+editId : '/api/news/channels';
     const method = editId ? 'PATCH' : 'POST';
+    const body = {
+      tg_id:tg_id, username:cleanUser, title:title, category:category,
+      photo_url:null, needs_translation: document.getElementById('channelNeedsTranslation').checked
+    };
     const r = await fetch(url, {
       method: method,
       headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+TOKEN},
-      body: JSON.stringify({tg_id:tg_id, username:cleanUser, title:title, category:category, photo_url:null}),
+      body: JSON.stringify(body),
     });
     const d = await r.json();
     if (d.ok) {
@@ -2134,9 +2143,9 @@ function renderNewsFeed(news, mode='replace') {
 }
 
 async function loadNews() {
-  // لودینگ فوری
-  document.getElementById('newsDigestBody').innerHTML = generatingHTML();
-  document.getElementById('newsFeed').innerHTML = '<div class="news-empty">' + generatingHTML() + '</div>';
+  // لودینگ ساده
+  document.getElementById('newsDigestBody').innerHTML = '<div class="ai-loading">در حال بارگذاری...</div>';
+  document.getElementById('newsFeed').innerHTML = '<div class="news-empty" style="padding:40px;color:var(--text3);font-size:13px">در حال بارگذاری اخبار...</div>';
 
   const h = {Authorization:'Bearer '+TOKEN};
 
@@ -2259,7 +2268,7 @@ async function loadMoreNews() {
 }
 
 async function refreshNewsDigest() {
-  document.getElementById('newsDigestBody').innerHTML = generatingHTML();
+  document.getElementById('newsDigestBody').innerHTML = '<div class="ai-loading">در حال تولید گزارش...</div>';
   try {
     await fetch('/api/news/digest/generate', {method:'POST', headers:{Authorization:'Bearer '+TOKEN}});
     setTimeout(async () => {
@@ -2385,23 +2394,56 @@ async function loadNewsStats(s) {
       </div>`;
     }
 
-    // ساعات شلوغ
+    // ساعات شلوغ — نمودار با Chart.js
     if(s.hourlyStats?.length) {
-      const maxH = Math.max(...s.hourlyStats.map(h=>h.count),1);
+      const hours = Array.from({length:24},(_,i)=>i);
+      const counts = hours.map(h => (s.hourlyStats.find(x=>x.hour===h)?.count||0));
       rowHtml += `<div class="nstat-box">
         <div class="nstat-box-title">ساعات شلوغ خبررسانی (هفته اخیر)</div>
-        <div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding-top:8px">
-          ${Array.from({length:24},(_,i)=>{
-            const h = s.hourlyStats.find(x=>x.hour===i);
-            const count = h?.count||0;
-            const pct = Math.max(Math.round(count/maxH*100),2);
-            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${toFa(i)}:۰۰ — ${fmtFa(count)} خبر">
-              <div style="width:100%;background:${count>maxH*0.7?'var(--accent)':'var(--bg3)'};border-radius:2px;height:${pct}%;min-height:2px;transition:height .3s"></div>
-              <span style="font-size:8px;color:var(--text3)">${i%4===0?toFa(i):''}</span>
-            </div>`;
-          }).join('')}
+        <div style="position:relative;height:180px">
+          <canvas id="hourlyChart"></canvas>
         </div>
       </div>`;
+      // رسم بعد از رندر
+      setTimeout(() => {
+        const ctx = document.getElementById('hourlyChart');
+        if (!ctx) return;
+        if (window._hourlyChart) window._hourlyChart.destroy();
+        window._hourlyChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: hours.map(h => toFa(h)+':۰۰'),
+            datasets: [{
+              label: 'تعداد خبر',
+              data: counts,
+              borderColor: '#4f83f7',
+              backgroundColor: 'rgba(79,131,247,.15)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+              pointHoverRadius: 6,
+              pointBackgroundColor: '#4f83f7',
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                ticks: { color: '#3d4f72', maxTicksLimit: 8, font: { size: 10 } },
+                grid: { display: false }
+              },
+              y: {
+                ticks: { color: '#3d4f72', font: { size: 10 }, stepSize: Math.ceil(Math.max(...counts)/4)||1 },
+                grid: { color: 'rgba(255,255,255,.04)' }
+              }
+            },
+            interaction: { mode: 'index', intersect: false },
+          }
+        });
+      }, 50);
     }
 
     // توزیع زبانی

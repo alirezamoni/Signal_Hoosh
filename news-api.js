@@ -41,20 +41,21 @@ router.get('/categories', (req, res) => {
 
 // افزودن کانال
 router.post('/channels', async (req, res) => {
-  const { tg_id, username, title, category, photo_url } = req.body;
+  const { tg_id, username, title, category, photo_url, needs_translation } = req.body;
   if (!tg_id || !title) return res.status(400).json({ error: 'tg_id و title الزامی است' });
   try {
-    const id = newsDB.upsertChannel(String(tg_id), username||null, title, category||'خبرگزاری‌ها', photo_url||null);
+    const nt = needs_translation !== undefined ? !!needs_translation : true;
+    const id = newsDB.upsertChannel(String(tg_id), username||null, title, category||'خبرگزاری‌ها', photo_url||null, nt);
     updateWatchedChannels();
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 router.patch('/channels/:id', (req, res) => {
-  const { username, title, category, photo_url } = req.body;
+  const { username, title, category, photo_url, needs_translation } = req.body;
   if (!title) return res.status(400).json({ error: 'نام الزامی است' });
   try {
-    newsDB.updateChannel(req.params.id, { username: username||null, title, category: category||'خبرگزاری‌ها', photo_url: photo_url||null });
+    newsDB.updateChannel(req.params.id, { username: username||null, title, category: category||'خبرگزاری‌ها', photo_url: photo_url||null, needs_translation });
     updateWatchedChannels();
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

@@ -108,9 +108,9 @@ async function processMessage(msg, channelInfo) {
     const text = msg.text || msg.caption || '';
     const lang = detectLang(text);
 
-    // ترجمه اگه غیرفارسیه
+    // ترجمه اگه غیرفارسیه و کانال نیاز داشته باشه
     let text_fa = null;
-    if (lang !== 'fa' && text.length > 10) {
+    if (channelInfo.needs_translation !== 0 && lang !== 'fa' && text.length > 10) {
       text_fa = await translateText(text, lang);
     }
 
@@ -294,7 +294,8 @@ async function translateAndSave(channel, msg) {
   const text = msg.text || '';
   const lang = detectLang(text);
   let text_fa = null;
-  if (lang !== 'fa' && text.length > 10) {
+  // فقط اگه کانال نیاز به ترجمه داشته باشه و متن غیرفارسی باشه
+  if (channel.needs_translation !== 0 && lang !== 'fa' && text.length > 10) {
     text_fa = await translateText(text, lang);
   }
 

@@ -21,6 +21,7 @@ db.exec(`
     category     TEXT DEFAULT 'خبرگزاری‌ها',
     photo_url    TEXT,
     active       INTEGER DEFAULT 1,
+    needs_translation INTEGER DEFAULT 1,
     added_at     TEXT DEFAULT (datetime('now'))
   );
 
@@ -52,8 +53,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_news_channel   ON news(channel_id);
 `);
 
+// migration برای اضافه کردن ستون needs_translation به دیتابیس‌های قدیمی
+try { db.prepare('ALTER TABLE channels ADD COLUMN needs_translation INTEGER DEFAULT 1').run(); } catch(e) {
+  /* ستون از قبل وجود داشته — نادیده گرفتن */
+}
+
 // ── Channels ──────────────────────────────────────────────
-function upsertChannel(tg_id, username, title, category, photo_url) {
+function upsertChannel(tg_id, username, title, category, photo_url, needs_translation) {
+  const nt = needs_translation !== undefined ? (needs_translation ? 1 : 0) : 1;
   // چک با tg_id
   let existing = db.prepare('SELECT id FROM channels WHERE tg_id=?').get(tg_id);
   // اگه نبود، با username چک کن
@@ -61,18 +68,19 @@ function upsertChannel(tg_id, username, title, category, photo_url) {
     existing = db.prepare('SELECT id FROM channels WHERE username=?').get(username);
   }
   if (existing) {
-    db.prepare('UPDATE channels SET tg_id=?,username=?,title=?,category=?,photo_url=?,active=1 WHERE id=?')
-      .run(tg_id, username, title, category||'خبرگزاری‌ها', photo_url||null, existing.id);
+    db.prepare('UPDATE channels SET tg_id=?,username=?,title=?,category=?,photo_url=?,needs_translation=?,active=1 WHERE id=?')
+      .run(tg_id, username, title, category||'خبرگزاری‌ها', photo_url||null, nt, existing.id);
     return existing.id;
   }
-  const r = db.prepare('INSERT INTO channels (tg_id,username,title,category,photo_url,active) VALUES (?,?,?,?,?,1)')
-    .run(tg_id, username, title, category||'خبرگزاری‌ها', photo_url||null);
+  const r = db.prepare('INSERT INTO channels (tg_id,username,title,category,photo_url,needs_translation,active) VALUES (?,?,?,?,?,?,1)')
+    .run(tg_id, username, title, category||'خبرگزاری‌ها', photo_url||null, nt);
   return r.lastInsertRowid;
 }
 
 function updateChannel(id, data) {
-  db.prepare('UPDATE channels SET username=?,title=?,category=?,photo_url=? WHERE id=?')
-    .run(data.username, data.title, data.category, data.photo_url||null, id);
+  const nt = data.needs_translation !== undefined ? (data.needs_translation ? 1 : 0) : 1;
+  db.prepare('UPDATE channels SET username=?,title=?,category=?,photo_url=?,needs_translation=? WHERE id=?')
+    .run(data.username, data.title, data.category, data.photo_url||null, nt, id);
 }
 
 function deleteChannel(id) {
