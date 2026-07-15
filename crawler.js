@@ -174,7 +174,7 @@ ${keywords}
       const body = JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 600,
+        max_tokens: 2000,
       });
 
       const result = await new Promise((resolve, reject) => {
@@ -200,7 +200,7 @@ ${keywords}
         req.end();
       });
 
-      const text = result.choices?.[0]?.message?.content || '';
+      const text = result.choices?.[0]?.message?.content || result.choices?.[0]?.message?.reasoning || '';
       if (!text || result.error) {
         console.warn(`[AI categorize] ${model}: ${result.error?.message?.slice(0,60)||'no output'}`);
         continue;
