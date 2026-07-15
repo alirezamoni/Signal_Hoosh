@@ -210,7 +210,14 @@ ${keywords}
         console.warn(`[AI categorize] ${model}: no JSON in response`);
         continue;
       }
-      const catMap = JSON.parse(jsonMatch[0]);
+      // کلیدهای عددی بدون quote رو اصلاح کن: {1: → {"1":
+      let jsonStr = jsonMatch[0].replace(/\{(\d+):/g, '{"$1":').replace(/,(\d+):/g, ',"$1":');
+      let catMap;
+      try { catMap = JSON.parse(jsonStr); }
+      catch(e2) {
+        console.warn(`[AI categorize] ${model}: JSON parse failed:`, jsonStr.slice(0, 100));
+        continue;
+      }
       // چک کن که حداقل یک دسته غیرخالی داریم
       const hasCats = Object.values(catMap).some(v => v && v.trim());
       if (!hasCats) {
