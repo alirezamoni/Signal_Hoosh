@@ -29,7 +29,7 @@ db.exec(`
 
 // ── Save a batch of snapshots ──────────────────────────
 const _insert = db.prepare(
-  'INSERT INTO finance_snapshots (symbol,name,price,unit,change,change_pct,low,high,bubble,timestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+  'INSERT INTO finance_snapshots (symbol,name,price,unit,change,change_pct,low,high,bubble,timestamp) VALUES (?,?,?,?,?,?,?,?,?,?)'
 );
 function saveSnapshots(items) {
   const tx = db.transaction((rows) => {
