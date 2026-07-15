@@ -74,20 +74,38 @@ async function scrapeTgju() {
       const results = [];
       rows.forEach(row => {
         const marketRow = row.getAttribute('data-market-row');
-        const tds = row.querySelectorAll('td');
         const th = row.querySelector('th');
-        if (!marketRow || tds.length < 3) return;
+        if (!marketRow) return;
 
         const name = th?.textContent?.trim() || '';
-        const priceText = tds[0]?.textContent?.trim() || '';
-        // td.nf دوم — span با تغییر
-        const changeSpan = tds[1]?.querySelector('span');
-        const changeText = changeSpan?.textContent?.trim() || '';
-        const changeClass = changeSpan?.className || '';
-        // low / high
-        const lowText = tds[2]?.textContent?.trim() || '';
-        const highText = tds[3]?.textContent?.trim() || '';
-        const timeText = tds[4]?.textContent?.trim() || '';
+        // قیمت از data-price attribute یا اولین td
+        const priceText = row.getAttribute('data-price') || '';
+        // تمام td ها
+        const tds = Array.from(row.querySelectorAll('td'));
+        // پیدا کن td که span داره (تغییر)
+        let changeText = '', changeClass = '';
+        for (const td of tds) {
+          const span = td.querySelector('span.high, span.low');
+          if (span) {
+            changeText = span.textContent?.trim() || '';
+            changeClass = span.className || '';
+            break;
+          }
+        }
+        // اگه span پیدا نشد، td.nf دوم رو چک کن
+        if (!changeText) {
+          const nfTds = tds.filter(td => td.classList.contains('nf'));
+          if (nfTds.length >= 2) {
+            changeText = nfTds[1].textContent?.trim() || '';
+            const sp = nfTds[1].querySelector('span');
+            if (sp) changeClass = sp.className || '';
+          }
+        }
+        // low/high — آخرین tdهای غیر-nf و غیر-chart
+        const dataTds = tds.filter(td => !td.classList.contains('chart-td') && !td.classList.contains('tg-1') && !td.classList.contains('nf'));
+        const lowText = dataTds[0]?.textContent?.trim() || '';
+        const highText = dataTds[1]?.textContent?.trim() || '';
+        const timeText = dataTds[2]?.textContent?.trim() || '';
 
         results.push({
           marketRow, name, priceText, changeText, changeClass,
