@@ -68,6 +68,8 @@ async function scrapeTgju() {
 
     // صبر کن جدول بازار لود بشه
     await page.waitForSelector('tr[data-market-row]', { timeout: 15000 }).catch(() => {});
+    // صبر اضافه برای لود کامل جدول‌های داخلی
+    await new Promise(r => setTimeout(r, 3000));
 
     const data = await page.evaluate(() => {
       const rows = document.querySelectorAll('tr[data-market-row]');
@@ -78,6 +80,7 @@ async function scrapeTgju() {
         if (!marketRow) return;
 
         const name = th?.textContent?.trim() || '';
+        const tds = Array.from(row.querySelectorAll('td'));
         // قیمت از data-price attribute یا اولین td.nf
         let priceText = row.getAttribute('data-price') || '';
         if (!priceText) {

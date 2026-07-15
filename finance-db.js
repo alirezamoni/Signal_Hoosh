@@ -34,7 +34,7 @@ const _insert = db.prepare(
 function saveSnapshots(items) {
   const tx = db.transaction((rows) => {
     for (const r of rows) {
-      _insert.run(r.symbol, r.name, r.price, r.unit||null, r.change||null, r.change_pct||null, r.low||null, r.high||null, r.bubble||null, r.timestamp);
+      _insert.run(r.symbol, r.name, r.price, r.unit ?? null, r.change ?? null, r.change_pct ?? null, r.low ?? null, r.high ?? null, r.bubble ?? null, r.timestamp);
     }
   });
   tx(items);
