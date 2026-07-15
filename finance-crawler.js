@@ -143,24 +143,36 @@ async function scrapeTgju() {
       });
     }
 
+    // دیباگ حذف شد — deduplicate: فقط یک snapshot per symbol
+    const seen = new Map();
+    for (const snap of snapshots) {
+      const existing = seen.get(snap.symbol);
+      if (!existing) { seen.set(snap.symbol, snap); continue; }
+      // merge: مقادیر non-null رو نگه دار
+      for (const k of ['price','change','change_pct','low','high','bubble']) {
+        if (existing[k] == null && snap[k] != null) existing[k] = snap[k];
+      }
+    }
+    const deduped = [...seen.values()];
+
     // حباب سکه: اگه coin_blubber پیدا شد، مقدارش رو به سکه اضافه کن
     const bubbleRow = data.find(r => r.marketRow === 'coin_blubber');
     if (bubbleRow) {
       const bubblePrice = parseFloat(faToEn(bubbleRow.priceText));
-      const coinSnap = snapshots.find(s => s.symbol === 'coin');
+      const coinSnap = deduped.find(s => s.symbol === 'coin');
       if (coinSnap && !isNaN(bubblePrice)) {
         coinSnap.bubble = bubblePrice;
       }
     } else {
       // محاسبه حباب: سکه - (طلای ۱۸ × ۸.13)
-      const coinSnap = snapshots.find(s => s.symbol === 'coin');
-      const goldSnap = snapshots.find(s => s.symbol === 'gold18');
+      const coinSnap = deduped.find(s => s.symbol === 'coin');
+      const goldSnap = deduped.find(s => s.symbol === 'gold18');
       if (coinSnap && goldSnap) {
         coinSnap.bubble = coinSnap.price - (goldSnap.price * 8.13);
       }
     }
 
-    return snapshots;
+    return deduped;
   } finally {
     await page.close();
   }
