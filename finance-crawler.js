@@ -78,27 +78,32 @@ async function scrapeTgju() {
         if (!marketRow) return;
 
         const name = th?.textContent?.trim() || '';
-        // قیمت از data-price attribute یا اولین td
-        const priceText = row.getAttribute('data-price') || '';
-        // تمام td ها
-        const tds = Array.from(row.querySelectorAll('td'));
-        // پیدا کن td که span داره (تغییر)
+        // قیمت از data-price attribute یا اولین td.nf
+        let priceText = row.getAttribute('data-price') || '';
+        if (!priceText) {
+          const firstNf = tds.find(td => td.classList.contains('nf'));
+          priceText = firstNf?.textContent?.trim() || '';
+        }
+        // پیدا کن تغییر — هر span که شامل % یا عدد باشه
         let changeText = '', changeClass = '';
         for (const td of tds) {
-          const span = td.querySelector('span.high, span.low');
-          if (span) {
-            changeText = span.textContent?.trim() || '';
-            changeClass = span.className || '';
-            break;
+          if (!td.classList.contains('nf')) continue;
+          const spans = td.querySelectorAll('span');
+          for (const span of spans) {
+            const txt = span.textContent?.trim() || '';
+            if (txt.includes('%') || (txt.includes('(') && txt.includes(')'))) {
+              changeText = txt;
+              changeClass = span.className || '';
+              break;
+            }
           }
+          if (changeText) break;
         }
-        // اگه span پیدا نشد، td.nf دوم رو چک کن
+        // اگه span پیدا نشد، td.nf دوم رو مستقیم بخون
         if (!changeText) {
           const nfTds = tds.filter(td => td.classList.contains('nf'));
           if (nfTds.length >= 2) {
             changeText = nfTds[1].textContent?.trim() || '';
-            const sp = nfTds[1].querySelector('span');
-            if (sp) changeClass = sp.className || '';
           }
         }
         // low/high — آخرین tdهای غیر-nf و غیر-chart
