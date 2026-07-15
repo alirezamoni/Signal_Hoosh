@@ -514,17 +514,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 /* ═══ WORD CLOUD ═══ */
 .wordcloud-section{margin-top:28px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px}
 .wordcloud-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.wordcloud-container{position:relative;width:100%;min-height:400px;display:flex;align-items:center;justify-content:center}
-.wordcloud-container canvas{max-width:100%;height:auto!important;border-radius:12px}
-.wordcloud-empty{text-align:center;padding:60px 20px;color:var(--text3);font-size:12px}
-.wordcloud-controls{display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap}
-.wc-ctrl{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:5px 12px;cursor:pointer;transition:all .15s}
-.wc-ctrl:hover{border-color:var(--accent);color:var(--accent)}
-.wc-ctrl input{accent-color:var(--accent)}
-.wc-ctrl select{background:var(--bg2);color:var(--text);border:none;border-radius:4px;font-family:var(--font);font-size:11px;outline:none}
-.wc-spinner{display:flex;align-items:center;justify-content:center;gap:8px;padding:60px 20px;color:var(--text3);font-size:12px}
-.wc-spinner .ai-spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+.wordcloud-container{position:relative;width:100%;min-height:500px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:12px}
+.wordcloud-container canvas{display:block;width:100%;height:auto;border-radius:12px}
+.wordcloud-empty{text-align:center;padding:80px 20px;color:var(--text3);font-size:13px}
+.wc-spinner{display:flex;align-items:center;justify-content:center;gap:8px;padding:80px 20px;color:var(--text3);font-size:13px}
+.wc-spinner .ai-spinner{display:inline-block;width:20px;height:20px;border:2.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.wc-legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.wc-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
 </style>
 </head>
 <body>
@@ -637,26 +634,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   <!-- ابرکلمات -->
   <div class="wordcloud-section" id="wordcloudSection">
     <div class="wordcloud-title">
-      <span style="font-size:16px">☁</span> ابرکلمات ترند ایران
+      <span style="font-size:18px">☁</span> ابرکلمات جامع ایران
       <span style="font-size:10px;color:var(--text3);font-weight:400;margin-right:auto" id="wordcloudTime"></span>
     </div>
     <div class="wordcloud-container" id="wordcloudContainer">
       <div class="wc-spinner"><div class="ai-spinner"></div> در حال بارگذاری ابرکلمات...</div>
     </div>
-    <div class="wordcloud-controls">
-      <label class="wc-ctrl">
-        چرخش
-        <input type="checkbox" id="wcRotate" checked onchange="loadWordCloud()">
-      </label>
-      <label class="wc-ctrl">
-        چیدمان
-        <select id="wcSpiral" onchange="loadWordCloud()">
-          <option value="archimedean">مارپیچ</option>
-          <option value="rectangular">مستطیلی</option>
-        </select>
-      </label>
-      <button class="wc-ctrl" onclick="loadWordCloud()" style="cursor:pointer">↻ بازچینی</button>
-    </div>
+    <div class="wc-legend" id="wcLegend"></div>
   </div>
 
 </div>
@@ -2397,15 +2381,21 @@ async function loadNewsStats() {
 }
 
 // ══════════════════════════════════════
-//  ابرکلمات (Word Cloud — canvas-based)
+//  ابرکلمات (Word Cloud — canvas با کیفیت بالا)
 // ══════════════════════════════════════
 let _wcData = null;
+const WC_COLORS = { // رنگ دسته‌بندی‌ها
+  'ترند جستجو': '#4f83f7',
+  'پرفروش دیجی‌کالا': '#0fd17a',
+  'بازار کار': '#f5a623',
+  'خبرگزاری‌ها': '#9b7cfc',
+};
+const WC_FALLBACK_COLORS = ['#22d3ee','#f472b6','#f05252','#7c8db5'];
 
 async function loadWordCloud() {
   const container = document.getElementById('wordcloudContainer');
   if (!container) return;
 
-  // اگر داده از قبل هست، فقط دوباره رندر کن
   if (!_wcData) {
     container.innerHTML = '<div class="wc-spinner"><div class="ai-spinner"></div> در حال بارگذاری ابرکلمات...</div>';
     try {
@@ -2427,35 +2417,49 @@ async function loadWordCloud() {
   }
 
   const words = _wcData.words;
-  const withRotation = document.getElementById('wcRotate')?.checked ?? true;
-  const spiral = document.getElementById('wcSpiral')?.value || 'archimedean';
 
-  // رنگ‌ها برای ابر
-  const palette = ['#4f83f7','#0fd17a','#f5a623','#9b7cfc','#22d3ee','#f472b6','#f05252','#7c8db5'];
-  function getCatColor(cat) {
-    const c = CC[cat];
-    return c?.color || palette[Math.floor(Math.random()*palette.length)];
-  }
-
-  // آماده‌سازی داده برای wordcloud2.js: [word, size, color, ...]
+  // نرمال‌سازی وزن‌ها
   const maxW = Math.max(...words.map(w=>w.weight), 1);
   const minW = Math.min(...words.map(w=>w.weight), 0);
   const range = maxW - minW || 1;
 
-  const list = words.map(w => {
+  // آماده‌سازی داده: [کلمه, اندازه, رنگ]
+  const list = [];
+  const catColors = {}; // برای legend
+  for (const w of words) {
+    const kw = (w.text || '').replace(/[\u200f\u200e\u202a-\u202e]/g, '').trim();
+    if (!kw) continue;
     const norm = (w.weight - minW) / range;
-    const size = Math.round(12 + norm * 42); // ۱۲px تا ۵۴px
-    const color = getCatColor(w.cat);
-    const kw = cleanKeyword(w.text);
-    return [kw, size, color];
-  }).filter(([text]) => text.length > 0);
+    const size = Math.round(14 + norm * 46); // ۱۴px تا ۶۰px
+    const color = WC_COLORS[w.cat] || WC_FALLBACK_COLORS[Object.keys(catColors).length % WC_FALLBACK_COLORS.length];
+    catColors[w.cat] = color;
+    list.push([kw, size, color]);
+  }
 
-  // ساخت canvas
-  const width = Math.min(container.clientWidth || 800, 1000);
-  const height = 400;
+  if (!list.length) {
+    container.innerHTML = '<div class="wordcloud-empty">داده‌ای موجود نیست</div>';
+    return;
+  }
 
-  container.innerHTML = '<canvas id="wcCanvas" width="' + width + '" height="' + height + '"></canvas>';
+  // ساخت canvas با کیفیت بالا (Retina-ready)
+  const dpr = window.devicePixelRatio || 1;
+  const rect = container.getBoundingClientRect();
+  const cssWidth = Math.min(rect.width || 1000, 1200);
+  const cssHeight = Math.min(Math.max(500, cssWidth * 0.5), 650);
+
+  container.innerHTML = '<canvas id="wcCanvas"></canvas>';
   const canvas = document.getElementById('wcCanvas');
+  canvas.style.width = cssWidth + 'px';
+  canvas.style.height = cssHeight + 'px';
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+
+  // legend
+  const legendEl = document.getElementById('wcLegend');
+  const catEntries = Object.entries(catColors).filter(([name]) => name);
+  legendEl.innerHTML = catEntries.map(([name, color]) =>
+    `<span class="wc-legend-item"><span style="width:10px;height:10px;border-radius:3px;background:${color};display:inline-block"></span>${name}</span>`
+  ).join('');
 
   if (typeof WordCloud === 'undefined') {
     container.innerHTML = '<div class="wordcloud-empty">کتابخانه ابرکلمات بارگذاری نشده</div>';
@@ -2465,35 +2469,29 @@ async function loadWordCloud() {
   WordCloud(canvas, {
     list: list,
     fontFamily: 'Vazirmatn, system-ui, sans-serif',
-    fontWeight: function(word, idx) { return idx < 5 ? '800' : idx < 15 ? '700' : '500'; },
-    color: function(word, idx) { return list[idx] ? list[idx][2] : palette[idx % palette.length]; },
+    fontWeight: function(word, idx) { return idx < 5 ? '800' : idx < 20 ? '700' : '600'; },
+    color: function(word, idx) { return list[idx] ? list[idx][2] : '#7c8db5'; },
     backgroundColor: 'transparent',
-    rotateRatio: withRotation ? 0.5 : 0,
+    rotateRatio: 0.4,
     rotationSteps: 2,
-    rotationRange: [-45, 45],
-    minRotation: -45,
-    maxRotation: 45,
-    spiral: spiral,
+    rotationRange: [-30, 30],
+    minRotation: -30,
+    maxRotation: 30,
+    spiral: 'archimedean',
     drawOutOfBound: false,
     shrinkToFit: true,
-    gridSize: Math.round(8 * width / 800),
-    weightFactor: function(size) { return size; },
+    gridSize: Math.round(12 * dpr),
+    weightFactor: function(size) { return size * dpr; },
+    clearCanvas: true,
     hover: function(item, dim, ev) {
       if (item) canvas.style.cursor = 'pointer';
       else canvas.style.cursor = 'default';
     },
     click: function(item) {
       if (item) {
-        const kw = item[0];
-        // جستجوی کلیدواژه در گوگل
-        window.open('https://www.google.com/search?q=' + encodeURIComponent(kw), '_blank');
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(item[0]), '_blank');
       }
     },
-  });
-
-  // اگر رندر ناموفق بود (کلمات جا نشدن)، حجم canvas رو بزرگتر کن
-  canvas.addEventListener('wordcloudstop', function() {
-    // موفقیت
   });
 }
 

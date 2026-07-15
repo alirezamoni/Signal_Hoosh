@@ -333,30 +333,75 @@ app.get('/api/trends/24h', requireAuth, (req, res) => {
   res.json(data);
 });
 
-// ── ابرکلمات ترکیبی از ۴h و ۲۴h ──
+// ── ابرکلمات ترکیبی از همه دیتابیس‌ها ──
 app.get('/api/trends/wordcloud', requireAuth, (req, res) => {
+  const words = new Map(); // text → { text, weight, cat }
+
+  // ۱. ترندهای گوگل (۴h + ۲۴h)
   const d4  = load('h4');
   const d24 = load('h24');
-  const words = new Map(); // keyword → { text, weight, cat, active }
-  function addTrends(data) {
-    if (!data?.trends) return;
+  for (const data of [d4, d24]) {
+    if (!data?.trends) continue;
     for (const t of data.trends) {
       const kw = (t.keyword || '').replace(/[\u200f\u200e\u202a-\u202e]/g, '').trim();
       if (!kw) continue;
       const existing = words.get(kw);
-      if (existing) {
-        existing.weight = Math.max(existing.weight, t.vol || 0);
-        existing.growth = Math.max(existing.growth || 0, t.growth || 0);
-        if (t.active) existing.active = true;
-      } else {
-        words.set(kw, { text: kw, weight: t.vol || 1, cat: t.cat || '', active: !!t.active, growth: t.growth || 0 });
-      }
+      if (existing) existing.weight = Math.max(existing.weight, t.vol || 10);
+      else words.set(kw, { text: kw, weight: t.vol || 10, cat: t.cat || 'ترند جستجو' });
     }
   }
-  addTrends(d4);
-  addTrends(d24);
+
+  // ۲. مارکت کالا — محصولات دیجی‌کالا
+  try {
+    const marketDB = require('./market-db');
+    const products = marketDB.getLatestList('week', 30);
+    for (const p of products) {
+      if (!p.name) continue;
+      const name = p.name.replace(/[،,].*$/, '').trim().slice(0, 30);
+      if (!name) continue;
+      const weight = Math.max(100 - (p.rank || 50) * 2, 5);
+      const existing = words.get(name);
+      if (existing) existing.weight = Math.max(existing.weight, weight);
+      else words.set(name, { text: name, weight, cat: 'پرفروش دیجی‌کالا' });
+    }
+  } catch(e) { /* market-db not available */ }
+
+  // ۳. مارکت کار — دسته‌بندی‌های شغلی
+  try {
+    const jobDB = require('./job-db');
+    const summary = jobDB.getSummary();
+    if (summary && summary.categories) {
+      const CAT_LABELS = {
+        'human-resources': 'منابع انسانی', 'accounting': 'حسابداری',
+        'developer': 'برنامه‌نویسی', 'data-science': 'هوش مصنوعی و داده',
+        'digital-marketing': 'دیجیتال مارکتینگ', 'driver': 'راننده', 'civil': 'مهندسی عمران',
+      };
+      for (const [key, val] of Object.entries(summary.categories)) {
+        const label = CAT_LABELS[key] || key;
+        const weight = Math.min((val.count || 0) / 100, 100);
+        if (weight < 2) continue;
+        const existing = words.get(label);
+        if (existing) existing.weight = Math.max(existing.weight, Math.round(weight));
+        else words.set(label, { text: label, weight: Math.round(weight), cat: 'بازار کار' });
+      }
+    }
+  } catch(e) { /* job-db not available */ }
+
+  // ۴. اخبار — کانال‌های خبری فعال
+  try {
+    const newsDB = require('./news-db');
+    const channels = newsDB.getChannels();
+    for (const ch of channels) {
+      if (!ch.title) continue;
+      const weight = 15;
+      const existing = words.get(ch.title);
+      if (existing) existing.weight = Math.max(existing.weight, weight);
+      else words.set(ch.title, { text: ch.title, weight, cat: ch.category || 'خبرگزاری‌ها' });
+    }
+  } catch(e) { /* news-db not available */ }
+
   const result = [...words.values()].sort((a, b) => b.weight - a.weight);
-  res.json({ words: result, updatedAt: d4?.updatedAt || d24?.updatedAt || null });
+  res.json({ words: result, count: result.length, updatedAt: new Date().toISOString() });
 });
 
 app.get('/api/status', requireAuth, (req, res) => {
