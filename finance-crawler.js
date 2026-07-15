@@ -84,26 +84,18 @@ async function scrapeTgju() {
           const firstNf = tds.find(td => td.classList.contains('nf'));
           priceText = firstNf?.textContent?.trim() || '';
         }
-        // پیدا کن تغییر — هر span که شامل % یا عدد باشه
+        // پیدا کن تغییر — هر td که شامل % باشه
         let changeText = '', changeClass = '';
         for (const td of tds) {
-          if (!td.classList.contains('nf')) continue;
-          const spans = td.querySelectorAll('span');
-          for (const span of spans) {
-            const txt = span.textContent?.trim() || '';
-            if (txt.includes('%') || (txt.includes('(') && txt.includes(')'))) {
-              changeText = txt;
-              changeClass = span.className || '';
-              break;
-            }
-          }
-          if (changeText) break;
-        }
-        // اگه span پیدا نشد، td.nf دوم رو مستقیم بخون
-        if (!changeText) {
-          const nfTds = tds.filter(td => td.classList.contains('nf'));
-          if (nfTds.length >= 2) {
-            changeText = nfTds[1].textContent?.trim() || '';
+          if (td.classList.contains('chart-td')) continue;
+          const txt = td.textContent?.trim() || '';
+          if (txt.includes('%') || (txt.includes('(') && txt.includes(')') && /\d/.test(txt))) {
+            changeText = txt;
+            const span = td.querySelector('span');
+            if (span) changeClass = span.className || '';
+            else if (td.classList.contains('high')) changeClass = 'high';
+            else if (td.classList.contains('low')) changeClass = 'low';
+            break;
           }
         }
         // low/high — آخرین tdهای غیر-nf و غیر-chart
