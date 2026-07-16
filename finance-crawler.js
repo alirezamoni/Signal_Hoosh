@@ -41,6 +41,11 @@ function parseChange(spanText, spanClass) {
     if (m[2]) change = parseFloat(m[2].replace(/,/g, ''));
   }
   const positive = spanClass?.includes('high');
+  // اعلام علامت: class="low" یعنی منفی
+  if (positive === false) {
+    if (change != null) change = -Math.abs(change);
+    if (pct != null) pct = -Math.abs(pct);
+  }
   return { change, change_pct: pct, positive };
 }
 

@@ -539,13 +539,32 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .fin-kpi-bubble.neg{background:rgba(240,82,82,.12);color:var(--red)}
 .fin-sparkline{height:40px;margin-top:8px}
 @media(max-width:900px){.fin-kpi-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.fin-kpi-grid{grid-template-columns:1fr}.fin-kpi-price{font-size:22px}}
+@media(max-width:600px){
+  .fin-kpi-grid{grid-template-columns:1fr;gap:10px}
+  .fin-kpi-card{padding:14px}
+  .fin-kpi-price{font-size:20px}
+  .fin-inner{padding:12px 10px}
+  .fin-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .fin-table{min-width:520px}
+  .fin-table th,.fin-table td{padding:8px 6px;font-size:11px;white-space:nowrap}
+  .fin-table th:nth-child(5),.fin-table td:nth-child(5),
+  .fin-table th:nth-child(6),.fin-table td:nth-child(6){display:none}
+  .fin-modal-box{width:calc(100vw - 16px);padding:16px}
+  .fin-modal-changes{grid-template-columns:1fr}
+  .fin-chart-wrap{height:140px}
+}
 
 /* Market table */
 .fin-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
-.fin-table{width:100%;border-collapse:collapse}
-.fin-table th{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;padding:10px 14px;text-align:right;border-bottom:1px solid var(--border)}
-.fin-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12.5px}
+.fin-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.fin-table th{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;padding:10px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+.fin-table td{padding:10px 8px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle;white-space:nowrap}
+.fin-table col:nth-child(1){width:18%}
+.fin-table col:nth-child(2){width:24%}
+.fin-table col:nth-child(3){width:16%}
+.fin-table col:nth-child(4){width:12%}
+.fin-table col:nth-child(5){width:15%}
+.fin-table col:nth-child(6){width:15%}
 .fin-table tbody tr{cursor:pointer;transition:background .15s}
 .fin-table tbody tr:hover{background:var(--bg3)}
 .fin-table tbody tr:last-child td{border-bottom:none}
@@ -979,7 +998,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <!-- Market Table -->
     <div class="fin-table-wrap">
       <table class="fin-table">
-        <thead><tr><th>نماد</th><th>قیمت آخر</th><th>تغییر</th><th>درصد</th><th>کمترین</th><th>بیشترین</th></tr></thead>
+        <colgroup><col><col><col><col><col><col></colgroup>
+        <thead><tr><th>نماد</th><th style="text-align:left">قیمت آخر</th><th style="text-align:left">تغییر</th><th style="text-align:left">درصد</th><th style="text-align:left">کمترین</th><th style="text-align:left">بیشترین</th></tr></thead>
         <tbody id="finTableBody"></tbody>
       </table>
     </div>
@@ -2654,19 +2674,18 @@ const FIN_KPI_MAP = {
   ounce:  { priceId:'finKpiOunce', chgId:'finKpiOunceChg', subId:'finKpiOunceSub', sparkId:'sparkOunce' },
 };
 
-function fmtFinPrice(n, unit) {
+function fmtFinPrice(n) {
   if (n == null || isNaN(n)) return '—';
-  const v = Math.round(n);
-  if (unit === 'دلار' || unit === 'نقطه') return v.toLocaleString('en-US');
-  return v.toLocaleString('en-US');
+  return toFa(Math.round(n).toLocaleString('en-US'));
 }
 
-function fmtFinChg(change, pct, unit) {
+function fmtFinChg(change, pct) {
   if (change == null && pct == null) return '<span style="color:var(--text3)">—</span>';
+  if (change === 0 && pct === 0) return '<span style="color:var(--text3)">—</span>';
   const dir = (change != null && change >= 0) ? 'up' : 'down';
   const arrow = dir === 'up' ? '▲' : '▼';
-  const chgStr = change != null ? Math.abs(change).toLocaleString('en-US') : '0';
-  const pctStr = pct != null ? Math.abs(pct).toFixed(2) + '%' : '0%';
+  const chgStr = change != null ? toFa(Math.abs(change).toLocaleString('en-US')) : '—';
+  const pctStr = pct != null ? toFa(Math.abs(pct).toFixed(2)) + '%' : '—';
   return `<span class="${dir}">${arrow} ${chgStr} (${pctStr})</span>`;
 }
 
@@ -2682,17 +2701,17 @@ async function loadFinance() {
       if (!item) continue;
       const priceEl = document.getElementById(map.priceId);
       const chgEl = document.getElementById(map.chgId);
-      if (priceEl) priceEl.textContent = fmtFinPrice(item.price, item.unit);
-      if (chgEl) chgEl.innerHTML = fmtFinChg(item.change, item.change_pct, item.unit);
+      if (priceEl) priceEl.textContent = fmtFinPrice(item.price);
+      if (chgEl) chgEl.innerHTML = fmtFinChg(item.change, item.change_pct);
       if (map.subId) {
         const subEl = document.getElementById(map.subId);
         if (subEl) {
           let sub = '';
-          if (item.low) sub += `<span>کم: ${item.low.toLocaleString('en-US')}</span>`;
-          if (item.high) sub += `<span>بیش: ${item.high.toLocaleString('en-US')}</span>`;
+          if (item.low) sub += `<span>کم: ${toFa(item.low.toLocaleString('en-US'))}</span>`;
+          if (item.high) sub += `<span>بیش: ${toFa(item.high.toLocaleString('en-US'))}</span>`;
           if (sym === 'gold18') {
             const mesghal = d.markets.find(m => m.symbol === 'mesghal');
-            if (mesghal) sub += `<span>مثقال: ${mesghal.price.toLocaleString('en-US')}</span>`;
+            if (mesghal) sub += `<span>مثقال: ${toFa(mesghal.price.toLocaleString('en-US'))}</span>`;
           }
           if (sym === 'ounce') sub += `<span>دلار</span>`;
           subEl.innerHTML = sub;
@@ -2705,7 +2724,7 @@ async function loadFinance() {
           const isPos = item.bubble >= 0;
           bubbleEl.className = 'fin-kpi-bubble ' + (isPos ? 'pos' : 'neg');
           bubbleEl.style.display = 'inline-block';
-          bubbleEl.textContent = 'حباب: ' + Math.abs(Math.round(item.bubble)).toLocaleString('en-US') + ' ریال' + (isPos ? ' ▲' : ' ▼');
+          bubbleEl.textContent = 'حباب: ' + toFa(Math.abs(Math.round(item.bubble)).toLocaleString('en-US')) + ' ریال' + (isPos ? ' ▲' : ' ▼');
         }
       }
       // sparkline
@@ -2720,15 +2739,18 @@ async function loadFinance() {
     tbody.innerHTML = tableSyms.map(sym => {
       const item = d.markets.find(m => m.symbol === sym);
       if (!item) return '';
-      const dir = item.change_pct != null ? (item.change_pct >= 0 ? 'up' : 'down') : '';
-      const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '';
+      const isZero = (item.change === 0 && item.change_pct === 0) || (item.change == null && item.change_pct == null);
+      const dir = isZero ? '' : (item.change_pct != null && item.change_pct < 0 ? 'down' : 'up');
+      const arrow = isZero ? '' : (dir === 'up' ? '▲' : '▼');
+      const chgStr = isZero ? '—' : (item.change != null ? toFa(Math.abs(item.change).toLocaleString('en-US')) : '—');
+      const pctStr = isZero ? '—' : (item.change_pct != null ? toFa(Math.abs(item.change_pct).toFixed(2)) + '%' : '—');
       return `<tr onclick="openFinanceModal('${item.symbol}')">
         <td class="fin-name">${item.name}</td>
-        <td class="fin-price">${item.price.toLocaleString('en-US')}</td>
-        <td class="fin-chg ${dir}">${arrow} ${item.change != null ? Math.abs(item.change).toLocaleString('en-US') : '—'}</td>
-        <td class="fin-chg ${dir}">${item.change_pct != null ? Math.abs(item.change_pct).toFixed(2) + '%' : '—'}</td>
-        <td style="direction:ltr;color:var(--text3)">${item.low ? item.low.toLocaleString('en-US') : '—'}</td>
-        <td style="direction:ltr;color:var(--text3)">${item.high ? item.high.toLocaleString('en-US') : '—'}</td>
+        <td class="fin-price">${toFa(item.price.toLocaleString('en-US'))}</td>
+        <td class="fin-chg ${dir}">${arrow} ${chgStr}</td>
+        <td class="fin-chg ${dir}">${pctStr}</td>
+        <td style="direction:ltr;color:var(--text3);font-size:11px">${item.low ? toFa(item.low.toLocaleString('en-US')) : '—'}</td>
+        <td style="direction:ltr;color:var(--text3);font-size:11px">${item.high ? toFa(item.high.toLocaleString('en-US')) : '—'}</td>
       </tr>`;
     }).join('');
 
@@ -2795,7 +2817,7 @@ async function openFinanceModal(symbol) {
       const d = await detailsR.json();
       const cur = d.current;
       document.getElementById('financeModalTitle').textContent = cur.name;
-      document.getElementById('financeModalPrice').textContent = cur.price.toLocaleString('en-US') + (cur.unit ? ' ' + cur.unit : '');
+      document.getElementById('financeModalPrice').textContent = toFa(cur.price.toLocaleString('en-US')) + (cur.unit ? ' ' + cur.unit : '');
       document.getElementById('financeModalTime').textContent = 'آخرین بروزرسانی: ' + new Date(cur.timestamp).toLocaleString('fa-IR');
 
       const changes = [
@@ -2806,10 +2828,12 @@ async function openFinanceModal(symbol) {
       ];
       document.getElementById('financeModalChanges').innerHTML = changes.map(c => {
         if (!c.data) return `<div class="fin-chg-card"><div class="fin-chg-label">${c.label}</div><div class="fin-chg-val" style="color:var(--text3)">—</div></div>`;
+        if (c.data.change === 0) return `<div class="fin-chg-card"><div class="fin-chg-label">${c.label}</div><div class="fin-chg-val" style="color:var(--text3)">—</div></div>`;
         const dir = c.data.change >= 0 ? 'up' : 'down';
+        const sign = c.data.change >= 0 ? '+' : '';
         return `<div class="fin-chg-card">
           <div class="fin-chg-label">${c.label}</div>
-          <div class="fin-chg-val ${dir}">${c.data.change >= 0 ? '+' : ''}${Math.round(c.data.change).toLocaleString('en-US')} (${c.data.pct >= 0 ? '+' : ''}${c.data.pct.toFixed(2)}%)</div>
+          <div class="fin-chg-val ${dir}">${sign}${toFa(Math.round(c.data.change).toLocaleString('en-US'))} (${sign}${toFa(c.data.pct.toFixed(2))}%)</div>
         </div>`;
       }).join('');
     }
