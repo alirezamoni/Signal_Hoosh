@@ -1994,7 +1994,8 @@ async function submitChannel() {
     const method = editId ? 'PATCH' : 'POST';
     const body = {
       tg_id:tg_id, username:cleanUser, title:title, category:category,
-      photo_url:null, needs_translation: document.getElementById('channelNeedsTranslation').checked
+      photo_url: editId ? (_channelsData.find(c=>c.id==editId)?.photo_url || null) : null,
+      needs_translation: document.getElementById('channelNeedsTranslation').checked
     };
     const r = await fetch(url, {
       method: method,
