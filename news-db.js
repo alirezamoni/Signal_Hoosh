@@ -78,15 +78,16 @@ function upsertChannel(tg_id, username, title, category, photo_url, needs_transl
 }
 
 function updateChannel(id, data) {
-  const nt = data.needs_translation !== undefined ? (data.needs_translation ? 1 : 0) : 1;
-  // اگه photo_url از فرانت null فرستاده شد، مقدار موجود رو حفظ کن
-  let photoUrl = data.photo_url;
-  if (photoUrl === null || photoUrl === undefined) {
-    const existing = db.prepare('SELECT photo_url FROM channels WHERE id=?').get(id);
-    photoUrl = existing?.photo_url || null;
-  }
+  const existing = db.prepare('SELECT * FROM channels WHERE id=?').get(id);
+  if (!existing) return;
+  const nt = data.needs_translation !== undefined ? (data.needs_translation ? 1 : 0) : existing.needs_translation || 1;
+  // preserve existing values when not provided
+  const username = data.username !== undefined ? data.username : existing.username;
+  const title = data.title !== undefined ? data.title : existing.title;
+  const category = data.category !== undefined ? data.category : existing.category;
+  const photoUrl = data.photo_url !== undefined ? data.photo_url : existing.photo_url;
   db.prepare('UPDATE channels SET username=?,title=?,category=?,photo_url=?,needs_translation=? WHERE id=?')
-    .run(data.username, data.title, data.category, photoUrl, nt, id);
+    .run(username, title, category, photoUrl, nt, id);
 }
 
 function deleteChannel(id) {

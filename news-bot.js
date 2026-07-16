@@ -102,6 +102,41 @@ async function translateText(text, fromLang) {
   }
 }
 
+// ── دریافت عکس پروفایل کانال ──────────────────────────────
+async function refreshChannelPhoto(channelInfo) {
+  if (!channelInfo || !channelInfo.tg_id) return;
+  try {
+    const chatResult = await tgRequest('getChat', { chat_id: channelInfo.tg_id });
+    if (!chatResult.ok || !chatResult.result?.photo) return;
+    const photo = chatResult.result.photo;
+    const fileId = photo.big_file_id || photo.small_file_id;
+    if (!fileId) return;
+
+    const fileInfo = await tgRequest('getFile', { file_id: fileId });
+    if (!fileInfo.ok || !fileInfo.result?.file_path) return;
+
+    const photoDir = require('path').join(__dirname, 'public', 'channel-photos');
+    if (!require('fs').existsSync(photoDir)) require('fs').mkdirSync(photoDir, { recursive: true });
+
+    await new Promise((resolve, reject) => {
+      const req = https.get(`https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`, res => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => {
+          require('fs').writeFileSync(require('path').join(photoDir, `${channelInfo.id}.jpg`), Buffer.concat(chunks));
+          newsDB.updateChannel(channelInfo.id, { photo_url: `/channel-photos/${channelInfo.id}.jpg` });
+          console.log(`[news-bot] photo updated: ${channelInfo.title}`);
+          resolve();
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
+    });
+  } catch(e) {
+    console.warn(`[news-bot] photo refresh error for ${channelInfo.title}:`, e.message);
+  }
+}
+
 // ── پردازش پیام ──────────────────────────────────────────
 async function processMessage(msg, channelInfo) {
   try {
@@ -158,6 +193,9 @@ async function processMessage(msg, channelInfo) {
     });
 
     if (saved) console.log(`[news-bot] saved: ${channelInfo.title} #${msg.message_id} (${lang})`);
+
+    // اگه کانال عکس نداره، بگیر
+    if (!channelInfo.photo_url) refreshChannelPhoto(channelInfo);
   } catch(e) {
     console.warn('[news-bot] processMessage error:', e.message);
   }
@@ -284,6 +322,13 @@ function startNewsBot() {
   setInterval(generateDigest, 4 * 60 * 60 * 1000);
   // cleanup هفتگی
   setInterval(() => newsDB.cleanup(), 24 * 60 * 60 * 1000);
+  // بروزرسانی عکس کانال‌ها هر ۱ ساعت
+  setInterval(async () => {
+    const channels = newsDB.getChannels();
+    for (const ch of channels) {
+      if (!ch.photo_url) await refreshChannelPhoto(ch);
+    }
+  }, 60 * 60 * 1000);
   // اولین digest بعد از ۱ دقیقه
   setTimeout(generateDigest, 60000);
   console.log('[news-bot] polling every 2s, digest every 4h');
@@ -322,6 +367,8 @@ async function translateAndSave(channel, msg) {
     tg_link:      msg.tg_link || null,
     published_at: msg.published_at || new Date().toISOString(),
   });
+
+  if (!channel.photo_url && BOT_TOKEN) refreshChannelPhoto(channel);
 }
 
 module.exports = { startNewsBot, addChannel, generateDigest, translateAndSave };
