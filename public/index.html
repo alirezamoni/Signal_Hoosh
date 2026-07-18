@@ -671,7 +671,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <div class="tstat-card"><div class="tstat-label">ترندهای ۲۴ ساعت</div><div class="tstat-val" id="tstat24h">—</div><div class="tstat-sub">کلیدواژه فعال</div></div>
     <div class="tstat-card"><div class="tstat-label">ترندهای فعال</div><div class="tstat-val" id="tstatActive" style="color:var(--green)">—</div><div class="tstat-sub">از کل ترندها</div></div>
     <div class="tstat-card"><div class="tstat-label">میانگین رشد</div><div class="tstat-val" id="tstatAvgGrowth" style="color:var(--accent)">—</div><div class="tstat-sub" id="tstatTopGrowthKw">—</div></div>
-    <div class="tstat-card"><div class="tstat-label">موضوعات گلب</div><div class="tstat-val" id="tstatTopCat" style="color:var(--purple)">—</div><div class="tstat-sub" id="tstatTopCatCount">—</div></div>
+    <div class="tstat-card"><div class="tstat-label">موضوعات غالب</div><div class="tstat-val" id="tstatTopCat" style="color:var(--purple)">—</div><div class="tstat-sub" id="tstatTopCatCount">در چهار ساعت گذشته</div></div>
   </div>
 
   <!-- تحلیل AI — ۴ ساعت اخیر -->
@@ -2643,7 +2643,7 @@ function renderTrendsStats() {
   const catEntries = Object.entries(catVolumes).sort((a, b) => b[1] - a[1]);
   if (catEntries.length) {
     document.getElementById('tstatTopCat').textContent = catEntries[0][0];
-    document.getElementById('tstatTopCatCount').textContent = toFa(catEntries[0][1].toLocaleString('en-US')) + ' جستجو';
+    document.getElementById('tstatTopCatCount').textContent = 'در چهار ساعت گذشته';
   } else {
     document.getElementById('tstatTopCat').textContent = '—';
     document.getElementById('tstatTopCatCount').textContent = 'دسته‌بندی نشده';
