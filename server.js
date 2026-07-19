@@ -35,6 +35,13 @@ const app  = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: true, credentials: true }));
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').split(':')[0];
+  if (host === '81.168.119.67' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return res.redirect(301, 'https://signalhoosh.site' + req.originalUrl);
+  }
+  next();
+});
 app.use(cookieParser());
 app.use(express.json({ limit: '40mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
