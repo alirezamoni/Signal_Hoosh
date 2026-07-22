@@ -120,19 +120,19 @@ function saveNews(item) {
   } catch(e) { return false; }
 }
 
-function getLatestNews(limit=20, channel_id=null, offset=0) {
-  if (channel_id) {
-    return db.prepare(`
-      SELECT n.*, c.title as channel_title, c.username as channel_username, c.photo_url as channel_photo
-      FROM news n JOIN channels c ON c.id=n.channel_id
-      WHERE n.channel_id=? ORDER BY n.published_at DESC LIMIT ? OFFSET ?
-    `).all(channel_id, limit, offset);
-  }
+function getLatestNews(limit=20, channel_id=null, offset=0, since=0) {
+  const sinceId = parseInt(since) || 0;
+  const where = [];
+  const params = [];
+  if (channel_id) { where.push('n.channel_id=?'); params.push(channel_id); }
+  if (sinceId)     { where.push('n.id>?');        params.push(sinceId); }
+  const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  params.push(limit, offset);
   return db.prepare(`
     SELECT n.*, c.title as channel_title, c.username as channel_username, c.photo_url as channel_photo
     FROM news n JOIN channels c ON c.id=n.channel_id
-    ORDER BY n.published_at DESC LIMIT ? OFFSET ?
-  `).all(limit, offset);
+    ${whereSql} ORDER BY n.published_at DESC LIMIT ? OFFSET ?
+  `).all(...params);
 }
 
 function getNewsSince(since_minutes=240) {
@@ -230,6 +230,23 @@ function getNewsStats() {
   };
 }
 
+// ── Migration helper: فقط ID ردیف‌های base64 (برای جلوگیری از OOM) ──
+function getNewsIdsWithBase64Media() {
+  return db.prepare(`
+    SELECT id FROM news
+    WHERE media_url LIKE 'data:%'
+       OR (media_url LIKE '[%' AND media_url LIKE '%data:%')
+  `).all().map(r => r.id);
+}
+
+function getNewsMediaUrl(id) {
+  return db.prepare('SELECT media_url FROM news WHERE id=?').get(id)?.media_url || null;
+}
+
+function updateMediaUrl(id, media_url) {
+  db.prepare('UPDATE news SET media_url=? WHERE id=?').run(media_url, id);
+}
+
 // ── Cleanup ──────────────────────────────────────────────
 function cleanup() {
   // فقط ۳۰ روز نگه دار
@@ -242,4 +259,4 @@ function deleteNews(id) {
   db.prepare('DELETE FROM news WHERE id=?').run(id);
 }
 
-module.exports = { upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup };
+module.exports = { upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup, getNewsIdsWithBase64Media, getNewsMediaUrl, updateMediaUrl };

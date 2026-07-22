@@ -2120,7 +2120,8 @@ function parseMediaUrls(n) {
   return [];
 }
 function resolveMediaSrc(url) {
-  return url.startsWith('data:') ? url : '/api/news/media?url='+encodeURIComponent(url);
+  if (url.startsWith('data:') || url.startsWith('/')) return url;
+  return '/api/news/media?url='+encodeURIComponent(url);
 }
 
 // ── ساخت HTML یک کارت ──

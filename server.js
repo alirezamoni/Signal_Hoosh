@@ -197,7 +197,7 @@ app.get('/api/news/media', requireAuth, (req, res) => {
 // ════════════════════════════════════
 const INTERNAL_SECRET = process.env.NODE_INTERNAL_SECRET;
 const newsDB = require('./news-db');
-const { translateAndSave } = require('./news-bot');
+const { translateAndSave, migrateMediaToDisk } = require('./news-bot');
 
 app.post('/internal/channel-info', (req, res) => {
   if (req.headers['x-internal-secret'] !== INTERNAL_SECRET) return res.status(401).end();
@@ -413,4 +413,5 @@ app.listen(PORT, () => {
   startDigestScheduler();
   if (financeCrawler) financeCrawler.startScheduler();
   startNewsBot();
+  migrateMediaToDisk().catch(console.error);
 });

@@ -25,7 +25,8 @@ router.get('/feed', (req, res) => {
   const limit      = Math.min(parseInt(req.query.limit) || 20, 50);
   const offset     = parseInt(req.query.offset) || 0;
   const channel_id = req.query.channel ? parseInt(req.query.channel) : null;
-  res.json(newsDB.getLatestNews(limit, channel_id, offset));
+  const since      = parseInt(req.query.since) || 0;
+  res.json(newsDB.getLatestNews(limit, channel_id, offset, since));
 });
 
 router.get('/channels', (req, res) => {

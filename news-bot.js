@@ -3,6 +3,8 @@
  * از polling استفاده می‌کنه (بدون نیاز به webhook/SSL)
  */
 const https  = require('https');
+const fs     = require('fs');
+const path   = require('path');
 const newsDB = require('./news-db');
 const settingsDB = require('./settings-db');
 
@@ -31,6 +33,33 @@ function getModels() {
 const DEFAULT_CHANNELS = [];
 
 let lastUpdateId = 0;
+
+// ── ذخیره عکس خبر روی دیسک (به‌جای base64 در DB) ──────────
+const NEWS_MEDIA_DIR = path.join(__dirname, 'public', 'news-media');
+function ensureMediaDir() {
+  if (!fs.existsSync(NEWS_MEDIA_DIR)) fs.mkdirSync(NEWS_MEDIA_DIR, { recursive: true });
+}
+function extFromMime(mime) {
+  if (!mime) return 'jpg';
+  if (mime.includes('png'))  return 'png';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('gif'))  return 'gif';
+  return 'jpg';
+}
+function saveBase64Image(dataUrl, baseName) {
+  try {
+    const m = dataUrl.match(/^data:([\w.+-]+\/[\w.+-]+);base64,(.+)$/s);
+    if (!m) return null;
+    ensureMediaDir();
+    const ext = extFromMime(m[1]);
+    const fname = `${baseName}.${ext}`;
+    fs.writeFileSync(path.join(NEWS_MEDIA_DIR, fname), Buffer.from(m[2], 'base64'));
+    return `/news-media/${fname}`;
+  } catch (e) {
+    console.warn('[news-bot] saveBase64Image error:', e.message);
+    return null;
+  }
+}
 
 // ── Telegram API ─────────────────────────────────────────
 function tgRequest(method, params = {}) {
@@ -344,16 +373,23 @@ async function translateAndSave(channel, msg) {
     text_fa = await translateText(text, lang);
   }
 
-  // چندعکسه (آلبوم) → JSON آرایه از data-url ها
+  // چندعکسه (آلبوم) → فایل روی دیسک، مسیر در DB
   let media_url = msg.media_url || null;
   const mediaList = Array.isArray(msg.media_list) ? msg.media_list.filter(m => m && m.b64) : [];
 
   if (mediaList.length > 1) {
-    media_url = JSON.stringify(mediaList.map(m => `data:${m.mime||'image/jpeg'};base64,${m.b64}`));
+    const paths = [];
+    mediaList.forEach((m, i) => {
+      const p = saveBase64Image(`data:${m.mime||'image/jpeg'};base64,${m.b64}`, `${channel.id}_${msg.message_id}_${i}`);
+      if (p) paths.push(p);
+    });
+    media_url = paths.length ? JSON.stringify(paths) : null;
   } else if (mediaList.length === 1) {
-    media_url = `data:${mediaList[0].mime||'image/jpeg'};base64,${mediaList[0].b64}`;
+    const p = saveBase64Image(`data:${mediaList[0].mime||'image/jpeg'};base64,${mediaList[0].b64}`, `${channel.id}_${msg.message_id}_0`);
+    media_url = p || null;
   } else if (!media_url && msg.media_b64 && msg.media_type) {
-    media_url = `data:image/jpeg;base64,${msg.media_b64}`;
+    const p = saveBase64Image(`data:image/jpeg;base64,${msg.media_b64}`, `${channel.id}_${msg.message_id}_0`);
+    media_url = p || null;
   }
 
   newsDB.saveNews({
@@ -371,4 +407,51 @@ async function translateAndSave(channel, msg) {
   if (!channel.photo_url && BOT_TOKEN) refreshChannelPhoto(channel);
 }
 
-module.exports = { startNewsBot, addChannel, generateDigest, translateAndSave };
+// ── Migration: انتقال عکس‌های base64 قبلی از DB به دیسک ──
+async function migrateMediaToDisk() {
+  ensureMediaDir();
+  let ids;
+  try { ids = newsDB.getNewsIdsWithBase64Media(); }
+  catch (e) { console.warn('[news-bot] migration query error:', e.message); return; }
+  if (!ids.length) { console.log('[news-bot] media migration: nothing to do'); return; }
+  console.log(`[news-bot] media migration: ${ids.length} row(s) with base64 media → disk`);
+  let done = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    try {
+      const mu = newsDB.getNewsMediaUrl(id);
+      if (!mu) continue;
+      let newUrl = null;
+      if (mu.startsWith('data:')) {
+        newUrl = saveBase64Image(mu, `mig_${id}_0`);
+      } else if (mu.startsWith('[')) {
+        try {
+          const arr = JSON.parse(mu);
+          if (Array.isArray(arr) && arr.length && typeof arr[0] === 'string' && arr[0].startsWith('data:')) {
+            const paths = [];
+            arr.forEach((d, j) => {
+              if (typeof d === 'string' && d.startsWith('data:')) {
+                const p = saveBase64Image(d, `mig_${id}_${j}`);
+                if (p) paths.push(p);
+              } else if (typeof d === 'string') {
+                paths.push(d);
+              }
+            });
+            newUrl = paths.length ? JSON.stringify(paths) : null;
+          }
+        } catch (e) {}
+      }
+      if (newUrl) {
+        newsDB.updateMediaUrl(id, newUrl);
+        done++;
+      }
+    } catch (e) {
+      console.warn(`[news-bot] migrate row ${id} error:`, e.message);
+    }
+    // هر ۳ ردیف yield کن تا event loop بلاک نشه
+    if (i % 3 === 2) await new Promise(r => setImmediate(r));
+  }
+  console.log(`[news-bot] media migration done: ${done}/${ids.length}`);
+}
+
+module.exports = { startNewsBot, addChannel, generateDigest, translateAndSave, migrateMediaToDisk };
