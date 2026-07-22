@@ -28,6 +28,8 @@ let financeCrawler;
 try { financeCrawler = require('./finance-crawler'); } catch(e) { console.warn('[warn] finance-crawler not loaded:', e.message); }
 const { startJobScheduler } = require('./job-crawler');
 const jobRouter = require('./job-api');
+const { startPolymarketScheduler } = require('./polymarket-crawler');
+const polymarketRouter = require('./polymarket-api');
 const { startDigestScheduler, loadDigest, refresh4h, refresh24h } = require('./ai-digest');
 const { startNewsBot } = require('./news-bot');
 const newsRouter = require('./news-api');
@@ -179,6 +181,7 @@ app.use('/api/market', requireAuth, marketRouter);
 app.use('/api/jobs', requireAuth, jobRouter);
 app.use('/api/news', requireAuth, newsRouter);
 app.use('/api/finance', requireAuth, financeRouter);
+app.use('/api/polymarket', requireAuth, polymarketRouter);
 
 // media proxy برای عکس/ویدیو تلگرام
 app.get('/api/news/media', requireAuth, (req, res) => {
@@ -410,6 +413,7 @@ app.listen(PORT, () => {
   startScheduler();
   startMarketScheduler();
   startJobScheduler();
+  startPolymarketScheduler();
   startDigestScheduler();
   if (financeCrawler) financeCrawler.startScheduler();
   startNewsBot();

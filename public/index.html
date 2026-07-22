@@ -279,6 +279,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   .market-summary{grid-template-columns:repeat(3,1fr)}
   .market-analysis{grid-template-columns:1fr}
   .market-bottom{grid-template-columns:1fr}
+  .poly-list{grid-template-columns:1fr}
 }
 @media(max-width:600px){
   .market-summary{grid-template-columns:repeat(2,1fr)}
@@ -515,6 +516,36 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 /* ═══ FINANCE TAB ═══ */
 .finance-wrap{padding:0;display:none}
 .finance-wrap.visible{display:block}
+.polymarket-wrap{padding:0;display:none}
+.polymarket-wrap.visible{display:block}
+.poly-inner{padding:18px 20px;max-width:1200px;margin:0 auto}
+.poly-section{margin-bottom:28px}
+.poly-section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.poly-section-title{font-size:15px;font-weight:700;color:var(--text1)}
+.poly-section-sub{font-size:11px;color:var(--text3)}
+.poly-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.poly-card{display:flex;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;transition:border-color .15s,background .15s;cursor:pointer;min-width:0}
+.poly-card:hover{border-color:var(--accent);background:rgba(79,131,247,.04)}
+.poly-rank{flex-shrink:0;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--bg3);color:var(--text2);align-self:flex-start}
+.poly-card.r1 .poly-rank{background:#f5a623;color:#1a1a1a}
+.poly-card.r2 .poly-rank{background:#c0c5ce;color:#1a1a1a}
+.poly-card.r3 .poly-rank{background:#cd7f32;color:#1a1a1a}
+.poly-img{flex-shrink:0;width:58px;height:58px;border-radius:10px;object-fit:cover;background:var(--bg3)}
+.poly-img-ph{flex-shrink:0;width:58px;height:58px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3)}
+.poly-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.poly-title{font-size:13px;font-weight:600;color:var(--text1);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.poly-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px}
+.poly-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;background:var(--bg3);color:var(--text2);font-weight:600;white-space:nowrap}
+.poly-chip.cat{background:rgba(123,97,255,.14);color:var(--purple)}
+.poly-chip.cmt{color:var(--text3)}
+.poly-chip.vol{background:rgba(15,209,122,.12);color:var(--green)}
+.poly-chip.price{background:rgba(79,131,247,.14);color:var(--accent);font-weight:700}
+.poly-chip.date{color:var(--text3)}
+.poly-odds{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;background:rgba(79,131,247,.14);border:1px solid rgba(79,131,247,.25);line-height:1.2}
+.poly-odds-pct{font-size:13px;font-weight:800;color:var(--accent)}
+.poly-odds-sep{color:var(--text3);opacity:.5}
+.poly-odds-date{font-size:11px;color:var(--text3);white-space:nowrap}
+.poly-empty{grid-column:1/-1;color:var(--text3);font-size:13px;padding:24px;text-align:center}
 .finance-inner{padding:18px 20px;max-width:1200px;margin:0 auto}
 
 /* KPI Cards */
@@ -657,6 +688,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   <div class="tab" onclick="switchTab('jobs',this)">مارکت کار ایران</div>
   <div class="tab" onclick="switchTab('news',this)">ترند اخبار ایران</div>
   <div class="tab" onclick="switchTab('finance',this)">ترند بازارهای مالی</div>
+  <div class="tab" onclick="switchTab('polymarket',this)">ترند های پلی مارکت</div>
 </div>
 
 
@@ -1001,6 +1033,31 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
         <tbody id="finTableBody"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- POLYMARKET -->
+<div class="polymarket-wrap" id="polymarketWrap">
+  <div class="poly-inner">
+
+    <!-- بخش ۱: ترندترین -->
+    <div class="poly-section">
+      <div class="poly-section-head">
+        <div class="poly-section-title">ترندترین شرط‌بندی‌های مربوط به ایران</div>
+        <div class="poly-section-sub" id="polyTrendingMeta">در حال بارگذاری…</div>
+      </div>
+      <div class="poly-list" id="polyTrendingList"></div>
+    </div>
+
+    <!-- بخش ۲: حجیم‌ترین -->
+    <div class="poly-section">
+      <div class="poly-section-head">
+        <div class="poly-section-title">حجیم‌ترین شرط‌بندی‌های مربوط به ایران</div>
+        <div class="poly-section-sub" id="polyVolumeMeta">در حال بارگذاری…</div>
+      </div>
+      <div class="poly-list" id="polyVolumeList"></div>
+    </div>
+
   </div>
 </div>
 
@@ -1416,15 +1473,18 @@ function switchTab(tab,el){
   const isJobs    = tab==='jobs';
   const isNews    = tab==='news';
   const isFinance = tab==='finance';
+  const isPoly    = tab==='polymarket';
   document.getElementById('dashContent').style.display  = isTrend ? 'block' : 'none';
   document.getElementById('marketWrap').classList.toggle('visible', isMarket);
   document.getElementById('jobsWrap').classList.toggle('visible', isJobs);
   document.getElementById('newsWrap').classList.toggle('visible', isNews);
   document.getElementById('financeWrap').classList.toggle('visible', isFinance);
+  document.getElementById('polymarketWrap').classList.toggle('visible', isPoly);
   if(isMarket)  loadMarket();
   if(isJobs)    loadJobs();
   if(isNews)    loadNews();
   if(isFinance) loadFinance();
+  if(isPoly)    loadPolymarket();
 }
 
 // ══ ADMIN ══
@@ -2457,7 +2517,7 @@ async function refreshNewsDigest() {
 // ══════════════════════════════════════
 //  کاربران آنلاین (ادمین) — auto-refresh
 // ══════════════════════════════════════
-const TAB_LABELS = {'trends':'ترند سرچ','market':'مارکت کالا','jobs':'مارکت کار','news':'اخبار'};
+const TAB_LABELS = {'trends':'ترند سرچ','market':'مارکت کالا','jobs':'مارکت کار','news':'اخبار','finance':'بازارهای مالی','polymarket':'پلی مارکت'};
 let _onlinePollTimer = null;
 
 async function loadOnlineUsers() {
@@ -2790,6 +2850,68 @@ async function loadFinance() {
   // auto-refresh هر ۶۰ ثانیه
   if (_finPoll) clearInterval(_finPoll);
   _finPoll = setInterval(loadFinance, 60000);
+}
+
+// ══ POLYMARKET ══
+let _polyPoll = null;
+
+function fmtUsd(v) {
+  if (!v && v !== 0) return '—';
+  if (v >= 1e9) return '$' + toFa((v / 1e9).toFixed(1)) + 'B';
+  if (v >= 1e6) return '$' + toFa((v / 1e6).toFixed(1)) + 'M';
+  if (v >= 1e3) return '$' + toFa((v / 1e3).toFixed(0)) + 'K';
+  return '$' + toFa(Math.round(v));
+}
+
+function renderPolyList(elId, items) {
+  const el = document.getElementById(elId);
+  if (!items || !items.length) { el.innerHTML = '<div class="poly-empty">داده‌ای موجود نیست — منتظر اولین جمع‌آوری…</div>'; return; }
+  el.innerHTML = items.map(m => {
+    const rank = m.rank;
+    const rc = rank <= 3 ? `r${rank}` : '';
+    const title = m.title_fa || m.title || '—';
+    const img = m.image
+      ? `<img class="poly-img" src="${m.image}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'poly-img-ph\\'>📊</div>'">`
+      : `<div class="poly-img-ph">📊</div>`;
+    const cat = m.category_fa || m.category;
+    // چیدمان: دسته‌بندی | حجم مارکت | درصد و تاریخ (در یک باکس) | تعداد کامنت
+    const chips = [];
+    if (cat) chips.push(`<span class="poly-chip cat">${cat}</span>`);
+    const vol = m.rank_volume != null ? m.rank_volume : m.volume;
+    if (vol) chips.push(`<span class="poly-chip vol">💰 ${fmtUsd(vol)}</span>`);
+    if (m.price != null || m.end_date) {
+      const pct = m.price != null ? toFa((m.price * 100).toFixed(m.price >= 0.1 ? 0 : 1)) + '٪' : '—';
+      const dLbl = m.end_date ? new Date(m.end_date).toLocaleDateString('fa-IR', { month: 'long', day: 'numeric' }) : '';
+      const sep = pct !== '—' && dLbl ? '<span class="poly-odds-sep">—</span>' : '';
+      chips.push(`<span class="poly-odds"><span class="poly-odds-pct">${pct}</span>${sep}<span class="poly-odds-date">${dLbl}</span></span>`);
+    }
+    if (m.comment_count != null) chips.push(`<span class="poly-chip cmt">💬 ${toFa(m.comment_count)}</span>`);
+    return `<div class="poly-card ${rc}" onclick="window.open('${m.url || ''}','_blank','noopener')">
+      <div class="poly-rank">${toFa(rank)}</div>
+      ${img}
+      <div class="poly-body">
+        <div class="poly-title">${title}</div>
+        <div class="poly-meta">${chips.join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadPolymarket() {
+  try {
+    const [tR, vR] = await Promise.all([
+      fetch('/api/polymarket/trending?limit=50', { headers: { Authorization: `Bearer ${TOKEN}` } }),
+      fetch('/api/polymarket/volume?limit=50',   { headers: { Authorization: `Bearer ${TOKEN}` } }),
+    ]);
+    let tMeta = '', vMeta = '';
+    if (tR.ok) { const t = await tR.json(); renderPolyList('polyTrendingList', t); tMeta = t.length ? `${toFa(t.length)} بازار` : ''; if (t[0]?.fetched_at) tMeta += ' · ' + new Date(t[0].fetched_at).toLocaleString('fa-IR'); }
+    if (vR.ok) { const v = await vR.json(); renderPolyList('polyVolumeList', v); vMeta = v.length ? `${toFa(v.length)} بازار` : ''; if (v[0]?.fetched_at) vMeta += ' · ' + new Date(v[0].fetched_at).toLocaleString('fa-IR'); }
+    document.getElementById('polyTrendingMeta').textContent = tMeta || 'داده‌ای نیست';
+    document.getElementById('polyVolumeMeta').textContent = vMeta || 'داده‌ای نیست';
+  } catch (e) { console.warn('[polymarket]', e.message); }
+
+  if (_polyPoll) clearInterval(_polyPoll);
+  _polyPoll = setInterval(loadPolymarket, 5 * 60 * 1000);
 }
 
 // رسم sparkline مینی
