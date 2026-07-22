@@ -24,7 +24,8 @@ const { startScheduler, load, loadRssLive } = require('./crawler');
 const { startMarketScheduler } = require('./market-crawler');
 const marketRouter = require('./market-api');
 const financeRouter = require('./finance-api');
-const financeCrawler = require('./finance-crawler');
+let financeCrawler;
+try { financeCrawler = require('./finance-crawler'); } catch(e) { console.warn('[warn] finance-crawler not loaded:', e.message); }
 const { startJobScheduler } = require('./job-crawler');
 const jobRouter = require('./job-api');
 const { startDigestScheduler, loadDigest, refresh4h, refresh24h } = require('./ai-digest');
@@ -410,6 +411,6 @@ app.listen(PORT, () => {
   startMarketScheduler();
   startJobScheduler();
   startDigestScheduler();
-  financeCrawler.startScheduler();
+  if (financeCrawler) financeCrawler.startScheduler();
   startNewsBot();
 });

@@ -519,7 +519,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 
 /* KPI Cards */
 .fin-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.fin-kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px;position:relative;overflow:hidden;transition:border-color .2s}
+.fin-kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px;position:relative;overflow:hidden;transition:border-color .2s;display:flex;flex-direction:column;min-height:210px}
 .fin-kpi-card:hover{border-color:var(--border2)}
 .fin-kpi-card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:var(--accent)}
 .fin-kpi-card.gold::before{background:var(--amber)}
@@ -537,18 +537,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .fin-kpi-bubble{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;margin-top:6px}
 .fin-kpi-bubble.pos{background:rgba(15,209,122,.12);color:var(--green)}
 .fin-kpi-bubble.neg{background:rgba(240,82,82,.12);color:var(--red)}
-.fin-sparkline{height:40px;margin-top:8px}
+.fin-sparkline{height:40px;width:130px;margin-top:auto;display:block;flex-shrink:0}
 @media(max-width:900px){.fin-kpi-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){
   .fin-kpi-grid{grid-template-columns:1fr;gap:10px}
-  .fin-kpi-card{padding:14px}
+  .fin-kpi-card{padding:14px;min-height:auto}
   .fin-kpi-price{font-size:20px}
   .fin-inner{padding:12px 10px}
   .fin-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .fin-table{min-width:520px}
-  .fin-table th,.fin-table td{padding:8px 6px;font-size:11px;white-space:nowrap}
-  .fin-table th:nth-child(5),.fin-table td:nth-child(5),
-  .fin-table th:nth-child(6),.fin-table td:nth-child(6){display:none}
+  .fin-table{min-width:560px;table-layout:auto}
+  .fin-table th,.fin-table td{padding:8px 4px;font-size:10.5px;white-space:nowrap}
   .fin-modal-box{width:calc(100vw - 16px);padding:16px}
   .fin-modal-changes{grid-template-columns:1fr}
   .fin-chart-wrap{height:140px}
@@ -655,7 +653,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 <!-- TABS -->
 <div class="tabs-bar" id="tabsBar">
   <div class="tab active" onclick="switchTab('trends',this)">ترند سرچ ایران</div>
-  <div class="tab" onclick="switchTab('market',this)">مارکت کالای ایران</div>
+  <div class="tab" onclick="switchTab('market',this)">ترند کالای ایران</div>
   <div class="tab" onclick="switchTab('jobs',this)">مارکت کار ایران</div>
   <div class="tab" onclick="switchTab('news',this)">ترند اخبار ایران</div>
   <div class="tab" onclick="switchTab('finance',this)">ترند بازارهای مالی</div>
