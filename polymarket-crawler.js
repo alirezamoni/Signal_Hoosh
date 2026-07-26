@@ -175,6 +175,7 @@ async function crawlPolymarket() {
   console.log('\n═══ Polymarket crawl ═══');
   const t = [];
   for (const key of Object.keys(CONFIG.sorts)) t.push(await crawlSort(key));
+  polyDB.cleanupHistory();
   console.log('═══ Polymarket done ═══\n');
   return t;
 }
