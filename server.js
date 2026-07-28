@@ -427,6 +427,14 @@ app.post('/api/settings', requireSuperAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/settings/ai-model', requireAuth, (req, res) => {
+  const { modelId } = req.body;
+  if (!modelId) return res.status(400).json({ error: 'modelId required' });
+  settingsDB.set('ai_model', modelId);
+  console.log(`[settings] ai_model set to ${modelId} by user ${req.user.id}`);
+  res.json({ ok: true });
+});
+
 app.get('/api/settings/ai-models', requireAuth, async (req, res) => {
   const current = settingsDB.get('ai_model','openai/gpt-oss-20b:free');
   try {

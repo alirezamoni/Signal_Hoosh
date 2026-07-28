@@ -1562,6 +1562,7 @@ async function loadAIDigest4h(){
     if(!r.ok) return;
     const d=await r.json();
     if(!d.text) return;
+    if(!isValidDigest(d.text)) { console.warn('[digest/4h] invalid content, skipping display'); return; }
     const text=d.text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
     showDigest('aiBody4h','digestTime4h',text,new Date(d.updatedAt));
   }catch(e){ console.warn('[digest/4h]',e.message); }
@@ -1573,9 +1574,19 @@ async function loadAIDigest24h(){
     if(!r.ok) return;
     const d=await r.json();
     if(!d.text) return;
+    if(!isValidDigest(d.text)) { console.warn('[digest/24h] invalid content, skipping display'); return; }
     const text=d.text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
     showDigest('aiBody24h','digestTime24h',text,new Date(d.updatedAt));
   }catch(e){ console.warn('[digest/24h]',e.message); }
+}
+
+function isValidDigest(text) {
+  if (!text || text.length > 3000) return false;
+  if (text.length < 50) return false;
+  const stripped = text.replace(/\s/g, '');
+  const faChars = stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0660-\u0669\u06F0-\u06F9]/g) || [];
+  if (faChars.length / stripped.length < 0.40) return false;
+  return true;
 }
 
 function showDigest(bodyId, timeId, text, date){
@@ -2100,11 +2111,12 @@ async function loadAIModels() {
 
 async function setAIModel(modelId) {
   try {
-    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
-      body: JSON.stringify({key:'ai_model', value:modelId})});
+    const r = await fetch('/api/settings/ai-model', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify({modelId})});
+    if (!r.ok) { toast('خطا در ذخیره مدل'); return; }
     toast('مدل AI تغییر کرد');
     loadAIModels();
-  } catch(e) {}
+  } catch(e) { toast('خطا در اتصال به سرور'); }
 }
 
 async function refreshDigest(type) {

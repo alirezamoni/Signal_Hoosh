@@ -113,6 +113,36 @@ async function callAI(prompt) {
   return null;
 }
 
+// نسبت حروف فارسی/عربی به کل کاراکترهای غیرفاصله
+function persianRatio(text) {
+  const stripped = text.replace(/\s/g, '');
+  if (!stripped.length) return 0;
+  const persianChars = stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0660-\u0669\u06F0-\u06F9]/g) || [];
+  return persianChars.length / stripped.length;
+}
+
+// تشخیص chain-of-thought / reasoning leak
+function isChainOfThoughtJunk(text) {
+  const lower = text.toLowerCase();
+  const markers = [
+    'the word', 'let me', 'actually it', 'so we', 'we need', 'we must',
+    'now produce', 'but still', 'must avoid', 'we can', 'thus we',
+    'note:', 'note that', 'check:', 'check for', 'check if',
+    'step 1', 'step 2', 'i need', 'i should', 'i will',
+    'let\'s', 'lets ', 'here is', 'here are', 'here\'s',
+    'you need', 'you should', 'you must', 'you can',
+    'i think', 'i believe', 'in this', 'in the following',
+    'first,', 'second,', 'third,', 'finally,',
+    'that is', 'this is', 'this means',
+  ];
+  let hits = 0;
+  for (const m of markers) {
+    if (lower.includes(m)) hits++;
+    if (hits >= 3) return true;
+  }
+  return false;
+}
+
 function isComplete(text) {
   if (!text || text.length < 100) return false;
   const t = text.trim();
@@ -120,9 +150,8 @@ function isComplete(text) {
 }
 
 function faCleaned(text) {
-  // پاک‌سازی markdown
   return text
-    .replace(/\*\*(.+?)\*\*/g, '**$1**') // نگه دار برای فرانت
+    .replace(/\*\*(.+?)\*\*/g, '**$1**')
     .trim();
 }
 
@@ -139,10 +168,18 @@ async function fetchWithRetry(promptFn, trendsKey, count, retries = 3) {
     try {
       const text = await callAI(prompt);
       if (!text) continue;
+
+      const pRatio = persianRatio(text);
+      const cot = isChainOfThoughtJunk(text);
+      console.log(`[digest/${trendsKey}] attempt ${i+1}: len=${text.length} faRatio=${(pRatio*100).toFixed(0)}% cot=${cot}`);
+
+      if (cot) { console.warn(`[digest/${trendsKey}] chain-of-thought leak detected, skipping`); continue; }
+      if (pRatio < 0.50) { console.warn(`[digest/${trendsKey}] persian ratio ${(pRatio*100).toFixed(0)}% too low, skipping`); continue; }
+
       const engRatio = (text.match(/[a-zA-Z]/g)||[]).length / text.replace(/\s/g,'').length;
       const complete = isComplete(text);
       const score = (complete ? 100 : 0) + (1 - engRatio) * 50 + text.length * 0.01;
-      console.log(`[digest/${trendsKey}] attempt ${i+1}: len=${text.length} complete=${complete} score=${score.toFixed(0)}`);
+      console.log(`[digest/${trendsKey}] attempt ${i+1}: complete=${complete} score=${score.toFixed(0)}`);
       if (score > 50) return faCleaned(text);
     } catch(e) {
       console.warn(`[digest/${trendsKey}] attempt ${i+1} error:`, e.message);
