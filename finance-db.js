@@ -171,7 +171,7 @@ function updateFinanceChannel(id, data) {
 }
 
 function deleteFinanceChannel(id) {
-  db.prepare('UPDATE finance_channels SET active=0 WHERE id=?').run(id);
+  db.prepare('UPDATE finance_channels SET active=0, tg_id=tg_id||\'_del\'||id WHERE id=?').run(id);
 }
 
 function getFinanceChannels() {
