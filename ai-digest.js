@@ -12,20 +12,15 @@ const DATA_DIR = path.join(__dirname, 'data');
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
 
 const FREE_MODELS = [
-  'openai/gpt-oss-20b:free',
-  'tencent/hy3:free',
   'nvidia/nemotron-3-super-120b-a12b:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'openai/gpt-oss-20b:free',
   'nvidia/nemotron-3-nano-30b-a3b:free',
-  'nousresearch/hermes-3-llama-3.1-405b:free',
-  'qwen/qwen3-next-80b-a3b-instruct:free',
-  'meta-llama/llama-3.2-3b-instruct:free',
-  'poolside/laguna-m.1:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
 ];
 
 function getModels() {
-  const preferred = settingsDB.get('ai_model', 'openai/gpt-oss-20b:free');
+  const preferred = settingsDB.get('ai_model', 'nvidia/nemotron-3-super-120b-a12b:free');
   return [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
 }
 
