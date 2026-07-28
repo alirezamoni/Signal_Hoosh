@@ -378,11 +378,11 @@ app.post('/internal/finance-message', (req, res) => {
 const settingsDB = require('./settings-db');
 
 const FREE_DEFAULTS = [
-  { id: 'nvidia/nemotron-3-super-120b-a12b:free',      name: 'Nemotron 3 Super 120B',   free: true, pinned: true },
   { id: 'google/gemma-4-26b-a4b-it:free',              name: 'Gemma 4 26B',             free: true, pinned: true },
-  { id: 'openai/gpt-oss-20b:free',                    name: 'GPT-OSS 20B',              free: true, pinned: true },
+  { id: 'nvidia/nemotron-3-super-120b-a12b:free',      name: 'Nemotron 3 Super 120B',   free: true, pinned: true },
   { id: 'nvidia/nemotron-3-nano-30b-a3b:free',          name: 'Nemotron 3 Nano 30B',     free: true, pinned: true },
   { id: 'nvidia/nemotron-3-ultra-550b-a55b:free',       name: 'Nemotron 3 Ultra 550B',   free: true, pinned: true },
+  { id: 'openai/gpt-oss-20b:free',                    name: 'GPT-OSS 20B',              free: true, pinned: true },
 ];
 
 let _modelsCache = null;
@@ -414,7 +414,7 @@ async function fetchOpenRouterModels() {
 }
 
 app.get('/api/settings', requireSuperAdmin, (req, res) => {
-  res.json({ ...settingsDB.getAll(), ai_model: settingsDB.get('ai_model','nvidia/nemotron-3-super-120b-a12b:free') });
+  res.json({ ...settingsDB.getAll(), ai_model: settingsDB.get('ai_model','google/gemma-4-26b-a4b-it:free') });
 });
 
 app.post('/api/settings', requireSuperAdmin, (req, res) => {
@@ -433,7 +433,7 @@ app.post('/api/settings/ai-model', requireAuth, (req, res) => {
 });
 
 app.get('/api/settings/ai-models', requireAuth, async (req, res) => {
-  const current = settingsDB.get('ai_model','nvidia/nemotron-3-super-120b-a12b:free');
+  const current = settingsDB.get('ai_model','google/gemma-4-26b-a4b-it:free');
   try {
     const all = await fetchOpenRouterModels();
     const pinnedIds = new Set(FREE_DEFAULTS.map(m=>m.id));

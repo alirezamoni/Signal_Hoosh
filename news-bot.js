@@ -12,15 +12,15 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
 
 const FREE_MODELS = [
-  'nvidia/nemotron-3-super-120b-a12b:free',
   'google/gemma-4-26b-a4b-it:free',
-  'openai/gpt-oss-20b:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
   'nvidia/nemotron-3-nano-30b-a3b:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'openai/gpt-oss-20b:free',
 ];
 
 function getModels() {
-  const preferred = settingsDB.get('ai_model', 'nvidia/nemotron-3-super-120b-a12b:free');
+  const preferred = settingsDB.get('ai_model', 'google/gemma-4-26b-a4b-it:free');
   return [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
 }
 

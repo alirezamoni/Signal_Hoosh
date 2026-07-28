@@ -147,11 +147,11 @@ async function scrapeTrends(url, label) {
 
 // ── AI دسته‌بندی (با fallback مدل‌های رایگان) ──────────────
 const FREE_MODELS = [
-  'nvidia/nemotron-3-super-120b-a12b:free',
   'google/gemma-4-26b-a4b-it:free',
-  'openai/gpt-oss-20b:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
   'nvidia/nemotron-3-nano-30b-a3b:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'openai/gpt-oss-20b:free',
 ];
 
 async function aiCategorize(trends) {
@@ -167,7 +167,7 @@ ${keywords}
 دسته‌بندی‌های مجاز (فقط از این‌ها): ورزشی، اقتصادی، سیاسی، سرگرمی، اجتماعی، مذهبی، تکنولوژی، خودرو، سلامت، مالی، قیمت کالا، علم`;
 
   // مدل‌های امتحان: اول مدل تنظیمات، بعد fallback
-  const preferred = settingsDB.get('ai_model', 'nvidia/nemotron-3-super-120b-a12b:free');
+  const preferred = settingsDB.get('ai_model', 'google/gemma-4-26b-a4b-it:free');
   const models = [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
 
   for (const model of models) {

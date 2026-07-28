@@ -35,11 +35,11 @@ router.get('/history/:category', (req, res) => {
 
 // تحلیل AI (با fallback مدل‌های رایگان)
 const FREE_MODELS = [
-  'nvidia/nemotron-3-super-120b-a12b:free',
   'google/gemma-4-26b-a4b-it:free',
-  'openai/gpt-oss-20b:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
   'nvidia/nemotron-3-nano-30b-a3b:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'openai/gpt-oss-20b:free',
 ];
 
 router.get('/ai-analysis', async (req, res) => {
@@ -62,7 +62,7 @@ router.get('/ai-analysis', async (req, res) => {
 در ۳ جمله وضعیت بازار کار ایران را تحلیل کن. فقط بر اساس داده‌ها.`;
 
   const settingsDB = require('./settings-db');
-  const preferred = settingsDB.get('ai_model','nvidia/nemotron-3-super-120b-a12b:free');
+  const preferred = settingsDB.get('ai_model','google/gemma-4-26b-a4b-it:free');
   const models = [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
 
   for (const model of models) {
