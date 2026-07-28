@@ -176,6 +176,7 @@ ${keywords}
         model,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 2000,
+        reasoning: { enabled: false },
       });
 
       const result = await new Promise((resolve, reject) => {

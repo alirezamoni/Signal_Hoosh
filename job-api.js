@@ -67,7 +67,7 @@ router.get('/ai-analysis', async (req, res) => {
 
   for (const model of models) {
     try {
-      const body = JSON.stringify({model, messages:[{role:'user',content:prompt}], max_tokens:1000});
+      const body = JSON.stringify({model, messages:[{role:'user',content:prompt}], max_tokens:1000, reasoning:{enabled:false}});
       const result = await new Promise((resolve,reject)=>{
         const req2 = https.request({hostname:'openrouter.ai',path:'/api/v1/chat/completions',method:'POST',
           headers:{'Authorization':`Bearer ${OPENROUTER_KEY}`,'Content-Type':'application/json','HTTP-Referer':'https://signal.ir','Content-Length':Buffer.byteLength(body)}
