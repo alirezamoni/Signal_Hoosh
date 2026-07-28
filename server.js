@@ -20,13 +20,15 @@ const fs       = require('fs');
 const https    = require('https');
 const db       = require('./db');
 const { signToken, requireAuth, requireSuperAdmin } = require('./auth');
-const { startScheduler, load, loadRssLive } = require('./crawler');
-const { startMarketScheduler } = require('./market-crawler');
+let _crawlers = {};
+try { _crawlers.scheduler = require('./crawler'); _crawlers.scheduler.startScheduler; } catch(e) { console.warn('[warn] crawler not loaded:', e.message); }
+try { _crawlers.market = require('./market-crawler'); } catch(e) { console.warn('[warn] market-crawler not loaded:', e.message); }
 const marketRouter = require('./market-api');
 const financeRouter = require('./finance-api');
+const financeDB = require('./finance-db');
 let financeCrawler;
 try { financeCrawler = require('./finance-crawler'); } catch(e) { console.warn('[warn] finance-crawler not loaded:', e.message); }
-const { startJobScheduler } = require('./job-crawler');
+try { _crawlers.job = require('./job-crawler'); } catch(e) { console.warn('[warn] job-crawler not loaded:', e.message); }
 const jobRouter = require('./job-api');
 const { startPolymarketScheduler } = require('./polymarket-crawler');
 const polymarketRouter = require('./polymarket-api');
@@ -251,6 +253,115 @@ app.post('/internal/news', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── INTERNAL: finance channels (از Telethon Python) ──
+const FINANCE_MEDIA_DIR = path.join(__dirname, 'public', 'finance-media');
+function ensureFinanceMediaDir() {
+  if (!fs.existsSync(FINANCE_MEDIA_DIR)) fs.mkdirSync(FINANCE_MEDIA_DIR, { recursive: true });
+}
+function saveFinanceBase64Image(dataUrl, baseName) {
+  try {
+    const m = dataUrl.match(/^data:([\w.+-]+\/[\w.+-]+);base64,(.+)$/s);
+    if (!m) return null;
+    ensureFinanceMediaDir();
+    const ext = m[1].includes('png') ? 'png' : m[1].includes('webp') ? 'webp' : m[1].includes('gif') ? 'gif' : 'jpg';
+    const fname = `${baseName}.${ext}`;
+    fs.writeFileSync(path.join(FINANCE_MEDIA_DIR, fname), Buffer.from(m[2], 'base64'));
+    return `/finance-media/${fname}`;
+  } catch (e) { console.warn('[finance] saveBase64Image error:', e.message); return null; }
+}
+function _detectLang(text) {
+  if (!text) return 'fa';
+  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const englishChars = (text.match(/[a-zA-Z]/g) || []).length;
+  const totalChars = text.replace(/\s/g, '').length;
+  if (totalChars === 0) return 'fa';
+  if (englishChars / totalChars > 0.5) return 'en';
+  const persianChars = (text.match(/[پچژگ]/g) || []).length;
+  if (arabicChars / totalChars > 0.3 && persianChars === 0 && arabicChars > 10) return 'ar';
+  return 'fa';
+}
+async function _translateText(text, fromLang) {
+  if (!text || text.length < 10) return null;
+  try {
+    const sl = fromLang === 'ar' ? 'ar' : fromLang === 'en' ? 'en' : 'auto';
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=fa&dt=t&q=${encodeURIComponent(text.slice(0, 1000))}`;
+    return await new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => { try { resolve(JSON.parse(d)[0].map(x => x[0]).filter(Boolean).join('') || null); } catch(e) { reject(e); } });
+      }).on('error', reject).setTimeout(15000, function(){ this.destroy(); reject(new Error('timeout')); });
+    });
+  } catch(e) { console.warn('[finance] translate error:', e.message); return null; }
+}
+
+async function translateAndSaveFinance(channel, msg) {
+  const text = msg.text || '';
+  const lang = _detectLang(text);
+  let text_fa = null;
+  if (channel.needs_translation !== 0 && lang !== 'fa' && text.length > 10) {
+    text_fa = await _translateText(text, lang);
+  }
+  let media_url = null;
+  const mediaList = Array.isArray(msg.media_list) ? msg.media_list.filter(m => m && m.b64) : [];
+  if (mediaList.length > 1) {
+    const paths = [];
+    mediaList.forEach((m, i) => {
+      const p = saveFinanceBase64Image(`data:${m.mime||'image/jpeg'};base64,${m.b64}`, `${channel.id}_${msg.message_id}_${i}`);
+      if (p) paths.push(p);
+    });
+    media_url = paths.length ? JSON.stringify(paths) : null;
+  } else if (mediaList.length === 1) {
+    media_url = saveFinanceBase64Image(`data:${mediaList[0].mime||'image/jpeg'};base64,${mediaList[0].b64}`, `${channel.id}_${msg.message_id}_0`);
+  }
+  financeDB.saveFinanceMessage({
+    channel_id: channel.id, message_id: msg.message_id,
+    text: text.slice(0, 4000), text_fa, lang,
+    media_type: mediaList.length > 1 ? 'gallery' : (msg.media_type || null),
+    media_url, tg_link: msg.tg_link || null,
+    published_at: msg.published_at || new Date().toISOString(),
+  });
+}
+
+app.post('/internal/finance-channel-info', (req, res) => {
+  if (req.headers['x-internal-secret'] !== INTERNAL_SECRET) return res.status(401).end();
+  const { tg_id, channel_title, channel_username, photo_b64 } = req.body;
+  if (!tg_id) return res.status(400).end();
+  try {
+    const channel = financeDB.getFinanceChannelByTgId(String(tg_id));
+    if (channel) {
+      let photo_url = channel.photo_url;
+      if (photo_b64) {
+        const photoDir = path.join(__dirname, 'public', 'channel-photos');
+        if (!fs.existsSync(photoDir)) fs.mkdirSync(photoDir, {recursive:true});
+        const b64data = photo_b64.replace(/^data:image\/\w+;base64,/,'');
+        fs.writeFileSync(path.join(photoDir, `fin_${channel.id}.jpg`), Buffer.from(b64data,'base64'));
+        photo_url = `/channel-photos/fin_${channel.id}.jpg`;
+      }
+      financeDB.updateFinanceChannel(channel.id, {
+        username: channel_username || channel.username,
+        title: channel.title, category: channel.category || 'ارز دیجیتال', photo_url,
+      });
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/internal/finance-message', (req, res) => {
+  if (req.headers['x-internal-secret'] !== INTERNAL_SECRET)
+    return res.status(401).json({ error: 'unauthorized' });
+  const msg = req.body;
+  if (!msg?.tg_id || !msg?.message_id) return res.status(400).json({ error: 'invalid' });
+  let channel = financeDB.getFinanceChannelByTgId(String(msg.tg_id));
+  if (!channel) {
+    financeDB.upsertFinanceChannel(String(msg.tg_id), msg.channel_username||null, msg.channel_title||msg.tg_id, 'ارز دیجیتال', null);
+    channel = financeDB.getFinanceChannelByTgId(String(msg.tg_id));
+  }
+  if (!channel) return res.status(500).json({ error: 'channel error' });
+  translateAndSaveFinance(channel, msg).catch(console.error);
+  res.json({ ok: true });
+});
+
 
 
 const settingsDB = require('./settings-db');
@@ -334,19 +445,19 @@ app.get('/api/digest/:type', requireAuth, (req, res) => {
 });
 
 app.get('/api/rss/live', requireAuth, (req, res) => {
-  const data = loadRssLive();
+  const data = _crawlers.scheduler?.loadRssLive?.();
   if (!data) return res.status(503).json({ error: 'داده RSS آماده نشده' });
   res.json(data);
 });
 
 app.get('/api/trends/4h', requireAuth, (req, res) => {
-  const data = load('h4');
+  const data = _crawlers.scheduler?.load?.('h4');
   if (!data) return res.status(503).json({ error: 'داده آماده نشده' });
   res.json(data);
 });
 
 app.get('/api/trends/24h', requireAuth, (req, res) => {
-  const data = load('h24');
+  const data = _crawlers.scheduler?.load?.('h24');
   if (!data) return res.status(503).json({ error: 'داده آماده نشده' });
   res.json(data);
 });
@@ -410,9 +521,9 @@ db.seedSuperAdmin();
 
 app.listen(PORT, () => {
   console.log(`\nSignal → http://localhost:${PORT}`);
-  startScheduler();
-  startMarketScheduler();
-  startJobScheduler();
+  _crawlers.scheduler?.startScheduler?.();
+  _crawlers.market?.startMarketScheduler?.();
+  _crawlers.job?.startJobScheduler?.();
   startPolymarketScheduler();
   startDigestScheduler();
   if (financeCrawler) financeCrawler.startScheduler();

@@ -23,11 +23,20 @@ NODE_BASE   = 'http://localhost:3001'
 NODE_SECRET = _require_env('NODE_INTERNAL_SECRET')
 SESSION     = os.path.join(os.path.dirname(__file__), 'data', 'tg_session')
 CHANNELS_F  = os.path.join(os.path.dirname(__file__), 'data', 'watched_channels.json')
+FINANCE_CHANNELS_F = os.path.join(os.path.dirname(__file__), 'data', 'watched_finance_channels.json')
 
 def load_channels():
     try:
         if os.path.exists(CHANNELS_F):
             with open(CHANNELS_F) as f:
+                return json.load(f)
+    except: pass
+    return []
+
+def load_finance_channels():
+    try:
+        if os.path.exists(FINANCE_CHANNELS_F):
+            with open(FINANCE_CHANNELS_F) as f:
                 return json.load(f)
     except: pass
     return []
@@ -100,9 +109,9 @@ async def main():
     me = await client.get_me()
     log.info(f'Logged in as: {me.username or me.id}')
 
-    # آپدیت عکس پروفایل کانال‌ها
+    # آپدیت عکس پروفایل کانال‌های خبری
     channels = load_channels()
-    log.info(f'Watching {len(channels)} channels: {channels}')
+    log.info(f'Watching {len(channels)} news channels: {channels}')
     for ch in channels:
         try:
             entity = await client.get_entity(ch)
@@ -122,10 +131,32 @@ async def main():
         except Exception as e:
             log.warning(f'channel info {ch}: {e}')
 
+    # آپدیت عکس پروفایل کانال‌های مالی
+    fin_channels = load_finance_channels()
+    log.info(f'Watching {len(fin_channels)} finance channels: {fin_channels}')
+    for ch in fin_channels:
+        try:
+            entity = await client.get_entity(ch)
+            chat_id = str(entity.id)
+            if not chat_id.startswith('-'):
+                chat_id = f'-100{chat_id}'
+            username = getattr(entity, 'username', None)
+            photo_b64 = await get_channel_photo_b64(client, entity)
+            post_node('/internal/finance-channel-info', {
+                'tg_id': chat_id,
+                'channel_title': getattr(entity, 'title', ch),
+                'channel_username': f'@{username}' if username else ch,
+                'photo_b64': photo_b64,
+            })
+            log.info(f'finance channel info sent: {getattr(entity,"title",ch)} (photo: {"yes" if photo_b64 else "no"})')
+            await asyncio.sleep(1)
+        except Exception as e:
+            log.warning(f'finance channel info {ch}: {e}')
+
     # بافر برای آلبوم‌های چندعکسه (grouped_id تلگرام)
     album_buffer = {}  # grouped_id -> {msgs: [], timer: None}
 
-    async def flush_album(grouped_id, client_ref):
+    async def flush_album(grouped_id, client_ref, endpoint='/internal/news'):
         entry = album_buffer.pop(grouped_id, None)
         if not entry:
             return
@@ -163,15 +194,15 @@ async def main():
             'tg_link': tg_link,
             'published_at': first.date.isoformat(),
         }
-        ok = post_node('/internal/news', payload)
-        log.info(f'[{getattr(chat,"title",chat_id)}] album#{first.id} images={len(media_list)} → {"✓" if ok else "✗"}')
+        ok = post_node(endpoint, payload)
+        tag = 'fin' if 'finance' in endpoint else 'news'
+        log.info(f'[{tag}:{getattr(chat,"title",chat_id)}] album#{first.id} images={len(media_list)} → {"✓" if ok else "✗"}')
 
     @client.on(events.NewMessage())
     async def handler(event):
         try:
             channels = load_channels()
-            if not channels:
-                return
+            fin_channels = load_finance_channels()
 
             chat = await event.get_chat()
             chat_username = getattr(chat, 'username', None)
@@ -179,15 +210,28 @@ async def main():
             if not chat_id.startswith('-'):
                 chat_id = f'-100{chat_id}'
 
-            # چک کن توی لیست هست
-            allowed = False
+            # چک کن توی لیست خبری هست
+            is_news = False
             for ch in channels:
                 if ch.startswith('@') and chat_username and ch.lstrip('@').lower() == chat_username.lower():
-                    allowed = True; break
+                    is_news = True; break
                 elif ch == chat_id:
-                    allowed = True; break
-            if not allowed:
+                    is_news = True; break
+
+            # چک کن توی لیست مالی هست
+            is_finance = False
+            for ch in fin_channels:
+                if ch.startswith('@') and chat_username and ch.lstrip('@').lower() == chat_username.lower():
+                    is_finance = True; break
+                elif ch == chat_id:
+                    is_finance = True; break
+
+            if not is_news and not is_finance:
                 return
+
+            # تعیین endpoint بر اساس نوع کانال
+            endpoint = '/internal/finance-message' if is_finance else '/internal/news'
+            tag = 'fin' if is_finance else 'news'
 
             msg = event.message
 
@@ -195,13 +239,14 @@ async def main():
             if msg.grouped_id:
                 gid = msg.grouped_id
                 if gid not in album_buffer:
-                    album_buffer[gid] = {'msgs': [], 'chat': chat, 'timer': None}
+                    album_buffer[gid] = {'msgs': [], 'chat': chat, 'timer': None, 'endpoint': endpoint, 'tag': tag}
                 album_buffer[gid]['msgs'].append(msg)
+                ep = endpoint
                 if album_buffer[gid]['timer']:
                     album_buffer[gid]['timer'].cancel()
                 loop = asyncio.get_event_loop()
                 album_buffer[gid]['timer'] = loop.call_later(
-                    1.5, lambda: asyncio.create_task(flush_album(gid, client))
+                    1.5, lambda: asyncio.create_task(flush_album(gid, client, ep))
                 )
                 return
 
@@ -226,8 +271,8 @@ async def main():
                 'published_at': msg.date.isoformat(),
             }
 
-            ok = post_node('/internal/news', payload)
-            log.info(f'[{getattr(chat,"title",chat_id)}] msg#{msg.id} media={media_type} → {"✓" if ok else "✗"}')
+            ok = post_node(endpoint, payload)
+            log.info(f'[{tag}:{getattr(chat,"title",chat_id)}] msg#{msg.id} media={media_type} → {"✓" if ok else "✗"}')
 
         except Exception as e:
             log.warning(f'handler error: {e}')

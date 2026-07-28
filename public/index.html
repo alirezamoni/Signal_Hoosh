@@ -654,6 +654,34 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .fin-chg-val.up{color:var(--green)}
 .fin-chg-val.down{color:var(--red)}
 .fin-chart-wrap{height:200px;position:relative;margin-top:8px}
+
+/* Finance Telegram Channels Feed */
+.fin-channels-section{margin-bottom:20px}
+.fin-channels-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.fin-channels-title{font-size:14px;font-weight:700;color:var(--text2)}
+.fin-channels-filters{display:flex;gap:6px;flex-wrap:wrap}
+.fin-channels-filters .nfbtn{font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;transition:all .15s}
+.fin-channels-filters .nfbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fin-channels-filters .nfbtn:hover{border-color:var(--border2)}
+.fin-channels-feed{column-count:2;column-gap:12px}
+@media(max-width:760px){.fin-channels-feed{column-count:1}}
+.fin-msg-card{break-inside:avoid;background:var(--bg2);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden;animation:finMsgIn .3s ease}
+@keyframes finMsgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fin-msg-card.new{border-color:var(--green);animation:finMsgPulse 3s ease}
+@keyframes finMsgPulse{0%{box-shadow:0 0 0 0 rgba(15,209,122,.3)}70%{box-shadow:0 0 0 6px rgba(15,209,122,0)}100%{box-shadow:0 0 0 0 rgba(15,209,122,0)}}
+.fin-msg-head{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.fin-msg-avatar{width:32px;height:32px;border-radius:8px;object-fit:cover;background:var(--bg3);flex-shrink:0}
+.fin-msg-avatar-ph{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.fin-msg-info{flex:1;min-width:0}
+.fin-msg-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fin-msg-time{font-size:10px;color:var(--text3)}
+.fin-msg-link{font-size:10px;color:var(--accent);text-decoration:none;flex-shrink:0}
+.fin-msg-media{width:100%;display:block;cursor:pointer}
+.fin-msg-body{padding:0 12px 12px;font-size:12.5px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.fin-msg-translation{padding:0 12px 12px;font-size:11.5px;line-height:1.5;color:var(--text2);border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
+.fin-msg-empty{text-align:center;padding:30px;color:var(--text3);font-size:12px}
+@media(max-width:600px){.fin-channels-head{flex-direction:column;align-items:flex-start}}
+
 .trends-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
 .tstat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .tstat-label{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;margin-bottom:6px}
@@ -955,7 +983,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   </div>
 </div>
 
-<!-- modal افزودن/ویرایش کانال -->
+<!-- modal افزودن/ویرایش کانال خبری -->
 <div class="modal-overlay" id="channelModal" style="display:none">
   <div class="modal-box">
     <div class="modal-title" id="channelModalTitle">افزودن کانال تلگرام</div>
@@ -992,6 +1020,45 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('channelModal')">انصراف</button>
       <button class="btn-primary" style="width:auto;padding:9px 22px" onclick="submitChannel()">ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal افزودن/ویرایش کانال بازار مالی -->
+<div class="modal-overlay" id="finChannelModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title" id="finChannelModalTitle">افزودن کانال تلگرام</div>
+    <div class="modal-error" id="finChannelModalError"></div>
+    <input type="hidden" id="finChannelEditId">
+    <input type="hidden" id="finChannelTgId">
+    <div class="form-group">
+      <label class="form-label">یوزرنیم کانال</label>
+      <input class="form-input" id="finChannelUsername" placeholder="@channelname" style="direction:ltr">
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">یوزرنیم رو از لینک کانال بردار</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">نام کانال</label>
+      <input class="form-input" id="finChannelTitle" placeholder="نام نمایشی">
+    </div>
+    <div class="form-group">
+      <label class="form-label">دسته‌بندی</label>
+      <select class="form-input" id="finChannelCategory">
+        <option>ارز دیجیتال</option>
+        <option>طلا و فلزات</option>
+        <option>بورس ایران</option>
+        <option>فارکس</option>
+        <option>نفت و انرژی</option>
+        <option>تحلیل تکنیکال</option>
+        <option>اخبار اقتصادی</option>
+      </select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border-radius:10px">
+      <input type="checkbox" id="finChannelNeedsTranslation" checked style="accent-color:var(--accent);width:18px;height:18px;cursor:pointer">
+      <label for="finChannelNeedsTranslation" style="font-size:12px;color:var(--text2);cursor:pointer">نیاز به ترجمه (متن‌های غیرفارسی ترجمه شوند)</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('finChannelModal')">انصراف</button>
+      <button class="btn-primary" style="width:auto;padding:9px 22px" onclick="submitFinChannel()">ذخیره</button>
     </div>
   </div>
 </div>
@@ -1067,6 +1134,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
         <tbody id="finTableBody"></tbody>
       </table>
     </div>
+
+    <!-- Telegram Channel Feed -->
+    <div class="fin-channels-section">
+      <div class="fin-channels-head">
+        <span class="fin-channels-title">کانال‌های تلگرامی</span>
+        <div class="fin-channels-filters" id="finChannelFilters"></div>
+      </div>
+      <div class="fin-channels-feed" id="finChannelsFeed">
+        <div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">در حال بارگذاری...</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1117,6 +1195,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
       <button class="btn-sm active" id="settingsTabUsers" onclick="switchSettingsTab('users')">کاربران</button>
       <button class="btn-sm" id="settingsTabOnline" onclick="switchSettingsTab('online')">آنلاین</button>
       <button class="btn-sm" id="settingsTabChannels" onclick="switchSettingsTab('channels')">کانال‌های خبری</button>
+      <button class="btn-sm" id="settingsTabFinChannels" onclick="switchSettingsTab('finchannels')">کانال‌های بازار مالی</button>
       <button class="btn-sm" id="settingsTabAI" onclick="switchSettingsTab('ai')">مدل هوش مصنوعی</button>
     </div>
   </div>
@@ -1152,6 +1231,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <table class="users-table" id="channelsTable">
       <thead><tr><th>کانال</th><th>یوزرنیم</th><th>دسته‌بندی</th><th>ترجمه</th><th>عملیات</th></tr></thead>
       <tbody id="channelsBody"></tbody>
+    </table>
+  </div>
+
+  <!-- تب کانال‌های بازار مالی -->
+  <div id="settingsPanelFinChannels" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn-add" onclick="openFinChannelModal()">+ افزودن کانال</button>
+    </div>
+    <table class="users-table" id="finChannelsTable">
+      <thead><tr><th>کانال</th><th>یوزرنیم</th><th>دسته‌بندی</th><th>ترجمه</th><th>عملیات</th></tr></thead>
+      <tbody id="finChannelsBody"></tbody>
     </table>
   </div>
 
@@ -1517,7 +1607,7 @@ function switchTab(tab,el){
   if(isMarket)  loadMarket();
   if(isJobs)    loadJobs();
   if(isNews)    loadNews();
-  if(isFinance) loadFinance();
+  if(isFinance){ loadFinance(); loadFinanceMessages(); }
   if(isPoly)    loadPolymarket();
 }
 
@@ -1948,14 +2038,17 @@ function switchSettingsTab(tab) {
   document.getElementById('settingsPanelUsers').style.display    = tab==='users'    ? 'block' : 'none';
   document.getElementById('settingsPanelOnline').style.display   = tab==='online'   ? 'block' : 'none';
   document.getElementById('settingsPanelChannels').style.display = tab==='channels' ? 'block' : 'none';
+  document.getElementById('settingsPanelFinChannels').style.display = tab==='finchannels' ? 'block' : 'none';
   document.getElementById('settingsPanelAI').style.display       = tab==='ai'       ? 'block' : 'none';
   document.getElementById('settingsTabUsers').classList.toggle('active', tab==='users');
   document.getElementById('settingsTabOnline').classList.toggle('active', tab==='online');
   document.getElementById('settingsTabChannels').classList.toggle('active', tab==='channels');
+  document.getElementById('settingsTabFinChannels').classList.toggle('active', tab==='finchannels');
   document.getElementById('settingsTabAI').classList.toggle('active', tab==='ai');
   if(tab==='users') loadUsers();
   if(tab==='online') loadOnlineUsers();
   if(tab==='channels') loadSettingsChannels();
+  if(tab==='finchannels') loadSettingsFinChannels();
   if(tab==='ai') loadAIModels();
 }
 
@@ -2136,6 +2229,230 @@ async function submitChannel() {
     errEl.style.display = 'block';
     errEl.textContent = e.message;
   }
+}
+
+// ══ FINANCE CHANNELS — تنظیمات ══
+let _finChannelsData = [];
+async function loadSettingsFinChannels() {
+  const tbody = document.getElementById('finChannelsBody');
+  if(!tbody) return;
+  try {
+    const r = await fetch('/api/finance/channels/list', {headers:{Authorization:'Bearer '+TOKEN}});
+    if (!r.ok) return;
+    _finChannelsData = await r.json();
+    if (!_finChannelsData.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">کانالی اضافه نشده</td></tr>';
+      return;
+    }
+    tbody.innerHTML = _finChannelsData.map(c =>
+      '<tr>' +
+      '<td>' + (c.title||'—') + '</td>' +
+      '<td style="direction:ltr;color:var(--text3)">' + (c.username||'—') + '</td>' +
+      '<td><span style="font-size:11px;background:var(--bg3);padding:2px 8px;border-radius:8px">' + (c.category||'—') + '</span></td>' +
+      '<td><span style="font-size:10px;padding:2px 8px;border-radius:4px;' + (c.needs_translation===0?'background:rgba(240,82,82,.1);color:var(--red)':'background:rgba(15,209,122,.1);color:var(--green)') + '">' + (c.needs_translation===0?'خیر':'بله') + '</span></td>' +
+      '<td style="display:flex;gap:6px">' +
+      '<button class="btn-sm" onclick="_finChEdit(' + c.id + ')">ویرایش</button>' +
+      '<button class="btn-sm" style="color:var(--red);border-color:var(--red)" onclick="_finChDel(' + c.id + ')">حذف</button>' +
+      '</td></tr>'
+    ).join('');
+  } catch(e) { console.error('loadSettingsFinChannels:', e); }
+}
+
+function _finChEdit(id) {
+  const c = _finChannelsData.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('finChannelEditId').value = id;
+  document.getElementById('finChannelTgId').value = c.tg_id||'';
+  document.getElementById('finChannelUsername').value = c.username||'';
+  document.getElementById('finChannelTitle').value = c.title||'';
+  document.getElementById('finChannelCategory').value = c.category||'ارز دیجیتال';
+  document.getElementById('finChannelNeedsTranslation').checked = c.needs_translation !== 0;
+  document.getElementById('finChannelModalTitle').textContent = 'ویرایش کانال';
+  document.getElementById('finChannelModalError').textContent = '';
+  document.getElementById('finChannelModal').style.display = 'flex';
+}
+
+async function _finChDel(id) {
+  const c = _finChannelsData.find(x => x.id === id);
+  if (!confirm('کانال "' + (c?c.title:id) + '" حذف شود؟')) return;
+  try {
+    const r = await fetch('/api/finance/channels/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+    const d = await r.json();
+    if (d.ok) { toast('کانال حذف شد'); loadSettingsFinChannels(); }
+    else alert(d.error||'خطا');
+  } catch(e) { alert(e.message); }
+}
+
+function openFinChannelModal() {
+  document.getElementById('finChannelEditId').value = '';
+  document.getElementById('finChannelTgId').value = '';
+  document.getElementById('finChannelUsername').value = '';
+  document.getElementById('finChannelTitle').value = '';
+  document.getElementById('finChannelCategory').value = 'ارز دیجیتال';
+  document.getElementById('finChannelNeedsTranslation').checked = true;
+  document.getElementById('finChannelModalTitle').textContent = 'افزودن کانال';
+  document.getElementById('finChannelModalError').textContent = '';
+  document.getElementById('finChannelModal').style.display = 'flex';
+}
+
+async function submitFinChannel() {
+  const editId   = document.getElementById('finChannelEditId').value;
+  const username = document.getElementById('finChannelUsername').value.trim();
+  const title    = document.getElementById('finChannelTitle').value.trim();
+  const category = document.getElementById('finChannelCategory').value;
+  const errEl    = document.getElementById('finChannelModalError');
+  errEl.style.display = 'none';
+  if (!username || !title) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'یوزرنیم و نام الزامی است';
+    return;
+  }
+  const cleanUser = username.startsWith('@') ? username : '@'+username;
+  const tg_id = editId ? (document.getElementById('finChannelTgId').value || cleanUser) : cleanUser;
+  try {
+    const url    = editId ? '/api/finance/channels/'+editId : '/api/finance/channels';
+    const method = editId ? 'PATCH' : 'POST';
+    const body = { tg_id:tg_id, username:cleanUser, title:title, category:category,
+      photo_url: editId ? (_finChannelsData.find(c=>c.id==editId)?.photo_url || null) : null,
+      needs_translation: document.getElementById('finChannelNeedsTranslation').checked
+    };
+    const r = await fetch(url, { method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN}, body:JSON.stringify(body) });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('finChannelModal').style.display = 'none';
+      toast(editId ? 'کانال ویرایش شد' : 'کانال اضافه شد');
+      loadSettingsFinChannels();
+    } else { errEl.style.display='block'; errEl.textContent = d.error || 'خطا در ذخیره'; }
+  } catch(e) { errEl.style.display='block'; errEl.textContent = e.message; }
+}
+
+// ══ FINANCE MESSAGES — فید کانال‌های تلگرامی ══
+let _finMsgChannelFilter = null;
+let _finMsgOffset = 0;
+let _finChannelsCache = null;
+let _renderedFinMsgIds = new Set();
+let _finMsgPollTimer = null;
+let _finMsgBaseline = false;
+
+async function loadFinanceMessages() {
+  const feedEl = document.getElementById('finChannelsFeed');
+  if (!feedEl) return;
+  _renderedFinMsgIds = new Set();
+  _finMsgBaseline = false;
+  try {
+    const [chRes, msgRes] = await Promise.all([
+      fetch('/api/finance/channels/list', {headers:{Authorization:'Bearer '+TOKEN}}),
+      fetch('/api/finance/messages?limit=20', {headers:{Authorization:'Bearer '+TOKEN}})
+    ]);
+    _finChannelsCache = chRes.ok ? await chRes.json() : [];
+    const msgs = msgRes.ok ? await msgRes.json() : [];
+    buildFinChannelFilters();
+    renderFinMessages(msgs, 'replace');
+    _finMsgBaseline = true;
+    if (_finMsgPollTimer) clearInterval(_finMsgPollTimer);
+    _finMsgPollTimer = setInterval(pollFinanceMessages, 8000);
+  } catch(e) { console.warn('[fin-msg]', e.message); }
+}
+
+function buildFinChannelFilters() {
+  const el = document.getElementById('finChannelFilters');
+  if (!el || !_finChannelsCache) return;
+  let html = '<button class="nfbtn ' + (_finMsgChannelFilter===null?'active':'') + '" onclick="filterFinMsg(null,this)">همه</button>';
+  _finChannelsCache.forEach(c => {
+    html += '<button class="nfbtn ' + (_finMsgChannelFilter===c.id?'active':'') + '" onclick="filterFinMsg('+c.id+',this)">'+(c.title||c.username||'—')+'</button>';
+  });
+  el.innerHTML = html;
+}
+
+function filterFinMsg(channelId, btn) {
+  _finMsgChannelFilter = channelId;
+  document.querySelectorAll('#finChannelFilters .nfbtn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  refreshFinMessages();
+}
+
+async function refreshFinMessages() {
+  _renderedFinMsgIds = new Set();
+  _finMsgOffset = 0;
+  let url = '/api/finance/messages?limit=20';
+  if (_finMsgChannelFilter) url += '&channel='+_finMsgChannelFilter;
+  try {
+    const r = await fetch(url, {headers:{Authorization:'Bearer '+TOKEN}});
+    const msgs = r.ok ? await r.json() : [];
+    renderFinMessages(msgs, 'replace');
+  } catch(e) { console.warn('[fin-msg]', e.message); }
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'همین الان';
+  if (diff < 3600) return toFa(Math.floor(diff/60)) + ' دقیقه پیش';
+  if (diff < 86400) return toFa(Math.floor(diff/3600)) + ' ساعت پیش';
+  return toFa(Math.floor(diff/86400)) + ' روز پیش';
+}
+
+function buildFinMsgCard(m, isNew) {
+  const chName = m.channel_title || '—';
+  const chUser = m.channel_username || '';
+  const avatar = m.channel_photo
+    ? '<img class="fin-msg-avatar" src="'+m.channel_photo+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="fin-msg-avatar-ph" style="display:none">'+escapeHtml(chName.charAt(0))+'</div>'
+    : '<div class="fin-msg-avatar-ph">'+escapeHtml(chName.charAt(0))+'</div>';
+  let media = '';
+  if (m.media_type === 'gallery' && m.media_url) {
+    try {
+      const imgs = JSON.parse(m.media_url);
+      media = imgs.map(u => '<img class="fin-msg-media" src="'+u+'" loading="lazy" onclick="window.open(this.src)">').join('');
+    } catch { media = ''; }
+  } else if (m.media_url && m.media_type) {
+    media = '<img class="fin-msg-media" src="'+m.media_url+'" loading="lazy" onclick="window.open(this.src)">';
+  }
+  const body = m.text_fa || m.text || '';
+  const translation = (m.text_fa && m.text && m.lang !== 'fa') ? '<div class="fin-msg-translation">'+escapeHtml(m.text).slice(0,500)+'</div>' : '';
+  const link = m.tg_link ? '<a class="fin-msg-link" href="'+m.tg_link+'" target="_blank">↗ منبع</a>' : '';
+  return '<div class="fin-msg-card'+(isNew?' new':'')+'" data-id="'+m.id+'">' +
+    '<div class="fin-msg-head">' + avatar +
+    '<div class="fin-msg-info"><div class="fin-msg-name">'+escapeHtml(chName)+'</div>' +
+    '<div class="fin-msg-time">'+timeAgo(m.published_at)+'</div></div>' + link + '</div>' +
+    (media ? '<div>'+media+'</div>' : '') +
+    (body ? '<div class="fin-msg-body">'+escapeHtml(body).slice(0,2000)+'</div>' : '') +
+    translation + '</div>';
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderFinMessages(msgs, mode) {
+  const feedEl = document.getElementById('finChannelsFeed');
+  if (!feedEl) return;
+  if (mode === 'replace') {
+    if (!msgs.length) {
+      feedEl.innerHTML = '<div class="fin-msg-empty">پیامی از کانال‌های مالی دریافت نشده.<br>برای شروع، از تنظیمات → کانال‌های بازار مالی، کانال اضافه کنید.</div>';
+      return;
+    }
+    feedEl.innerHTML = msgs.map(m => { _renderedFinMsgIds.add(m.id); return buildFinMsgCard(m, false); }).join('');
+  } else if (mode === 'prepend') {
+    const newMsgs = msgs.filter(m => !_renderedFinMsgIds.has(m.id));
+    newMsgs.forEach(m => _renderedFinMsgIds.add(m.id));
+    if (newMsgs.length) {
+      feedEl.insertAdjacentHTML('afterbegin', newMsgs.map(m => buildFinMsgCard(m, true)).join(''));
+      setTimeout(() => { document.querySelectorAll('.fin-msg-card.new').forEach(c => c.classList.remove('new')); }, 3500);
+    }
+  }
+}
+
+async function pollFinanceMessages() {
+  let url = '/api/finance/messages?limit=10';
+  if (_finMsgChannelFilter) url += '&channel='+_finMsgChannelFilter;
+  try {
+    const r = await fetch(url, {headers:{Authorization:'Bearer '+TOKEN}});
+    if (!r.ok) return;
+    const msgs = await r.json();
+    if (_finMsgBaseline) renderFinMessages(msgs, 'prepend');
+  } catch(e) {}
 }
 
 // ══ NEWS — بازطراحی کامل ══
