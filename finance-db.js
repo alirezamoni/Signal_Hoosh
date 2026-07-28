@@ -148,7 +148,7 @@ function cleanup() {
 // ══════════════════════════════════════
 
 const _upsertCh = db.prepare(
-  'INSERT INTO finance_channels (tg_id,username,title,category,photo_url,needs_translation) VALUES (?,?,?,?,?,?) ON CONFLICT(tg_id) DO UPDATE SET username=COALESCE(excluded.username,username), title=COALESCE(excluded.title,title), category=COALESCE(excluded.category,category), photo_url=COALESCE(excluded.photo_url,photo_url), needs_translation=COALESCE(excluded.needs_translation,needs_translation) RETURNING id'
+  'INSERT INTO finance_channels (tg_id,username,title,category,photo_url,needs_translation,active) VALUES (?,?,?,?,?,?,1) ON CONFLICT(tg_id) DO UPDATE SET username=COALESCE(excluded.username,username), title=COALESCE(excluded.title,title), category=COALESCE(excluded.category,category), photo_url=COALESCE(excluded.photo_url,photo_url), needs_translation=COALESCE(excluded.needs_translation,needs_translation), active=1 RETURNING id'
 );
 function upsertFinanceChannel(tg_id, username, title, category, photo_url, needs_translation) {
   const nt = needs_translation !== undefined ? (needs_translation ? 1 : 0) : 1;
