@@ -669,13 +669,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 @keyframes finMsgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .fin-msg-card.new{border-color:var(--green);animation:finMsgPulse 3s ease}
 @keyframes finMsgPulse{0%{box-shadow:0 0 0 0 rgba(15,209,122,.3)}70%{box-shadow:0 0 0 6px rgba(15,209,122,0)}100%{box-shadow:0 0 0 0 rgba(15,209,122,0)}}
-.fin-msg-head{display:flex;align-items:center;gap:8px;padding:10px 12px}
-.fin-msg-avatar{width:32px;height:32px;border-radius:8px;object-fit:cover;background:var(--bg3);flex-shrink:0}
-.fin-msg-avatar-ph{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.fin-msg-head{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:0}
+.fin-msg-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:var(--bg3);flex-shrink:0}
+.fin-msg-avatar-ph{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
 .fin-msg-info{flex:1;min-width:0}
 .fin-msg-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fin-msg-time{font-size:10px;color:var(--text3)}
-.fin-msg-link{font-size:10px;color:var(--accent);text-decoration:none;flex-shrink:0}
+.fin-msg-meta{font-size:10px;color:var(--text3)}
+.fin-msg-head-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.fin-msg-tg-link{font-size:11px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap;padding:5px 10px;border-radius:8px;border:1px solid rgba(79,131,247,.28);transition:background .15s}
+.fin-msg-tg-link:hover{background:rgba(79,131,247,.1)}
+.fin-msg-del-btn{background:none;border:1px solid var(--border);color:var(--text3);cursor:pointer;padding:5px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.fin-msg-del-btn:hover{background:rgba(240,82,82,.1);border-color:rgba(240,82,82,.4);color:var(--red)}
+.fin-msg-del-btn svg{width:15px;height:15px;pointer-events:none}
 .fin-msg-media{width:100%;display:block;cursor:pointer}
 .fin-msg-body{padding:0 12px 12px;font-size:12.5px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word}
 .fin-msg-translation{padding:0 12px 12px;font-size:11.5px;line-height:1.5;color:var(--text2);border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
@@ -2397,7 +2402,7 @@ function buildFinMsgCard(m, isNew) {
   const chName = m.channel_title || '—';
   const chUser = m.channel_username || '';
   const avatar = m.channel_photo
-    ? '<img class="fin-msg-avatar" src="'+m.channel_photo+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="fin-msg-avatar-ph" style="display:none">'+escapeHtml(chName.charAt(0))+'</div>'
+    ? '<img class="fin-msg-avatar" src="'+m.channel_photo+'" onerror="this.outerHTML=\'<div class=&quot;fin-msg-avatar-ph&quot;>'+escapeHtml(chName.charAt(0))+'</div>\'">'
     : '<div class="fin-msg-avatar-ph">'+escapeHtml(chName.charAt(0))+'</div>';
   let media = '';
   if (m.media_type === 'gallery' && m.media_url) {
@@ -2410,11 +2415,15 @@ function buildFinMsgCard(m, isNew) {
   }
   const body = m.text_fa || m.text || '';
   const translation = (m.text_fa && m.text && m.lang !== 'fa') ? '<div class="fin-msg-translation">'+escapeHtml(m.text).slice(0,500)+'</div>' : '';
-  const link = m.tg_link ? '<a class="fin-msg-link" href="'+m.tg_link+'" target="_blank">↗ منبع</a>' : '';
+  const tgLink = m.tg_link ? '<a class="fin-msg-tg-link" href="'+m.tg_link+'" target="_blank" rel="noopener">↗ منبع</a>' : '';
+  const delBtn = CURRENT_USER?.role==='superadmin'
+    ? '<button class="fin-msg-del-btn" data-action="delete-fin-msg" data-id="'+m.id+'" title="حذف پیام" aria-label="حذف این پیام">'+ICON_TRASH+'</button>'
+    : '';
   return '<div class="fin-msg-card'+(isNew?' new':'')+'" data-id="'+m.id+'">' +
     '<div class="fin-msg-head">' + avatar +
     '<div class="fin-msg-info"><div class="fin-msg-name">'+escapeHtml(chName)+'</div>' +
-    '<div class="fin-msg-time">'+timeAgo(m.published_at)+'</div></div>' + link + '</div>' +
+    '<div class="fin-msg-meta">'+timeAgo(m.published_at)+(chUser?' · '+chUser:'')+'</div></div>' +
+    '<div class="fin-msg-head-actions">'+tgLink+delBtn+'</div></div>' +
     (media ? '<div>'+media+'</div>' : '') +
     (body ? '<div class="fin-msg-body">'+escapeHtml(body).slice(0,2000)+'</div>' : '') +
     translation + '</div>';
@@ -2428,6 +2437,7 @@ function escapeHtml(s) {
 function renderFinMessages(msgs, mode) {
   const feedEl = document.getElementById('finChannelsFeed');
   if (!feedEl) return;
+  ensureFinDelegation();
   if (mode === 'replace') {
     if (!msgs.length) {
       feedEl.innerHTML = '<div class="fin-msg-empty">پیامی از کانال‌های مالی دریافت نشده.<br>برای شروع، از تنظیمات → کانال‌های بازار مالی، کانال اضافه کنید.</div>';
@@ -2442,6 +2452,31 @@ function renderFinMessages(msgs, mode) {
       setTimeout(() => { document.querySelectorAll('.fin-msg-card.new').forEach(c => c.classList.remove('new')); }, 3500);
     }
   }
+}
+
+let _finDelegated = false;
+function ensureFinDelegation() {
+  if (_finDelegated) return;
+  _finDelegated = true;
+  const feed = document.getElementById('finChannelsFeed');
+  feed.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-action="delete-fin-msg"]');
+    if (del) { deleteFinMessage(del.dataset.id); return; }
+  });
+}
+
+async function deleteFinMessage(id) {
+  if (!confirm('این پیام حذف شود؟')) return;
+  const card = document.querySelector('.fin-msg-card[data-id="'+id+'"]');
+  try {
+    await fetch('/api/finance/messages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+    if (card) {
+      card.style.opacity = '0';
+      card.style.transform = 'scale(.95)';
+      card.style.transition = 'all .25s';
+      setTimeout(() => { card.remove(); _renderedFinMsgIds.delete(Number(id)); }, 250);
+    }
+  } catch(e) { alert(e.message); }
 }
 
 async function pollFinanceMessages() {

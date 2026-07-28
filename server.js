@@ -328,7 +328,17 @@ app.post('/internal/finance-channel-info', (req, res) => {
   const { tg_id, channel_title, channel_username, photo_b64 } = req.body;
   if (!tg_id) return res.status(400).end();
   try {
-    const channel = financeDB.getFinanceChannelByTgId(String(tg_id));
+    let channel = financeDB.getFinanceChannelByTgId(String(tg_id));
+    if (channel_username) {
+      const byUsername = financeDB.getFinanceChannelByTgId(String(channel_username));
+      if (byUsername && (!channel || byUsername.id !== channel.id)) {
+        if (channel) {
+          financeDB.deleteFinanceChannel(channel.id);
+        }
+        channel = byUsername;
+        financeDB.updateFinanceChannel(channel.id, { tg_id: String(tg_id), username: channel_username });
+      }
+    }
     if (channel) {
       let photo_url = channel.photo_url;
       if (photo_b64) {
@@ -340,6 +350,7 @@ app.post('/internal/finance-channel-info', (req, res) => {
       }
       financeDB.updateFinanceChannel(channel.id, {
         username: channel_username || channel.username,
+        tg_id: String(tg_id),
         title: channel.title, category: channel.category || 'ارز دیجیتال', photo_url,
       });
     }

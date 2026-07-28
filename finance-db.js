@@ -159,7 +159,8 @@ function upsertFinanceChannel(tg_id, username, title, category, photo_url, needs
 function updateFinanceChannel(id, data) {
   const cur = db.prepare('SELECT * FROM finance_channels WHERE id=?').get(id);
   if (!cur) return;
-  db.prepare(`UPDATE finance_channels SET username=?, title=?, category=?, photo_url=?, needs_translation=? WHERE id=?`).run(
+  db.prepare(`UPDATE finance_channels SET tg_id=?, username=?, title=?, category=?, photo_url=?, needs_translation=? WHERE id=?`).run(
+    data.tg_id ?? cur.tg_id,
     data.username ?? cur.username,
     data.title ?? cur.title,
     data.category ?? cur.category,
@@ -178,7 +179,9 @@ function getFinanceChannels() {
 }
 
 function getFinanceChannelByTgId(tg_id) {
-  return db.prepare('SELECT * FROM finance_channels WHERE tg_id=? AND active=1').get(String(tg_id));
+  const id = String(tg_id);
+  return db.prepare('SELECT * FROM finance_channels WHERE tg_id=? AND active=1').get(id)
+      || db.prepare('SELECT * FROM finance_channels WHERE username=? AND active=1').get(id);
 }
 
 // ══════════════════════════════════════
