@@ -456,7 +456,11 @@ async function assembleCascades() {
   const used = new Set();
   const cascades = [];
 
-  const financeEvents = events.filter(e => ['usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce'].includes(e.node_key));
+  // Only process the 3 most recent finance events to avoid chain spam
+  const financeEvents = events
+    .filter(e => ['usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce'].includes(e.node_key))
+    .sort((a, b) => new Date(b.detected_at) - new Date(a.detected_at))
+    .slice(0, 3);
   for (const fe of financeEvents) {
     // find edges pointing INTO fe.node_key
     const inEdges = edges.filter(ed => ed.to_node === fe.node_key);
