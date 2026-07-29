@@ -102,6 +102,20 @@ async function detectNewsWave() {
       topic = parsed?.topic || null;
     } catch (e) {}
 
+    // Fallback: keyword-based topic extraction when AI is unavailable (rate-limited)
+    if (!topic) {
+      const wordCount = {};
+      for (const it of cluster) {
+        for (const w of (it.text_fa || it.text || '').split(/\s+/)) {
+          const w2 = w.replace(/[^\u0600-\u06FFA-Za-z]/g, '');
+          if (w2.length < 4 || STOP.has(w2)) continue;
+          wordCount[w2] = (wordCount[w2] || 0) + 1;
+        }
+      }
+      const top = Object.entries(wordCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+      if (top.length) topic = top.join(' ');
+    }
+
     // dedup against existing event same topic within 30 min
     if (topic && tdb.getLatestByNodeTopic('news', topic, 30)) continue;
 
@@ -244,14 +258,20 @@ function detectFinanceMove() {
 // ════════════════════════════════════════════════════════
 //  FINANCE TELEGRAM  (§5.5) — fin_tg node
 // ════════════════════════════════════════════════════════
+// Messages look like: "دلار فردایی تهران ⏳ 193,800 مـعامله شد✅"
+// i.e. keyword, then qualifier text + emoji, THEN the number.
+// So we match: keyword, then skip up to 40 non-digit chars, then capture the number.
 const TG_KEYWORDS = [
-  { re: /دلار\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'usd' },
-  { re: /سکه\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'coin' },
-  { re: /طلا(?:ی)?(?:\s*\d*)?\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'gold18' },
-  { re: /تتر\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'tether' },
-  { re: /بیت‌?کوین\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'bitcoin' },
-  { re: /نفت\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'oil_brent' },
-  { re: /بورس\s*:?\s*([۰-۹۰-۹,.\s]*\d)/, target: 'stock_market' },
+  { re: /دلار[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'usd' },
+  { re: /سکه[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'coin' },
+  { re: /طلا(?:ی)?(?:\s*\d*)?[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'gold18' },
+  { re: /تتر[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'tether' },
+  { re: /بیت‌?کوین[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'bitcoin' },
+  { re: /نفت[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'oil_brent' },
+  { re: /بورس[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'stock_market' },
+  // also "انس" (ounce) and "مثقال"
+  { re: /انس[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'ounce' },
+  { re: /مثقال[^\d۰-۹]{0,40}?([۰-۹0-9][۰-۹0-9,.\s]{2,16})/, target: 'mesghal' },
 ];
 
 function parseFinTgPrices(text) {

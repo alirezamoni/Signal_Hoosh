@@ -72,6 +72,17 @@ function isChainOfThoughtJunk(text) {
   return false;
 }
 
+// ── circuit breaker: when OpenRouter rate-limits free models, pause AI calls ──
+let _aiPausedUntil = 0;
+function isAIPaused() { return Date.now() < _aiPausedUntil; }
+function _tripBreaker(reason) {
+  _aiPausedUntil = Date.now() + 5 * 60 * 1000; // pause 5 min
+  console.warn(`[tl-ai] circuit breaker tripped — AI paused 5min: ${reason}`);
+}
+function _isRateLimit(errText) {
+  return /rate.?limit|429|too many requests|free-models-per-min/i.test(errText || '');
+}
+
 function _post(model, messages, { max_tokens = 1200, json = false } = {}) {
   const body = JSON.stringify({
     model,
@@ -103,6 +114,7 @@ function _post(model, messages, { max_tokens = 1200, json = false } = {}) {
 // Narrative call: Persian prose for humans. Validates persianRatio + chain-of-thought.
 async function callNarrative(prompt, system) {
   if (!OPENROUTER_KEY) { console.warn('[tl-ai] no OPENROUTER_KEY'); return null; }
+  if (isAIPaused()) return null;
   for (const model of getModels()) {
     try {
       const result = await _post(model, [
@@ -110,7 +122,12 @@ async function callNarrative(prompt, system) {
         { role: 'user', content: prompt },
       ], { max_tokens: 1200 });
       const text = result.choices?.[0]?.message?.content || '';
-      if (!text || result.error) { console.warn(`[tl-ai] ${model}: ${result.error?.message?.slice(0,60) || 'no output'}`); continue; }
+      if (!text || result.error) {
+        const msg = result.error?.message || 'no output';
+        if (_isRateLimit(msg)) { _tripBreaker(msg); break; }
+        console.warn(`[tl-ai] ${model}: ${msg.slice(0,60)}`);
+        continue;
+      }
       if (isChainOfThoughtJunk(text)) { console.warn(`[tl-ai] ${model}: chain-of-thought leak, skipping`); continue; }
       if (persianRatio(text) < 0.50) { console.warn(`[tl-ai] ${model}: persian ratio low, skipping`); continue; }
       console.log(`[tl-ai] narrative OK with ${model}`);
@@ -153,6 +170,7 @@ function extractJson(text) {
 // Structured call: strict JSON for DB. Requests JSON-only, parses defensively.
 async function callStructured(prompt, system) {
   if (!OPENROUTER_KEY) { console.warn('[tl-ai] no OPENROUTER_KEY'); return null; }
+  if (isAIPaused()) return null;
   for (const model of getModels()) {
     try {
       const result = await _post(model, [
@@ -160,7 +178,12 @@ async function callStructured(prompt, system) {
         { role: 'user', content: prompt },
       ], { max_tokens: 900, json: true });
       const text = result.choices?.[0]?.message?.content || '';
-      if (!text || result.error) { console.warn(`[tl-ai/json] ${model}: ${result.error?.message?.slice(0,60) || 'no output'}`); continue; }
+      if (!text || result.error) {
+        const msg = result.error?.message || 'no output';
+        if (_isRateLimit(msg)) { _tripBreaker(msg); break; }
+        console.warn(`[tl-ai/json] ${model}: ${msg.slice(0,60)}`);
+        continue;
+      }
       const parsed = extractJson(text);
       if (!parsed) { console.warn(`[tl-ai/json] ${model}: unparseable, skipping`); continue; }
       console.log(`[tl-ai/json] structured OK with ${model}`);
