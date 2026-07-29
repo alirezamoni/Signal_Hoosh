@@ -48,10 +48,6 @@ function lowerBound(arr, ts) {
   return lo;
 }
 
-function discoverEdge(fromNode, toNode, regime) {
-  // last 14 days of events on each node (timeline events persist long-term)
-  const fromEvents = tdb.getEventsSince(14 * 24 * 60, fromNode);
-  const toEvents = tdb.getEventsSince(14 * 24 * 60, toNode);
 // Significance threshold for a to_node move: median |magnitude| of its events, min 0.3%.
 // Routine ticks must NOT count as "the market reacted".
 function significanceThreshold(events) {
@@ -242,8 +238,6 @@ function discoverCategoryEdge(category, toNode, regime) {
     lead_time_min: best.bucket, lead_time_std: std, reliability, correlation: dirBias,
     sample_count: fromEvents.length, last_confirmed: nowIso(),
   });
-  return true;
-}
   return true;
 }
 

@@ -288,7 +288,13 @@ const DEFAULT_SOURCES = [
   ['polymarket', null, 'Polymarket', 0.70, 'neutral', 'medium', 0.70, 0],
   ['finance_api', null, 'tgju.org', 0.90, 'neutral', 'fast', 0.90, 0],
 ];
-const _seedSrcs = db.transaction(() => DEFAULT_SOURCES.forEach(s => _seedSrc.run(...s)));
+// NOTE: UNIQUE(source_type, source_key) cannot dedupe the default rows because
+// SQLite treats NULLs as distinct, so every module load would append duplicates.
+// Guard explicitly on (source_type, source_key IS NULL).
+const _srcDefaultExists = db.prepare('SELECT 1 FROM source_reliability WHERE source_type=? AND source_key IS NULL');
+const _seedSrcs = db.transaction(() => DEFAULT_SOURCES.forEach(s => {
+  if (!_srcDefaultExists.get(s[0])) _seedSrc.run(...s);
+}));
 _seedSrcs();
 
 // seed 10 calibration buckets [0.0-0.1 ... 0.9-1.0]
