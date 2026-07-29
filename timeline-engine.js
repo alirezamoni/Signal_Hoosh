@@ -447,9 +447,10 @@ async function detectRegime() {
 //  CASCADE / ROOT-CAUSE TREE ASSEMBLY  (§6.2, §6.3)
 // ════════════════════════════════════════════════════════
 async function assembleCascades() {
-  const events = tdb.getUnlinkedEvents(6);
+  const events = tdb.getUnlinkedEvents(2);
   if (!events || events.length < 1) return;
   const edges = tdb.getUsableEdges();
+  const BAD_TOPICS = new Set(['up', 'down', 'flat', 'usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce', 'نامشخص']);
   // group events: a cascade = cause-node events that are connected via learned edges to a target-node event within lead_time
   // Build by walking: for each target (finance) event, find cause events in [t-lead, t] window.
   const used = new Set();
@@ -489,7 +490,9 @@ async function assembleCascades() {
       const peak = Math.max(fe.severity || 0, ...causeEvents.map(e => e.severity || 0));
       // use the most severe cause's topic, or the finance event's target as topic
       const topCause = causeEvents.sort((a, b) => (b.severity || 0) - (a.severity || 0))[0];
-      const topic = topCause?.topic || fe.topic || 'نامشخص';
+      // avoid using direction/symbol as topic for the title
+      const rawTopic = topCause?.topic || fe.topic || 'نامشخص';
+      const topic = BAD_TOPICS.has(rawTopic) ? 'رویداد بازار' : rawTopic;
       const title = `زنجیره: ${topic}`;
       const treeRoots = rootCauseIds.length ? rootCauseIds : [fe.id];
       const fullEventIds = { roots: treeRoots, edges: edgeList };
@@ -516,7 +519,7 @@ async function assembleCascades() {
   // Fallback: only group orphan events that share a REAL topic (not 'up'/'down'/'flat') within a tight window.
   // This catches co-occurring news waves on the same subject. Skip direction-only topics.
   if (cascades.length === 0 && events.length >= 2) {
-    const DIR_TOPICS = new Set(['up', 'down', 'flat', null, 'نامشخص']);
+    const DIR_TOPICS = new Set(['up', 'down', 'flat', null, 'نامشخص', 'usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce']);
     const byTopic = {};
     for (const e of events) {
       if (used.has(e.id) || !e.topic || DIR_TOPICS.has(e.topic)) continue;
