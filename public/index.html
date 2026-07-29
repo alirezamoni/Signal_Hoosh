@@ -3718,6 +3718,7 @@ let _futurePollTimer=null, _futurePredState=new Map(), _futureArchiveFilter='all
 const WHATIF_EXAMPLES = ['خبر تحریم جدید علیه ایران','تغییر قیمت بنزین','انتخابات ریاست‌جمهوری','کاهش قیمت نفت','حمله نظامی منطقه‌ای'];
 
 function fDirBadge(dir){return dir==='up'?'<span class="mdelta up">▲ صعودی</span>':dir==='down'?'<span class="mdelta down">▼ نزولی</span>':'<span class="mdelta flat">▬ خنثی</span>';}
+function fDirArrow(dir){return dir==='up'?'▲':dir==='down'?'▼':'▬';}
 function fPct(p){const v=p||0;const s=v>=0?'+':'';return toFa(s+(+v).toFixed(1))+'٪';}
 function fNum(v,p=2){return (v==null||v===undefined)?'—':toFa((+v).toFixed(p));}
 function fConfBar(conf){const pct=Math.round((conf||0)*100);return `<div class="conf-bar"><div class="conf-bar-fill" style="width:${pct}%"></div></div><div style="font-size:11px;color:var(--text2);margin-top:2px">اطمینان ${toFa(pct)}٪</div>`;}
@@ -3829,11 +3830,14 @@ function predCardHTML(p){
   const isHyp = !Object.keys(hyp).length;
   const dirText = p.direction==='up'?'احتمال صعود':p.direction==='down'?'احتمال نزول':'بدون تغییر';
   const dirColor = p.direction==='up'?'var(--green)':p.direction==='down'?'var(--red)':'var(--text3)';
-  return `<div class="future-card msum-card ${isHyp?'future-card-hypothesis':''}" data-pid="${p.id}">
-    <div class="ftarget"><span>${FUTURE_SYM[p.target]||p.target} <span style="font-size:10px;color:var(--text3)">${toFa(p.time_horizon)} ساعت آینده</span></span><span style="font-size:13px;font-weight:700;color:${dirColor}">${fDirBadge(p.direction).replace(/<span[^>]*>|<\/span>/g,'')} ${dirText}</span></div>
-    <div style="font-size:18px;font-weight:800;margin:4px 0">${fPct(p.predicted_min)} تا ${fPct(p.predicted_max)}</div>
+  return `<div class="msum-card ${isHyp?'future-card-hypothesis':''}" data-pid="${p.id}" style="padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="font-size:15px;font-weight:700">${FUTURE_SYM[p.target]||p.target} <span style="font-size:10px;color:var(--text3);font-weight:400">${toFa(p.time_horizon)} ساعت آینده</span></span>
+      <span style="font-size:13px;font-weight:700;color:${dirColor}">${fDirArrow(p.direction)} ${dirText}</span>
+    </div>
+    <div style="font-size:18px;font-weight:800;margin:4px 0 6px">${fPct(p.predicted_min)} تا ${fPct(p.predicted_max)}</div>
     ${calib}${fConfBar(conf)}
-    <div class="fwhy">چرا؟</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:10px;margin-bottom:4px;font-weight:600">چرا؟</div>
     ${fAttrBars(p.attribution_json)}
     <div style="margin-top:8px;font-size:10px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap">
       <span class="root-badge">منشأ: ${NODE_LABEL[p.target]||p.target}</span>

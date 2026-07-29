@@ -231,9 +231,17 @@ function buildAnomalyRadar() {
   // 3) finance % change (max |pct| last 60 min across symbols)
   const fin = (tdb.getEventsSince(60, null) || []).filter(e => predict.TO_NODES.includes(e.node_key));
   const finPct = fin.length ? clamp(Math.max(...fin.map(e => Math.abs(e.magnitude || 0))) / 3, 0, 1) : 0;
-  // 4) polymarket volume (count of poly events last 30 min as proxy)
-  const poly = (tdb.getEventsSince(30, 'poly') || []);
-  const polyAct = clamp(poly.length / 5, 0, 1);
+  // 4) polymarket volume — use ACTUAL volume from polymarket.db, not timeline events
+  let polyVol = 0;
+  try {
+    const polyDB = require('./polymarket-db');
+    const markets = polyDB.getSortedList('trending', 10) || [];
+    if (markets.length) {
+      const maxVol = Math.max(...markets.map(m => Number(m.volume24hr) || 0));
+      // normalize: 500k = low, 5M = high
+      polyVol = clamp((maxVol - 500000) / 4500000, 0, 1);
+    }
+  } catch (e) {}
   // 5) telegram activity (fin_tg events last 30 min)
   const tg = (tdb.getEventsSince(30, 'fin_tg') || []);
   const tgAct = clamp(tg.length / 10, 0, 1);
@@ -241,7 +249,7 @@ function buildAnomalyRadar() {
   const fin2 = (tdb.getEventsSince(120, null) || []).filter(e => predict.TO_NODES.includes(e.node_key));
   const vol = clamp(fin2.length / 12, 0, 1);
 
-  const values = [newsSev, trendGrowth, finPct, polyAct, tgAct, vol];
+  const values = [newsSev, trendGrowth, finPct, polyVol, tgAct, vol];
   const threshold = 0.6;
   const overCount = values.filter(v => v > threshold).length;
   const anomaly = overCount >= 4;
