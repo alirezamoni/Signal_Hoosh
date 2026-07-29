@@ -468,6 +468,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .ehi-score.bad{color:var(--red)}
 .ehi-label{font-size:12px;color:var(--text2);margin-top:4px}
 .ehi-desc{font-size:12px;color:var(--text3);line-height:1.6}
+.ehi-status{font-size:13px;font-weight:600;margin-top:4px}
 
 /* بازه زمانی */
 .jobs-range-bar{display:flex;gap:6px;margin-bottom:16px}
@@ -969,7 +970,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
           <div class="jsum-label">شاخص سلامت بازار</div>
           <div class="ehi-score" id="ehi-score">—</div>
         </div>
-        <div class="ehi-desc" id="ehi-desc">EHI = نسبت آگهی امروز به میانگین ۳۰ روز × ۱۰۰</div>
+        <div class="ehi-desc">EHI = نسبت آگهی امروز به میانگین ۳۰ روز × ۱۰۰ — عدد بالاتر از ۱۰۰ یعنی افزایش آگهی</div>
+        <div class="ehi-status" id="ehi-status"></div>
       </div>
     </div>
 
@@ -2243,11 +2245,11 @@ async function loadJobs() {
     // EHI
     const ehi = sum.ehi;
     const ehiEl = document.getElementById('ehi-score');
-    const ehiDesc = document.getElementById('ehi-desc');
+    const ehiStatus = document.getElementById('ehi-status');
     if (ehi) {
       ehiEl.textContent = ehi;
       ehiEl.className = 'ehi-score ' + (ehi >= 105 ? 'good' : ehi >= 95 ? 'ok' : 'bad');
-      ehiDesc.textContent = ehi >= 105 ? 'بازار رو به رشد است' : ehi >= 95 ? 'بازار در وضعیت پایدار' : 'بازار در حال افت است';
+      ehiStatus.textContent = ehi >= 105 ? 'بازار رو به رشد است' : ehi >= 95 ? 'بازار در وضعیت پایدار' : 'بازار در حال افت است';
     }
 
     // دسته‌بندی‌ها
