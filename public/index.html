@@ -3827,8 +3827,10 @@ function predCardHTML(p){
   const calib = p.calibrated_confidence!=null?'<span class="calib-tag">کالیبره</span>':'';
   const hyp = (p.ensemble_json&&JSON.parse(p.ensemble_json))||{};
   const isHyp = !Object.keys(hyp).length;
+  const dirText = p.direction==='up'?'احتمال صعود':p.direction==='down'?'احتمال نزول':'بدون تغییر';
+  const dirColor = p.direction==='up'?'var(--green)':p.direction==='down'?'var(--red)':'var(--text3)';
   return `<div class="future-card msum-card ${isHyp?'future-card-hypothesis':''}" data-pid="${p.id}">
-    <div class="ftarget"><span>${FUTURE_SYM[p.target]||p.target} <span style="font-size:10px;color:var(--text3)">${toFa(p.time_horizon)} ساعت آینده</span></span>${fDirBadge(p.direction)}</div>
+    <div class="ftarget"><span>${FUTURE_SYM[p.target]||p.target} <span style="font-size:10px;color:var(--text3)">${toFa(p.time_horizon)} ساعت آینده</span></span><span style="font-size:13px;font-weight:700;color:${dirColor}">${fDirBadge(p.direction).replace(/<span[^>]*>|<\/span>/g,'')} ${dirText}</span></div>
     <div style="font-size:18px;font-weight:800;margin:4px 0">${fPct(p.predicted_min)} تا ${fPct(p.predicted_max)}</div>
     ${calib}${fConfBar(conf)}
     <div class="fwhy">چرا؟</div>

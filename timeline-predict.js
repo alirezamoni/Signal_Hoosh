@@ -170,10 +170,15 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
 }
 
 async function tryGeneratePredictions() {
+  const MAX_OPEN = 12; // hard cap: never more than 12 open predictions
+  const existing = tdb.getOpenPredictions() || [];
+  if (existing.length >= MAX_OPEN) return 0; // enough already
+
   const chains = tdb.getChains('active', 30);
   const hasPred = _chainsWithOpenPredictions();
   let made = 0;
   for (const chain of chains) {
+    if (existing.length + made >= MAX_OPEN) break; // stop at cap
     if (hasPred.has(chain.id)) continue;
     const peakDecayed = tdb.decayedWeight(chain.peak_severity || 0, chain.started_at);
     if (peakDecayed < 0.4) continue; // §8.1 threshold
@@ -185,17 +190,20 @@ async function tryGeneratePredictions() {
     const regime = (tdb.getCurrentRegime() || {}).regime || 'normal';
     const triggerTopic = full.topic || chain.topic;
 
+    // only generate ONE prediction per chain: the best target+horizon combination
+    // (highest edge reliability × shortest horizon for most actionable result)
+    let best = null;
     for (const target of TO_NODES) {
-      // need at least one usable edge from a signal node to this target (§8.1)
       const edges = (tdb.getEdgeTo(target, regime) || []).filter(e => signalNodes.includes(e.from_node));
-      const hasPattern = (tdb.getPatternsForTopic(triggerTopic, target, regime) || []).length > 0;
-      if (!edges.length && !hasPattern) continue;
-      const bestEdge = edges.length ? edges[0] : null; // highest reliability (already sorted)
-      for (const horizon of HORIZONS) {
-        try {
-          if (await generatePrediction(chain, full, target, horizon, regime, triggerTopic, bestEdge)) made++;
-        } catch (e) { /* continue */ }
-      }
+      if (!edges.length) continue;
+      const edge = edges[0];
+      const score = (edge.reliability || 0) + (currentPrice(target) ? 0.1 : 0);
+      if (!best || score > best.score) best = { target, edge, score };
+    }
+    if (best) {
+      try {
+        if (await generatePrediction(chain, full, best.target, 3, regime, triggerTopic, best.edge)) made++;
+      } catch (e) { /* continue */ }
     }
   }
   if (made) console.log(`[tl-predict] generated ${made} predictions`);
