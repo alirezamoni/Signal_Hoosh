@@ -95,10 +95,13 @@ function getSummary(date) {
 
   // EHI — نسبت به میانگین ۳۰ روز
   const avg30 = db.prepare(`
-    SELECT AVG(count) as avg FROM job_snapshots
-    WHERE source='jobvision' AND category='total' AND snap_date >= date(?,' -30 days')
+    SELECT AVG(total) as avg FROM (
+      SELECT snap_date, SUM(count) as total FROM job_snapshots
+      WHERE category='total' AND snap_date >= date(?,' -30 days')
+      GROUP BY snap_date
+    )
   `).get(lastDate)?.avg;
-  result.ehi = avg30 && totalCurr ? Math.round((totalCurr / (avg30 * 2)) * 100) : null;
+  result.ehi = avg30 && totalCurr ? Math.round(totalCurr / avg30 * 100) : null;
 
   // دسته‌بندی‌ها
   const cats = ['human-resources','accounting','developer','data-science','digital-marketing','driver','civil'];
