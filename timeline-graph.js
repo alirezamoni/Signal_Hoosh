@@ -77,6 +77,23 @@ function estimateBaseRate(toSorted, widthMin, spanStart, spanEnd, samples) {
   return hit / n;
 }
 
+// DIRECTIONAL SKILL: a target that rises 90% of the time anyway makes "100% up
+// after the cause" nearly meaningless. Compare the conditional up-share against
+// the target's UNCONDITIONAL up-share and return the excess, in [-1,1].
+function directionalSkill(up, down, toEvents) {
+  const condTotal = up + down;
+  if (!condTotal) return 0;
+  const condUp = up / condTotal;
+  const baseUpCount = toEvents.filter(e => e.direction === 'up').length;
+  const baseTotal = toEvents.filter(e => e.direction === 'up' || e.direction === 'down').length;
+  if (!baseTotal) return 0;
+  const baseUp = baseUpCount / baseTotal;
+  if (condUp >= baseUp) {
+    return baseUp >= 1 ? 0 : (condUp - baseUp) / (1 - baseUp);
+  }
+  return baseUp <= 0 ? 0 : -((baseUp - condUp) / baseUp);
+}
+
 const WINDOW_MIN = 14 * 24 * 60; // observation window: 14 days
 const HALF = 15;                 // ± minutes tolerance around a lag bucket
 const MAX_LAG = 240;
@@ -134,9 +151,8 @@ function discoverEdge(fromNode, toNode, regime, topicFilter) {
   const lags = best.b.lags;
   const mean = lags.reduce((a, x) => a + x, 0) / lags.length;
   const std = Math.sqrt(lags.reduce((a, x) => a + (x - mean) ** 2, 0) / lags.length);
-  // directional bias in [-1,1]: what the target usually does after this cause
-  const dirTotal = best.b.up + best.b.down;
-  const dirBias = dirTotal ? (best.b.up - best.b.down) / dirTotal : 0;
+  // directional bias measured as EXCESS over the target's unconditional direction split
+  const dirBias = directionalSkill(best.b.up, best.b.down, toEvents);
 
   tdb.upsertEdge({
     from_node: fromNode, to_node: toNode, topic: topicFilter || null, regime,
@@ -230,8 +246,7 @@ function discoverCategoryEdge(category, toNode, regime) {
   const lags = best.b.lags;
   const mean = lags.reduce((a, x) => a + x, 0) / lags.length;
   const std = Math.sqrt(lags.reduce((a, x) => a + (x - mean) ** 2, 0) / lags.length);
-  const dirTotal = best.b.up + best.b.down;
-  const dirBias = dirTotal ? (best.b.up - best.b.down) / dirTotal : 0;
+  const dirBias = directionalSkill(best.b.up, best.b.down, toEvents);
 
   tdb.upsertEdge({
     from_node: 'news', to_node: toNode, topic: category, regime,
