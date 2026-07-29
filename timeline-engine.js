@@ -469,6 +469,7 @@ async function assembleCascades() {
     const roots = [fe.id];
     const edgeList = [];
     for (const ed of inEdges) {
+      if (roots.length - 1 >= 5) break; // hard cap: max 5 causes per chain
       const lead = ed.lead_time_min || 30;
       const windowStart = feT - (lead + (ed.lead_time_std || 20)) * 60000;
       // find cause events on ed.from_node within [windowStart, feT]
@@ -477,9 +478,9 @@ async function assembleCascades() {
         !used.has(e.id) && e.id !== fe.id &&
         (() => { const t = new Date(e.detected_at).getTime(); return t >= windowStart && t <= feT; })()
       );
-      // for general edges (topic=null), only keep TOP 3 by severity — not every news wave in the window
-      if (causes.length > 3) {
-        causes = causes.sort((a, b) => (b.severity || 0) - (a.severity || 0)).slice(0, 3);
+      // only keep TOP 1 by severity per edge (was TOP 3, causing 18+ cause chains)
+      if (causes.length > 1) {
+        causes = causes.sort((a, b) => (b.severity || 0) - (a.severity || 0)).slice(0, 1);
       }
       for (const c of causes) {
         roots.push(c.id);
