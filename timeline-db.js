@@ -372,14 +372,16 @@ function getEvents(limit, offset, node, since) {
   return db.prepare(`SELECT * FROM timeline_events ${w} ORDER BY detected_at DESC LIMIT ? OFFSET ?`).all(...params);
 }
 function getUnlinkedEvents(hours) {
-  // events in last `hours` not referenced by any chain
+  // events in last `hours` not referenced by any ACTIVE chain (archived chains release their events)
   return db.prepare(`
     SELECT e.* FROM timeline_events e
     WHERE e.detected_at >= datetime('now', ?)
       AND e.id NOT IN (
-        SELECT value FROM signal_chains, json_each(json_extract(signal_chains.event_ids,'$.roots'))
+        SELECT value FROM signal_chains, json_each(json_extract(signal_chains.event_ids,'$.roots')) WHERE signal_chains.status='active'
         UNION
-        SELECT value FROM signal_chains, json_each(json_extract(signal_chains.event_ids,'$.edges'))
+        SELECT value FROM signal_chains, json_each(json_extract(signal_chains.event_ids,'$.edges')) WHERE signal_chains.status='active'
+        UNION
+        SELECT value FROM signal_chains, json_each(json_extract(signal_chains.root_causes,'$')) WHERE signal_chains.status='active'
       )
     ORDER BY e.detected_at ASC
   `).all(`-${hours || 6} hours`);
