@@ -221,7 +221,7 @@ function detectFinanceMove() {
     }
     if (!ref || !ref.price) continue;
     const pct = ((latest.price - ref.price) / ref.price) * 100;
-    if (Math.abs(pct) <= 0.5) { _finPrice.set(sym, { price: latest.price, dir: 'flat', count: 0 }); continue; }
+    if (Math.abs(pct) <= 0.3) { _finPrice.set(sym, { price: latest.price, dir: 'flat', count: 0 }); continue; }
 
     const dir = pct > 0 ? 'up' : 'down';
     const prev = _finPrice.get(sym) || { dir: 'flat', count: 0 };
