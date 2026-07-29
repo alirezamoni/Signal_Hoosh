@@ -233,14 +233,17 @@ function reviseOpenPredictions(newEvents) {
     }
     if (!bestEvent || !bestEdge) continue;
     const e = bestEvent, edge = bestEdge;
-    let L = clamp(edge.reliability || 0.5, 0.05, 0.95);
+    // cap L at 0.85 — nothing is 100% certain; edges with reliability=1.0 are cold-start overfitting
+    let L = clamp(edge.reliability || 0.5, 0.05, 0.85);
     // if event direction opposes prediction direction, invert likelihood
     if (e.direction && p.direction !== 'flat' && e.direction !== p.direction) L = 1 - L;
     const prior = p.confidence || 0.5;
-    const posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.01, 0.99);
-    // nudge predicted_pct toward edge-inferred magnitude
-    const mag = e.magnitude || 0;
-    const newPct = (p.predicted_pct || 0) * 0.7 + mag * 0.3;
+    let posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.01, 0.95);
+    // during cold-start (no validations yet), cap confidence at 0.5 — don't show fake high confidence
+    if (tdb.countValidations() < 20) posterior = Math.min(posterior, 0.5);
+    // nudge predicted_pct toward edge-inferred magnitude, but cap at 5% (prevent outlier corruption)
+    const mag = clamp(e.magnitude || 0, -5, 5);
+    const newPct = clamp((p.predicted_pct || 0) * 0.7 + mag * 0.3, -5, 5);
     const cal = tdb.calibrate(posterior);
     tdb.insertPredictionUpdate({
       prediction_id: p.id, trigger_event_id: e.id, trigger_desc: e.title,
