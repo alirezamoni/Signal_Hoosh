@@ -298,7 +298,7 @@ function detectFinTgMove() {
   if (!newMsgs.length) return;
   _finTgLastMsgId = Math.max(...msgs.map(m => m.id));
   for (const m of newMsgs) {
-    const pubMs = new Date(String(m.published_at).replace(' ', 'T') + 'Z').getTime() || new Date(m.published_at).getTime();
+    const pubMs = new Date(m.published_at).getTime();
     const prices = parseFinTgPrices(m.text_fa || m.text);
     for (const p of prices) {
       const cur = _finTgPrice.get(p.target);
