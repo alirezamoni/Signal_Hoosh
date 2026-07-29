@@ -3816,11 +3816,9 @@ async function loadFuturePredictions(){
   const wrap=document.getElementById('futurePredictions');
   _futurePredState.forEach(v=>{try{v.chart&&v.chart.destroy()}catch(e){}}); _futurePredState.clear();
   if(!preds.length){ wrap.innerHTML=warmupBanner(); return; }
-  // show 6 most recent; rest behind "show more"
-  const SHOW=6;
-  const visible=preds.slice(0,SHOW);
-  const hidden=preds.slice(SHOW);
-  wrap.innerHTML=visible.map(predCardHTML).join('') + (hidden.length?`<button class="btn-sm" style="margin:12px auto;display:block" onclick="(function(b){var m=document.getElementById('futurePredMore');m.innerHTML='${hidden.map(p=>predCardHTML(p).replace(/'/g,"\\'")).join('')}'.replace(/\\/g,'');m.style.display='grid';b.style.display='none';})(this)">نمایش ${toFa(hidden.length)} پیش‌بینی‌ی دیگر</button><div id="futurePredMore" style="display:none"></div>`:'');
+  // show only 3 most recent predictions — no expand button, keep tab clean
+  const visible=preds.slice(0,3);
+  wrap.innerHTML=visible.map(predCardHTML).join('');
   visible.forEach(p=>loadPredSpark(p));
 }
 function predCardHTML(p){

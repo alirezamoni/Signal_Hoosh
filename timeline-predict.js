@@ -170,9 +170,12 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
 }
 
 async function tryGeneratePredictions() {
-  const MAX_OPEN = 12; // hard cap: never more than 12 open predictions
+  const MAX_OPEN = 6; // hard cap: never more than 6 open predictions
   const existing = tdb.getOpenPredictions() || [];
   if (existing.length >= MAX_OPEN) return 0; // enough already
+
+  // track existing target+horizon combos — don't create duplicates
+  const existingCombos = new Set(existing.map(p => `${p.target}_${p.time_horizon}_${p.direction}`));
 
   const chains = tdb.getChains('active', 30);
   const hasPred = _chainsWithOpenPredictions();
@@ -197,10 +200,14 @@ async function tryGeneratePredictions() {
       const edges = (tdb.getEdgeTo(target, regime) || []).filter(e => signalNodes.includes(e.from_node));
       if (!edges.length) continue;
       const edge = edges[0];
+      const dir = edge.correlation >= 0 ? 'up' : 'down';
+      const comboKey = `${target}_3_${dir}`;
+      if (existingCombos.has(comboKey)) continue; // skip if already predicted
       const score = (edge.reliability || 0) + (currentPrice(target) ? 0.1 : 0);
-      if (!best || score > best.score) best = { target, edge, score };
+      if (!best || score > best.score) best = { target, edge, score, dir };
     }
     if (best) {
+      existingCombos.add(`${best.target}_3_${best.dir}`); // mark combo as used
       try {
         if (await generatePrediction(chain, full, best.target, 3, regime, triggerTopic, best.edge)) made++;
       } catch (e) { /* continue */ }
