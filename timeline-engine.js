@@ -447,6 +447,13 @@ async function detectRegime() {
 //  CASCADE / ROOT-CAUSE TREE ASSEMBLY  (§6.2, §6.3)
 // ════════════════════════════════════════════════════════
 async function assembleCascades() {
+  // cap active chains: archive oldest if more than 5 active
+  const activeChains = tdb.getChains('active', 999) || [];
+  if (activeChains.length > 5) {
+    const toArchive = activeChains.sort((a, b) => new Date(a.started_at) - new Date(b.started_at)).slice(0, activeChains.length - 5);
+    toArchive.forEach(c => tdb.resolveChain(c.id));
+  }
+
   const events = tdb.getUnlinkedEvents(2);
   if (!events || events.length < 1) return;
   const edges = tdb.getUsableEdges();
