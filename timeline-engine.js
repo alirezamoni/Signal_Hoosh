@@ -290,37 +290,43 @@ function parseFinTgPrices(text) {
 function detectFinTgMove() {
   const fdb = finDB();
   let msgs;
-  try { msgs = fdb.getLatestFinanceMessages(30); } catch (e) { return; }
+  try { msgs = fdb.getLatestFinanceMessages(50); } catch (e) { return; }
   if (!msgs || !msgs.length) return;
-  const cutoff = Date.now() - 5 * 60000;
+  const nowMs = Date.now();
+  const recentCutoff = nowMs - 5 * 60000;
+  // also track a 10-minute baseline per target
+  const baselineCutoff = nowMs - 10 * 60000;
   for (const m of msgs) {
-    const pubMs = new Date(m.published_at).getTime();
-    if (pubMs < cutoff) continue; // only recent
+    const pubMs = new Date(String(m.published_at).replace(' ', 'T') + 'Z').getTime() || new Date(m.published_at).getTime();
+    if (pubMs < recentCutoff) continue; // only process last 5 min
     const prices = parseFinTgPrices(m.text_fa || m.text);
     for (const p of prices) {
-      const prev = _finTgPrice.get(p.target);
-      if (prev && prev.price) {
-        const pct = ((p.price - prev.price) / prev.price) * 100;
-        if (Math.abs(pct) > 0.3) {
-          const dir = pct > 0 ? 'up' : 'down';
-          const count = prev.dir === dir ? (prev.count || 0) + 1 : 1;
-          let sev = clamp(Math.abs(pct) / 2, 0, 1);
-          if (count >= 2) sev *= 1.5;
-          const rel = tdb.getReliabilityForSource('finance_tg', m.channel_username ? '@' + m.channel_username : null).reliability;
-          sev = clamp(sev, 0, 1) * rel;
-          _finTgPrice.set(p.target, { price: p.price, dir, count, lastMsgAt: m.published_at });
-          tdb.insertEvent({
+      const cur = _finTgPrice.get(p.target);
+      // update baseline: if no baseline or baseline is older than 10 min, set it
+      if (!cur || !cur.basePrice || pubMs - cur.baseAt > 10 * 60000) {
+        _finTgPrice.set(p.target, { ...cur, price: p.price, basePrice: p.price, baseAt: pubMs, dir: 'flat', count: 0, lastMsgAt: m.published_at });
+        continue;
+      }
+      // compare against the 10-minute baseline (cumulative move), not just previous tick
+      const pct = ((p.price - cur.basePrice) / cur.basePrice) * 100;
+      if (Math.abs(pct) > 0.25) {
+        const dir = pct > 0 ? 'up' : 'down';
+        const count = cur.dir === dir ? (cur.count || 0) + 1 : 1;
+        let sev = clamp(Math.abs(pct) / 2, 0, 1);
+        if (count >= 2) sev *= 1.5;
+        const rel = tdb.getReliabilityForSource('finance_tg', m.channel_username ? '@' + m.channel_username : null).reliability;
+        sev = clamp(sev, 0, 1) * rel;
+        _finTgPrice.set(p.target, { price: p.price, basePrice: p.price, baseAt: pubMs, dir, count, lastMsgAt: m.published_at });
+        tdb.insertEvent({
             source: 'fin_tg', node_key: 'fin_tg', source_id: String(m.id), event_type: 'price_move',
             title: `${SYMBOL_LABEL[p.target] || p.target} (${dir === 'up' ? 'صعودی' : 'نزولی'}) — تلگرام`,
             topic: p.target, severity: sev, direction: dir, magnitude: pct,
-            surprise_score: 0, expected_value: prev.price,
+            surprise_score: 0, expected_value: cur.basePrice,
             data: JSON.stringify({ target: p.target, price: p.price, channel: m.channel_username }), detected_at: m.published_at,
           });
-        } else {
-          _finTgPrice.set(p.target, { price: p.price, dir: 'flat', count: 0, lastMsgAt: m.published_at });
-        }
       } else {
-        _finTgPrice.set(p.target, { price: p.price, dir: 'flat', count: 0, lastMsgAt: m.published_at });
+        // no significant move — update current price but keep baseline
+        _finTgPrice.set(p.target, { ...cur, price: p.price, lastMsgAt: m.published_at });
       }
     }
   }
