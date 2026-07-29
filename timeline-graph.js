@@ -48,11 +48,14 @@ function lowerBound(arr, ts) {
   return lo;
 }
 
-// Significance threshold for a to_node move: median |magnitude| of its events, min 0.3%.
-// Routine ticks must NOT count as "the market reacted".
+// Significance threshold for a to_node move. Routine ticks must NOT count as
+// "the market reacted". With a small sample, raising the bar to the median would
+// discard half of already-scarce data, so the median is only used once we have
+// enough events to estimate it meaningfully.
 function significanceThreshold(events) {
   const mags = events.map(e => Math.abs(e.magnitude || 0)).filter(m => m > 0).sort((a, b) => a - b);
   if (!mags.length) return 0.3;
+  if (mags.length < 20) return 0.3; // floor only — keep the sample usable
   const median = mags[Math.floor(mags.length / 2)];
   return Math.max(median, 0.3);
 }
@@ -117,7 +120,8 @@ function discoverEdge(fromNode, toNode, regime, topicFilter) {
 
   // observed span (used for the chance-level estimate)
   const allTimes = [...fromEvents.map(e => new Date(e.detected_at).getTime()), ...toSorted.map(x => x[0])];
-  const spanStart = Math.min(...allTimes), spanEnd = Math.max(...allTimes);
+  // observation span: first event seen on either stream through now
+  const spanStart = Math.min(...allTimes), spanEnd = Math.max(Math.max(...allTimes), Date.now());
   const baseRate = estimateBaseRate(toSorted, 2 * HALF, spanStart, spanEnd, 400);
   if (baseRate >= 0.98) return null; // target moves almost always -> no information possible
 
@@ -217,7 +221,8 @@ function discoverCategoryEdge(category, toNode, regime) {
   const toSorted = toEvents.map(e => [new Date(e.detected_at).getTime(), e]).sort((a, b) => a[0] - b[0]);
 
   const allTimes = [...fromEvents.map(e => new Date(e.detected_at).getTime()), ...toSorted.map(x => x[0])];
-  const spanStart = Math.min(...allTimes), spanEnd = Math.max(...allTimes);
+  // observation span: first event seen on either stream through now
+  const spanStart = Math.min(...allTimes), spanEnd = Math.max(Math.max(...allTimes), Date.now());
   const baseRate = estimateBaseRate(toSorted, 2 * HALF, spanStart, spanEnd, 400);
   if (baseRate >= 0.98) return null;
 
