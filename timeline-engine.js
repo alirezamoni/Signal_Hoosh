@@ -530,34 +530,48 @@ async function assembleCascades() {
 
   // Fallback: only group orphan events that share a REAL topic (not 'up'/'down'/'flat') within a tight window.
   // This catches co-occurring news waves on the same subject. Skip direction-only topics.
+  // Grouped by CATEGORY (war/economy/...) because raw keyword topics rarely repeat.
+  // NOTE: these are OBSERVATIONAL groupings only — they make no causal claim and
+  // never produce a prediction on their own (predictions require a usable edge).
   if (cascades.length === 0 && events.length >= 2) {
-    const DIR_TOPICS = new Set(['up', 'down', 'flat', null, 'نامشخص', 'usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce']);
-    const byTopic = {};
+    const CAT_LABEL = {
+      war: 'تنش و درگیری', sanctions: 'تحریم و مذاکرات', oil: 'نفت و انرژی',
+      election: 'انتخابات', economy: 'اقتصاد و بازار', politics: 'سیاست داخلی',
+      social: 'اجتماعی', general: 'عمومی',
+    };
+    const byCat = {};
     for (const e of events) {
-      if (used.has(e.id) || !e.topic || DIR_TOPICS.has(e.topic)) continue;
-      (byTopic[e.topic] = byTopic[e.topic] || []).push(e);
+      if (used.has(e.id) || !e.topic || BAD_TOPICS.has(e.topic)) continue;
+      if (!['news', 'trend'].includes(e.node_key)) continue; // only narrative sources
+      const cat = tdb.categorizeTopic(e.topic);
+      if (cat === 'general') continue; // too vague to be meaningful
+      (byCat[cat] = byCat[cat] || []).push(e);
     }
-    for (const t in byTopic) {
-      const group = byTopic[t].sort((a, b) => new Date(a.detected_at) - new Date(b.detected_at));
+    for (const cat in byCat) {
+      const group = byCat[cat].sort((a, b) => new Date(a.detected_at) - new Date(b.detected_at));
       if (group.length < 2) continue;
       const span = new Date(group[group.length - 1].detected_at) - new Date(group[0].detected_at);
-      if (span > 15 * 60000) continue; // tighter window: 15 min
-      // cap to 5 most severe
+      if (span > 30 * 60000) continue;
       const top = group.sort((a, b) => (b.severity || 0) - (a.severity || 0)).slice(0, 5);
       const ids = top.map(e => e.id);
       top.forEach(e => used.add(e.id));
       const peak = Math.max(...top.map(e => e.severity || 0));
+      const label = CAT_LABEL[cat] || cat;
+      const headline = (top[0].topic || '').slice(0, 40);
       tdb.insertChain({
-        title: `زنجیره هم‌زمان: ${t}`, topic: t, category: 'economic',
+        title: `${label}: ${headline}`, topic: top[0].topic, category: cat,
         regime: (tdb.getCurrentRegime() || {}).regime || 'normal', status: 'active',
         event_ids: JSON.stringify({ roots: ids, edges: [] }), root_node: top[0].node_key,
-        root_causes: JSON.stringify(ids), ai_analysis: `${top.length} رویداد هم‌زمان درباره «${t}»`,
+        root_causes: JSON.stringify(ids),
+        ai_analysis: `${toFaNum(top.length)} رویداد هم‌زمان در حوزه «${label}». واکنش بازار هنوز تأیید نشده است.`,
         peak_severity: peak, started_at: top[0].detected_at,
       });
     }
   }
   return cascades.length;
 }
+
+function toFaNum(n) { return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]); }
 
 // ════════════════════════════════════════════════════════
 //  SCHEDULER
