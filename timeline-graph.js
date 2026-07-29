@@ -52,136 +52,203 @@ function discoverEdge(fromNode, toNode, regime) {
   // last 14 days of events on each node (timeline events persist long-term)
   const fromEvents = tdb.getEventsSince(14 * 24 * 60, fromNode);
   const toEvents = tdb.getEventsSince(14 * 24 * 60, toNode);
-  if (fromEvents.length < 3 || toEvents.length < 3) return null;
+// Significance threshold for a to_node move: median |magnitude| of its events, min 0.3%.
+// Routine ticks must NOT count as "the market reacted".
+function significanceThreshold(events) {
+  const mags = events.map(e => Math.abs(e.magnitude || 0)).filter(m => m > 0).sort((a, b) => a - b);
+  if (!mags.length) return 0.3;
+  const median = mags[Math.floor(mags.length / 2)];
+  return Math.max(median, 0.3);
+}
+
+// Does a significant to-event exist in [lo, hi]? Returns it or null.
+function findInRange(toSorted, lo, hi) {
+  let i = lowerBound(toSorted, lo);
+  if (i < toSorted.length && toSorted[i][0] <= hi) return toSorted[i][1];
+  return null;
+}
+
+// CHANCE LEVEL: probability that a random window of the same width contains a
+// significant to-event. Without this, a target that moves constantly (oil scraped
+// every 60s) looks perfectly "caused" by anything. This is the anti-spurious core.
+function estimateBaseRate(toSorted, widthMin, spanStart, spanEnd, samples) {
+  if (spanEnd - spanStart <= widthMin * 60000) return 1;
+  let hit = 0, n = samples || 300;
+  for (let i = 0; i < n; i++) {
+    const t = spanStart + Math.random() * (spanEnd - spanStart - widthMin * 60000);
+    if (findInRange(toSorted, t, t + widthMin * 60000)) hit++;
+  }
+  return hit / n;
+}
+
+const WINDOW_MIN = 14 * 24 * 60; // observation window: 14 days
+const HALF = 15;                 // ± minutes tolerance around a lag bucket
+const MAX_LAG = 240;
+const STEP = 5;
+
+function discoverEdge(fromNode, toNode, regime, topicFilter) {
+  let fromEvents = tdb.getEventsSince(WINDOW_MIN, fromNode);
+  if (topicFilter) fromEvents = fromEvents.filter(e => e.topic === topicFilter);
+  const toAll = tdb.getEventsSince(WINDOW_MIN, toNode);
+  const minSamples = tdb.getWeight('MIN_SAMPLES', 5);
+  if (fromEvents.length < minSamples || toAll.length < 3) return null;
+
+  // keep only SIGNIFICANT target moves
+  const thr = significanceThreshold(toAll);
+  const toEvents = toAll.filter(e => Math.abs(e.magnitude || 0) >= thr);
+  if (toEvents.length < 3) return null;
 
   const toSorted = toEvents
     .map(e => [new Date(e.detected_at).getTime(), e])
     .sort((a, b) => a[0] - b[0]);
 
-  const MAX_LAG = 240; // minutes
-  const STEP = 5;
-  const lagBins = {}; // bucket -> {hits, sevList, magList, lags}
+  // observed span (used for the chance-level estimate)
+  const allTimes = [...fromEvents.map(e => new Date(e.detected_at).getTime()), ...toSorted.map(x => x[0])];
+  const spanStart = Math.min(...allTimes), spanEnd = Math.max(...allTimes);
+  const baseRate = estimateBaseRate(toSorted, 2 * HALF, spanStart, spanEnd, 400);
+  if (baseRate >= 0.98) return null; // target moves almost always -> no information possible
 
+  // For each lag bucket count DISTINCT from-events that were followed by a significant move
+  const bins = {};
   for (const fe of fromEvents) {
     const t0 = new Date(fe.detected_at).getTime();
-    const idx = lowerBound(toSorted, t0); // first to-event at/after t0
-    for (let i = idx; i < toSorted.length; i++) {
-      const [tt, te] = toSorted[i];
-      const lag = (tt - t0) / 60000;
-      if (lag < 0) continue;
-      if (lag > MAX_LAG) break; // sorted ascending -> safe to break
-      const bucket = Math.round(lag / STEP) * STEP;
-      const b = lagBins[bucket] || (lagBins[bucket] = { hits: 0, sevList: [], magList: [], lags: [] });
-      b.hits++;
-      b.sevList.push(fe.severity || 0);
-      b.magList.push(te.magnitude || 0);
-      b.lags.push(lag);
+    for (let L = STEP; L <= MAX_LAG; L += STEP) {
+      const lo = t0 + (L - HALF) * 60000;
+      const hi = t0 + (L + HALF) * 60000;
+      const found = findInRange(toSorted, lo, hi);
+      if (!found) continue;
+      const b = bins[L] || (bins[L] = { fromHits: 0, up: 0, down: 0, lags: [] });
+      b.fromHits++; // one per from-event per bucket -> hitRate can never exceed 1
+      if (found.direction === 'up') b.up++; else if (found.direction === 'down') b.down++;
+      b.lags.push((new Date(found.detected_at).getTime() - t0) / 60000);
     }
   }
 
-  // pick best bucket by hit-rate
+  // best bucket by SKILL over chance, not raw hit-rate
   let best = null;
-  for (const bucket in lagBins) {
-    const b = lagBins[bucket];
-    const rate = b.hits / fromEvents.length;
-    if (!best || rate > best.rate) best = { bucket: Number(bucket), rate, b };
+  for (const L in bins) {
+    const b = bins[L];
+    const hitRate = b.fromHits / fromEvents.length;
+    const skill = (hitRate - baseRate) / (1 - baseRate); // Peirce-style skill score
+    if (!best || skill > best.skill) best = { bucket: Number(L), hitRate, skill, b };
   }
-  if (!best) return null;
+  if (!best || best.skill <= 0.15) return null; // reject spurious / no-better-than-chance edges
 
-  const reliability = clamp(best.rate, 0, 1);
+  const reliability = clamp(best.skill, 0, 0.9); // never claim certainty
   const lags = best.b.lags;
   const mean = lags.reduce((a, x) => a + x, 0) / lags.length;
-  const variance = lags.reduce((a, x) => a + (x - mean) ** 2, 0) / lags.length;
-  const std = Math.sqrt(variance);
-  const corr = pearson(best.b.sevList, best.b.magList);
-
-  // store even weak edges (so learning can strengthen them); skip only truly empty
-  if (fromEvents.length < tdb.getWeight('MIN_SAMPLES', 5) && reliability < 0.2) return null;
+  const std = Math.sqrt(lags.reduce((a, x) => a + (x - mean) ** 2, 0) / lags.length);
+  // directional bias in [-1,1]: what the target usually does after this cause
+  const dirTotal = best.b.up + best.b.down;
+  const dirBias = dirTotal ? (best.b.up - best.b.down) / dirTotal : 0;
 
   tdb.upsertEdge({
-    from_node: fromNode, to_node: toNode, topic: null, regime,
+    from_node: fromNode, to_node: toNode, topic: topicFilter || null, regime,
     lead_time_min: best.bucket, lead_time_std: std, reliability,
-    correlation: corr, sample_count: fromEvents.length, last_confirmed: nowIso(),
+    correlation: dirBias, sample_count: fromEvents.length, last_confirmed: nowIso(),
   });
 
-  // promote winning edges to leading_indicators
-  if (reliability >= tdb.getWeight('edge_min_reliability', 0.55) && fromEvents.length >= tdb.getWeight('MIN_SAMPLES', 5)) {
+  if (reliability >= tdb.getWeight('edge_min_reliability', 0.55) && fromEvents.length >= minSamples) {
     tdb.upsertIndicator({
       indicator: fromNode, target: toNode, regime,
-      lead_time_min: best.bucket, accuracy: reliability, correlation: corr, sample_count: fromEvents.length,
+      lead_time_min: best.bucket, accuracy: reliability, correlation: dirBias, sample_count: fromEvents.length,
     });
   }
-  return { from_node: fromNode, to_node: toNode, lead_time_min: best.bucket, reliability, correlation: corr, sample_count: fromEvents.length };
+  return { from_node: fromNode, to_node: toNode, lead_time_min: best.bucket, reliability, correlation: dirBias, sample_count: fromEvents.length, base_rate: baseRate, hit_rate: best.hitRate };
 }
 
 function runDiscovery() {
   const regimes = ['normal'];
   const cur = tdb.getCurrentRegime();
   if (cur && cur.regime && cur.regime !== 'normal') regimes.push(cur.regime);
-  let found = 0;
+  let found = 0, rejected = 0;
   for (const from of FROM_NODES) {
     for (const to of TO_NODES) {
       for (const regime of regimes) {
-        try { if (discoverEdge(from, to, regime)) found++; } catch (e) { /* continue */ }
+        try { if (discoverEdge(from, to, regime)) found++; else rejected++; } catch (e) { rejected++; }
       }
     }
   }
-  // also topic-specific edges for top recent topics
+  // category-level edges (e.g. 'war' -> usd). Categories repeat, so samples accumulate.
   try {
-    const recent = tdb.getEventsSince(60 * 24 * 14, 'news');
-    const topics = {};
-    for (const e of recent) if (e.topic) topics[e.topic] = (topics[e.topic] || 0) + 1;
-    const topTopics = Object.entries(topics).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t]) => t);
-    for (const topic of topTopics) {
+    const recent = tdb.getEventsSince(WINDOW_MIN, 'news');
+    const cats = {};
+    for (const e of recent) {
+      const c = tdb.categorizeTopic(e.topic);
+      if (c && c !== 'general') cats[c] = (cats[c] || 0) + 1;
+    }
+    const topCats = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c]) => c);
+    for (const cat of topCats) {
       for (const to of TO_NODES) {
-        try { discoverTopicEdge(topic, to, 'normal'); } catch (e) {}
+        for (const regime of regimes) {
+          try { if (discoverCategoryEdge(cat, to, regime)) found++; } catch (e) {}
+        }
       }
     }
   } catch (e) {}
-  console.log(`[tl-graph] discovery: ${found} edges updated`);
+  console.log(`[tl-graph] discovery: ${found} edges kept, ${rejected} rejected as chance-level`);
   return found;
 }
 
-// topic-specific edge: news events on a topic -> finance target
-function discoverTopicEdge(topic, toNode, regime) {
-  const fromEvents = tdb.getEventsSince(14 * 24 * 60, 'news').filter(e => e.topic === topic);
-  const toEvents = tdb.getEventsSince(14 * 24 * 60, toNode);
-  if (fromEvents.length < 3 || toEvents.length < 3) return null;
+// category-level edge: news events whose topic maps to `category` -> finance target
+function discoverCategoryEdge(category, toNode, regime) {
+  const all = tdb.getEventsSince(WINDOW_MIN, 'news');
+  const fromEvents = all.filter(e => tdb.categorizeTopic(e.topic) === category);
+  const minSamples = tdb.getWeight('MIN_SAMPLES', 5);
+  if (fromEvents.length < minSamples) return null;
+
+  const toAll = tdb.getEventsSince(WINDOW_MIN, toNode);
+  if (toAll.length < 3) return null;
+  const thr = significanceThreshold(toAll);
+  const toEvents = toAll.filter(e => Math.abs(e.magnitude || 0) >= thr);
+  if (toEvents.length < 3) return null;
   const toSorted = toEvents.map(e => [new Date(e.detected_at).getTime(), e]).sort((a, b) => a[0] - b[0]);
-  const MAX_LAG = 240, STEP = 5;
-  const lagBins = {};
+
+  const allTimes = [...fromEvents.map(e => new Date(e.detected_at).getTime()), ...toSorted.map(x => x[0])];
+  const spanStart = Math.min(...allTimes), spanEnd = Math.max(...allTimes);
+  const baseRate = estimateBaseRate(toSorted, 2 * HALF, spanStart, spanEnd, 400);
+  if (baseRate >= 0.98) return null;
+
+  const bins = {};
   for (const fe of fromEvents) {
     const t0 = new Date(fe.detected_at).getTime();
-    const idx = lowerBound(toSorted, t0);
-    for (let i = idx; i < toSorted.length; i++) {
-      const [tt, te] = toSorted[i];
-      const lag = (tt - t0) / 60000;
-      if (lag < 0) continue;
-      if (lag > MAX_LAG) break;
-      const bucket = Math.round(lag / STEP) * STEP;
-      const b = lagBins[bucket] || (lagBins[bucket] = { hits: 0, sevList: [], magList: [], lags: [] });
-      b.hits++; b.sevList.push(fe.severity || 0); b.magList.push(te.magnitude || 0); b.lags.push(lag);
+    for (let L = STEP; L <= MAX_LAG; L += STEP) {
+      const found = findInRange(toSorted, t0 + (L - HALF) * 60000, t0 + (L + HALF) * 60000);
+      if (!found) continue;
+      const b = bins[L] || (bins[L] = { fromHits: 0, up: 0, down: 0, lags: [] });
+      b.fromHits++;
+      if (found.direction === 'up') b.up++; else if (found.direction === 'down') b.down++;
+      b.lags.push((new Date(found.detected_at).getTime() - t0) / 60000);
     }
   }
   let best = null;
-  for (const bucket in lagBins) { const b = lagBins[bucket]; const rate = b.hits / fromEvents.length; if (!best || rate > best.rate) best = { bucket: Number(bucket), rate, b }; }
-  if (!best) return null;
-  const reliability = clamp(best.rate, 0, 1);
-  const corr = pearson(best.b.sevList, best.b.magList);
+  for (const L in bins) {
+    const b = bins[L];
+    const hitRate = b.fromHits / fromEvents.length;
+    const skill = (hitRate - baseRate) / (1 - baseRate);
+    if (!best || skill > best.skill) best = { bucket: Number(L), skill, b };
+  }
+  if (!best || best.skill <= 0.15) return null;
+
+  const reliability = clamp(best.skill, 0, 0.9);
   const lags = best.b.lags;
   const mean = lags.reduce((a, x) => a + x, 0) / lags.length;
   const std = Math.sqrt(lags.reduce((a, x) => a + (x - mean) ** 2, 0) / lags.length);
+  const dirTotal = best.b.up + best.b.down;
+  const dirBias = dirTotal ? (best.b.up - best.b.down) / dirTotal : 0;
+
   tdb.upsertEdge({
-    from_node: 'news', to_node: toNode, topic, regime,
-    lead_time_min: best.bucket, lead_time_std: std, reliability, correlation: corr,
+    from_node: 'news', to_node: toNode, topic: category, regime,
+    lead_time_min: best.bucket, lead_time_std: std, reliability, correlation: dirBias,
     sample_count: fromEvents.length, last_confirmed: nowIso(),
   });
+  return true;
+}
   return true;
 }
 
 // Graph data for the frontend signal-graph section
 function getGraphData() {
-  const edges = tdb.getUsableEdges().concat(tdb.getEdges().filter(e => !tdb.getUsableEdges().includes(e)));
   const allEdges = tdb.getEdges();
   const nodeSet = new Set();
   for (const e of allEdges) { nodeSet.add(e.from_node); nodeSet.add(e.to_node); }
@@ -190,14 +257,9 @@ function getGraphData() {
 
   const nodes = [...nodeSet].map(id => {
     const meta = NODE_META[id] || { label: id, color: '#7c8db5' };
-    // node reliability = max reliability of edges touching it, or source default
     const touching = allEdges.filter(e => e.from_node === id || e.to_node === id);
     const maxRel = touching.length ? Math.max(...touching.map(e => e.reliability || 0)) : 0.5;
-    return {
-      id, label: meta.label, color: meta.color,
-      reliability: maxRel,
-      size: 20 + maxRel * 30,
-    };
+    return { id, label: meta.label, color: meta.color, reliability: maxRel, size: 20 + maxRel * 30 };
   });
 
   const edgeList = allEdges
@@ -211,4 +273,4 @@ function getGraphData() {
   return { nodes, edges: edgeList };
 }
 
-module.exports = { runDiscovery, discoverEdge, discoverTopicEdge, getGraphData, NODE_META, FROM_NODES, TO_NODES, pearson };
+module.exports = { runDiscovery, discoverEdge, discoverCategoryEdge, getGraphData, significanceThreshold, estimateBaseRate, NODE_META, FROM_NODES, TO_NODES, pearson };

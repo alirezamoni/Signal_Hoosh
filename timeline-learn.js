@@ -103,7 +103,8 @@ function validatePrediction(p) {
 // ════════════════════════════════════════════════════════
 function learningUpdates(p, score, actualPct, baselinePct) {
   const chain = p.chain_id ? tdb.getChain(p.chain_id) : null;
-  const triggerTopic = (chain && chain.topic) || 'unknown';
+  // key patterns on the CATEGORY, not the raw keyword topic, so samples accumulate
+  const triggerTopic = tdb.categorizeTopic((chain && chain.topic) || null);
   const regime = p.regime || 'normal';
   const correct = score.dirCorrect === 1;
   const excess = score.excess;
@@ -276,7 +277,7 @@ function recentPatternAccuracy(pat, n) {
   const preds = (tdb.getPredictions('validated', null, 500) || []).filter(p => {
     const chain = p.chain_id ? tdb.getChain(p.chain_id) : null;
     return p.target === pat.target && p.time_horizon === pat.time_horizon &&
-      (chain && chain.topic === pat.trigger_topic);
+      (chain && tdb.categorizeTopic(chain.topic) === pat.trigger_topic);
   });
   if (!preds.length) return null;
   const vals = preds.map(p => tdb.getValidation(p.id)).filter(Boolean).slice(-n);

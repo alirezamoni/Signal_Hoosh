@@ -843,6 +843,31 @@ function upsertAccuracyMetric(scope, scopeKey, m) {
 }
 function getAccuracyMetrics() { return db.prepare('SELECT * FROM accuracy_metrics').all(); }
 
+// ════════════════════════════════════════════════════════
+//  TOPIC CATEGORIZATION
+// ════════════════════════════════════════════════════════
+// Raw keyword topics ("مقتدی صدر", "امید عالیشاه") almost never repeat, so a
+// pattern library keyed on them would stay at sample_count=1 forever and never
+// become usable. Patterns are therefore keyed on a stable CATEGORY so evidence
+// accumulates across events and predictions can actually improve over time.
+const TOPIC_CATEGORIES = [
+  ['war',       /جنگ|حمله|موشک|پهپاد|انفجار|شهید|ارتش|نظامی|درگیری|تجاوز|سرنگون|بمب|جنگنده|موشکی|حشد|اسرائیل|تنش/],
+  ['sanctions', /تحریم|FATF|برجام|مذاکر|آژانس|هسته|غنی‌?سازی|سازمان ملل|قطعنامه/],
+  ['oil',       /نفت|اوپک|OPEC|بشکه|گاز|پالایش|تنگه هرمز|صادرات انرژی/],
+  ['election',  /انتخابات|رأی|رای‌?گیری|کاندید|نامزد|مجلس|ریاست‌?جمهوری/],
+  ['economy',   /تورم|بورس|ارز|دلار|طلا|سکه|بانک|بودجه|یارانه|قیمت|بازار|اقتصاد|نقدینگی|رشد اقتصادی/],
+  ['politics',  /وزیر|رئیس|دولت|سفارت|دیپلمات|عزل|استیضاح|مسئولان|سیاست/],
+  ['social',    /اعتراض|تجمع|اعتصاب|زلزله|سیل|حادثه|آتش‌?سوزی|تشییع/],
+];
+function categorizeTopic(topic) {
+  if (!topic) return 'general';
+  const t = String(topic);
+  for (const [cat, re] of TOPIC_CATEGORIES) {
+    if (re.test(t)) return cat;
+  }
+  return 'general';
+}
+
 module.exports = {
   db,
   // weights
@@ -874,4 +899,6 @@ module.exports = {
   insertDriftLog, getDriftLog,
   // accuracy
   upsertAccuracyMetric, getAccuracyMetrics,
+  // topic categorization
+  categorizeTopic, TOPIC_CATEGORIES,
 };

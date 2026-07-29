@@ -29,9 +29,11 @@ function currentPrice(target) {
 // ════════════════════════════════════════════════════════
 
 // Model A — Historical / Pattern (counterfactual-adjusted)
+// `topic` is expected to be a CATEGORY (see tdb.categorizeTopic) so samples accumulate.
 function patternModel(target, horizon, regime, topic) {
-  let p = tdb.getPattern(topic, target, horizon, regime) || tdb.getPattern(topic, target, horizon, 'normal');
-  if (!p) { p = (tdb.getPatternsForTopic(topic, target, regime) || [])[0]; }
+  const cat = tdb.categorizeTopic(topic);
+  let p = tdb.getPattern(cat, target, horizon, regime) || tdb.getPattern(cat, target, horizon, 'normal');
+  if (!p) { p = (tdb.getPatternsForTopic(cat, target, regime) || [])[0]; }
   if (!p) return null;
   const conf = (p.reliability || 0) * Math.min((p.sample_count || 0) / 10, 1);
   const drift = p.concept_drift_score || 0;
@@ -41,9 +43,10 @@ function patternModel(target, horizon, regime, topic) {
   };
 }
 
-// Model B — Similarity (nearest historical chains)
+// Model B — Similarity (nearest historical chains, matched by category)
 function similarityModel(target, horizon, regime, topic) {
-  const chains = (tdb.getChains(null, 300) || []).filter(c => c.topic === topic && (c.regime === regime || c.regime === 'normal'));
+  const cat = tdb.categorizeTopic(topic);
+  const chains = (tdb.getChains(null, 300) || []).filter(c => tdb.categorizeTopic(c.topic) === cat && (c.regime === regime || c.regime === 'normal'));
   const chainIds = new Set(chains.map(c => c.id));
   const preds = (tdb.getPredictions('validated', null, 300) || []).filter(p => chainIds.has(p.chain_id) && p.target === target && p.time_horizon === horizon);
   const vals = preds.map(p => tdb.getValidation(p.id)).filter(Boolean);
@@ -140,12 +143,16 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
 
   // Cold-start fallback: if all models are null but we have a usable edge,
   // create a low-confidence "hypothesis" prediction from the edge alone.
+  // edge.correlation now holds a real DIRECTIONAL BIAS in [-1,1] from discovery.
   if (!combo && bestEdge) {
-    const dir = bestEdge.correlation >= 0 ? 'up' : 'down';
+    const bias = bestEdge.correlation || 0;
+    const dir = Math.abs(bias) < 0.15 ? 'flat' : (bias > 0 ? 'up' : 'down');
+    if (dir === 'flat') return null; // no directional information -> don't guess
     combo = {
       direction: dir,
       pct: dir === 'up' ? 1.0 : -1.0,
-      confidence: clamp(bestEdge.reliability * 0.3, 0.1, 0.4), // capped low for hypothesis
+      // scale by both edge skill and how one-sided the direction was
+      confidence: clamp(bestEdge.reliability * (0.3 + 0.4 * Math.abs(bias)), 0.1, 0.4),
       agreement: 0.33, regimeConf: (tdb.getCurrentRegime() || {}).confidence || 0.7,
     };
   }
@@ -200,10 +207,12 @@ async function tryGeneratePredictions() {
       const edges = (tdb.getEdgeTo(target, regime) || []).filter(e => signalNodes.includes(e.from_node));
       if (!edges.length) continue;
       const edge = edges[0];
-      const dir = edge.correlation >= 0 ? 'up' : 'down';
+      const bias = edge.correlation || 0;
+      if (Math.abs(bias) < 0.15) continue; // no directional signal — skip this target
+      const dir = bias > 0 ? 'up' : 'down';
       const comboKey = `${target}_3_${dir}`;
       if (existingCombos.has(comboKey)) continue; // skip if already predicted
-      const score = (edge.reliability || 0) + (currentPrice(target) ? 0.1 : 0);
+      const score = (edge.reliability || 0) * Math.abs(bias) + (currentPrice(target) ? 0.1 : 0);
       if (!best || score > best.score) best = { target, edge, score, dir };
     }
     if (best) {
@@ -307,10 +316,11 @@ async function whatIf(scenario) {
     if (r && r.topic) topic = r.topic;
   } catch (e) {}
   const regime = (tdb.getCurrentRegime() || {}).regime || 'normal';
+  const cat = tdb.categorizeTopic(topic);
   const matches = [];
   for (const target of TO_NODES) {
     for (const horizon of HORIZONS) {
-      const pat = tdb.getPattern(topic, target, horizon, regime) || tdb.getPattern(topic, target, horizon, 'normal');
+      const pat = tdb.getPattern(cat, target, horizon, regime) || tdb.getPattern(cat, target, horizon, 'normal');
       if (!pat) continue;
       const conf = (pat.reliability || 0) * Math.min((pat.sample_count || 0) / 10, 1) * (1 - (pat.concept_drift_score || 0));
       matches.push({
