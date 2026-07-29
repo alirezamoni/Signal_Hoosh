@@ -465,15 +465,17 @@ async function assembleCascades() {
     const edgeList = [];
     for (const ed of inEdges) {
       const lead = ed.lead_time_min || 30;
-      const windowStart = feT - (lead + ed.lead_time_std || 20) * 60000;
-      const windowEnd = feT - Math.max(0, (lead - (ed.lead_time_std || 20))) * 60000;
-      // find cause events on ed.from_node within window
-      const causes = events.filter(e =>
+      const windowStart = feT - (lead + (ed.lead_time_std || 20)) * 60000;
+      // find cause events on ed.from_node within [windowStart, feT]
+      let causes = events.filter(e =>
         e.node_key === ed.from_node &&
-        (ed.topic == null || ed.topic === e.topic) &&
         !used.has(e.id) && e.id !== fe.id &&
         (() => { const t = new Date(e.detected_at).getTime(); return t >= windowStart && t <= feT; })()
       );
+      // for general edges (topic=null), only keep TOP 3 by severity — not every news wave in the window
+      if (causes.length > 3) {
+        causes = causes.sort((a, b) => (b.severity || 0) - (a.severity || 0)).slice(0, 3);
+      }
       for (const c of causes) {
         roots.push(c.id);
         edgeList.push([c.id, fe.id]);
@@ -482,29 +484,28 @@ async function assembleCascades() {
     }
     if (roots.length > 1) {
       used.add(fe.id);
-      // root causes = earliest-level events (the cause nodes, not the finance outcome)
       const rootCauseIds = roots.filter(id => id !== fe.id);
       const causeEvents = events.filter(e => rootCauseIds.includes(e.id));
-      const rootNodes = [...new Set(causeEvents.map(e => e.node_key))];
       const peak = Math.max(fe.severity || 0, ...causeEvents.map(e => e.severity || 0));
-      const topic = causeEvents.map(e => e.topic).filter(Boolean)[0] || fe.topic || 'نامشخص';
+      // use the most severe cause's topic, or the finance event's target as topic
+      const topCause = causeEvents.sort((a, b) => (b.severity || 0) - (a.severity || 0))[0];
+      const topic = topCause?.topic || fe.topic || 'نامشخص';
       const title = `زنجیره: ${topic}`;
-      const eventIds = { roots: [fe.id], edges: edgeList };
-      // also include root causes as roots for tree rendering
       const treeRoots = rootCauseIds.length ? rootCauseIds : [fe.id];
       const fullEventIds = { roots: treeRoots, edges: edgeList };
 
-      // Persian narrative via AI
-      const summary = causeEvents.map(e => `${e.node_key}:${(e.title || '').slice(0, 50)}`).join(' + ') + ` => ${fe.node_key}:${(fe.title || '').slice(0, 50)}`;
+      // Persian narrative via AI (only send top 3 causes to keep prompt short)
+      const topCauses = causeEvents.sort((a, b) => (b.severity || 0) - (a.severity || 0)).slice(0, 3);
+      const summary = topCauses.map(e => (e.title || '').slice(0, 40)).join(' + ') + ` => ${fe.title}`;
       let narrative = null;
       try {
         narrative = await ai.callNarrative(
-          `این زنجیره سیگنال را در یک جمله کوتاه فارسی توضیح بده — کدام علت‌ها همزمان باعث این نتیجه شدند:\n${summary}\nنتیجه نهایی: ${fe.title}`);
+          `این زنجیره سیگنال را در یک جمله کوتاه فارسی توضیح بده — کدام علت باعث این نتیجه شد:\n${summary}`);
       } catch (e) {}
 
       const chainId = tdb.insertChain({
         title, topic, category: 'economic', regime: (tdb.getCurrentRegime() || {}).regime || 'normal',
-        status: 'active', event_ids: JSON.stringify(fullEventIds), root_node: causeEvents[0]?.node_key || fe.node_key,
+        status: 'active', event_ids: JSON.stringify(fullEventIds), root_node: topCause?.node_key || fe.node_key,
         root_causes: JSON.stringify(rootCauseIds), ai_analysis: narrative || summary,
         peak_severity: peak, started_at: causeEvents[0]?.detected_at || fe.detected_at,
       });
@@ -512,28 +513,31 @@ async function assembleCascades() {
     }
   }
 
-  // Also: link orphan cause events that share a topic/time into a lightweight chain even without finance outcome
-  // (co-occurring causes) — build sibling groups
+  // Fallback: only group orphan events that share a REAL topic (not 'up'/'down'/'flat') within a tight window.
+  // This catches co-occurring news waves on the same subject. Skip direction-only topics.
   if (cascades.length === 0 && events.length >= 2) {
+    const DIR_TOPICS = new Set(['up', 'down', 'flat', null, 'نامشخص']);
     const byTopic = {};
     for (const e of events) {
-      if (used.has(e.id) || !e.topic) continue;
+      if (used.has(e.id) || !e.topic || DIR_TOPICS.has(e.topic)) continue;
       (byTopic[e.topic] = byTopic[e.topic] || []).push(e);
     }
     for (const t in byTopic) {
       const group = byTopic[t].sort((a, b) => new Date(a.detected_at) - new Date(b.detected_at));
       if (group.length < 2) continue;
       const span = new Date(group[group.length - 1].detected_at) - new Date(group[0].detected_at);
-      if (span > 30 * 60000) continue;
-      const ids = group.map(e => e.id);
-      group.forEach(e => used.add(e.id));
-      const peak = Math.max(...group.map(e => e.severity || 0));
+      if (span > 15 * 60000) continue; // tighter window: 15 min
+      // cap to 5 most severe
+      const top = group.sort((a, b) => (b.severity || 0) - (a.severity || 0)).slice(0, 5);
+      const ids = top.map(e => e.id);
+      top.forEach(e => used.add(e.id));
+      const peak = Math.max(...top.map(e => e.severity || 0));
       tdb.insertChain({
         title: `زنجیره هم‌زمان: ${t}`, topic: t, category: 'economic',
         regime: (tdb.getCurrentRegime() || {}).regime || 'normal', status: 'active',
-        event_ids: JSON.stringify({ roots: ids, edges: [] }), root_node: group[0].node_key,
-        root_causes: JSON.stringify(ids), ai_analysis: `${group.length} رویداد هم‌زمان درباره «${t}»`,
-        peak_severity: peak, started_at: group[0].detected_at,
+        event_ids: JSON.stringify({ roots: ids, edges: [] }), root_node: top[0].node_key,
+        root_causes: JSON.stringify(ids), ai_analysis: `${top.length} رویداد هم‌زمان درباره «${t}»`,
+        peak_severity: peak, started_at: top[0].detected_at,
       });
     }
   }

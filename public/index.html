@@ -3789,22 +3789,21 @@ async function loadFutureTimeline(){
   const wrap=document.getElementById('futureTimeline');
   if(!chains.length){ wrap.className='pred-empty'; wrap.innerHTML='هنوز زنجیره‌ی فعالی ساخته نشده — سیستم در حال جمع‌آوری سیگنال‌هاست.'; return; }
   wrap.className='';
-  wrap.innerHTML=chains.map(c=>{
-    let roots=[];try{roots=JSON.parse(c.root_causes||'[]')}catch(e){}
-    if(!roots.length) roots=(c.root_node?[c.root_node]:[]);
-    const evByNode={}; let evs=[]; try{const t=JSON.parse(c.event_ids);evs=t.roots||[]}catch(e){}
-    const rootBadge = roots.length?`<div class="root-badge"><span class="root-dot" style="background:${NODE_COLOR[c.root_node]||'#7c8db5'}"></span>${toFa(roots.length)} عامل هم‌زمان</div>`:'';
-    const peak=Math.round((c.peak_severity_decayed||c.peak_severity||0)*100);
-    return `<div class="msum-card" style="margin-bottom:12px">
+  // only show 3 most recent by default; rest behind "show more"
+  const SHOW=3;
+  const visible=chains.slice(0,SHOW);
+  const hidden=chains.slice(SHOW);
+  const renderChain=(c)=>`
+    <div class="msum-card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <div style="font-size:13px;font-weight:700">${c.title||'زنجیره'}</div>
-        ${rootBadge}
+        <span class="root-badge"><span class="root-dot" style="background:${NODE_COLOR[c.root_node]||'#7c8db5'}"></span>${toFa(JSON.parse(c.root_causes||'[]').length||1)} عامل</span>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin:4px 0">سپر ساخت: ${fmtDate(c.started_at)} · شدت: ${toFa(peak)}٪</div>
-      ${c.ai_analysis?`<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.7">${c.ai_analysis}</div>`:''}
-      <div style="font-size:10px;color:var(--text3);margin-top:6px">رژیم: <span class="regime-badge">${FUTURE_REGIME[c.regime]||c.regime||'عادی'}</span></div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0">آغاز: ${fmtDate(c.started_at)} · شدت: ${toFa(Math.round((c.peak_severity_decayed||c.peak_severity||0)*100))}٪</div>
+      ${c.ai_analysis?`<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.8">${c.ai_analysis}</div>`:''}
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">حالت بازار: <span class="regime-badge">${FUTURE_REGIME[c.regime]||c.regime||'عادی'}</span></div>
     </div>`;
-  }).join('');
+  wrap.innerHTML=visible.map(renderChain).join('') + (hidden.length?`<button class="btn-sm" style="margin-top:8px" onclick="document.getElementById('futureTimelineMore').style.display='block';this.style.display='none'">نمایش ${toFa(hidden.length)} زنجیره‌ی دیگر</button><div id="futureTimelineMore" style="display:none">${hidden.map(renderChain).join('')}</div>`:'');
 }
 
 // ── Section 2: predictions grid ──
@@ -3816,8 +3815,12 @@ async function loadFuturePredictions(){
   const wrap=document.getElementById('futurePredictions');
   _futurePredState.forEach(v=>{try{v.chart&&v.chart.destroy()}catch(e){}}); _futurePredState.clear();
   if(!preds.length){ wrap.innerHTML=warmupBanner(); return; }
-  wrap.innerHTML=preds.map(predCardHTML).join('');
-  preds.forEach(p=>loadPredSpark(p));
+  // show 6 most recent; rest behind "show more"
+  const SHOW=6;
+  const visible=preds.slice(0,SHOW);
+  const hidden=preds.slice(SHOW);
+  wrap.innerHTML=visible.map(predCardHTML).join('') + (hidden.length?`<button class="btn-sm" style="margin:12px auto;display:block" onclick="(function(b){var m=document.getElementById('futurePredMore');m.innerHTML='${hidden.map(p=>predCardHTML(p).replace(/'/g,"\\'")).join('')}'.replace(/\\/g,'');m.style.display='grid';b.style.display='none';})(this)">نمایش ${toFa(hidden.length)} پیش‌بینی‌ی دیگر</button><div id="futurePredMore" style="display:none"></div>`:'');
+  visible.forEach(p=>loadPredSpark(p));
 }
 function predCardHTML(p){
   const conf=p.calibrated_confidence!=null?p.calibrated_confidence:p.confidence;
@@ -3832,7 +3835,7 @@ function predCardHTML(p){
     ${fAttrBars(p.attribution_json)}
     <div style="margin-top:8px;font-size:10px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap">
       <span class="root-badge">منشأ: ${NODE_LABEL[p.target]||p.target}</span>
-      <span class="regime-badge">رژیم: ${FUTURE_REGIME[p.regime]||p.regime||'عادی'}</span>
+      <span class="regime-badge">حالت بازار: ${FUTURE_REGIME[p.regime]||p.regime||'عادی'}</span>
     </div>
     <div style="margin-top:8px;height:48px;position:relative"><canvas id="spark${p.id}"></canvas></div>
   </div>`;
@@ -3998,7 +4001,7 @@ async function runCompare(){
   const res=document.getElementById('compareResults'); res.innerHTML='<div class="pred-empty">در حال بارگذاری…</div>';
   const [ra,rb]=await Promise.all([fetch(`/api/timeline/chains/${a}`,{headers:{Authorization:'Bearer '+TOKEN}}),fetch(`/api/timeline/chains/${b}`,{headers:{Authorization:'Bearer '+TOKEN}})]);
   const da=await ra.json(), db=await rb.json();
-  const card=(c,t)=>{const evs=(c.events||[]);const peak=Math.round((c.peak_severity||0)*100);const first=evs[0],last=evs[evs.length-1];const span=first&&last?Math.round((new Date(last.detected_at)-new Date(first.detected_at))/60000):0;return `<div class="msum-card" style="flex:1"><div style="font-weight:700;font-size:13px;margin-bottom:6px">${t}</div><div style="font-size:11px;color:var(--text3)">${c.title||'—'}</div><div style="font-size:11px;margin-top:6px">رژیم: ${FUTURE_REGIME[c.regime]||c.regime}</div><div style="font-size:11px">شدت: ${toFa(peak)}٪</div><div style="font-size:11px">تعداد رویداد: ${toFa(evs.length)}</div><div style="font-size:11px">زمان واکنش: ${toFa(span)} دقیقه</div><div style="font-size:11px">ریشه: ${NODE_LABEL[c.root_node]||c.root_node||'—'}</div></div>`;};
+  const card=(c,t)=>{const evs=(c.events||[]);const peak=Math.round((c.peak_severity||0)*100);const first=evs[0],last=evs[evs.length-1];const span=first&&last?Math.round((new Date(last.detected_at)-new Date(first.detected_at))/60000):0;return `<div class="msum-card" style="flex:1"><div style="font-weight:700;font-size:13px;margin-bottom:6px">${t}</div><div style="font-size:11px;color:var(--text3)">${c.title||'—'}</div>      <div style="font-size:11px;margin-top:6px">حالت بازار: ${FUTURE_REGIME[c.regime]||c.regime}</div><div style="font-size:11px">شدت: ${toFa(peak)}٪</div><div style="font-size:11px">تعداد رویداد: ${toFa(evs.length)}</div><div style="font-size:11px">زمان واکنش: ${toFa(span)} دقیقه</div><div style="font-size:11px">ریشه: ${NODE_LABEL[c.root_node]||c.root_node||'—'}</div></div>`;};
   res.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap">${card(da,'رویداد اول')}${card(db,'رویداد دوم')}</div>`;
 }
 
