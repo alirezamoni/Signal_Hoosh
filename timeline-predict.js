@@ -209,30 +209,41 @@ function reviseOpenPredictions(newEvents) {
   const open = tdb.getOpenPredictions() || [];
   if (!open.length || !newEvents || !newEvents.length) return;
   let updates = 0;
+  // cap revisions per cycle to prevent churn (max 1 update per prediction per cycle)
+  let perPredictionRevised = 0;
   for (const p of open) {
+    if (perPredictionRevised >= open.length) break; // one pass max
+    // only consider the MOST RECENT significant event for this prediction's target
+    let bestEvent = null, bestEdge = null;
     for (const e of newEvents) {
       const edges = (tdb.getEdgeTo(p.target, p.regime) || []).filter(ed => ed.from_node === e.node_key);
       if (!edges.length) continue;
-      const edge = edges[0];
-      let L = clamp(edge.reliability || 0.5, 0.05, 0.95);
-      // if event direction opposes prediction direction, invert likelihood
-      if (e.direction && p.direction !== 'flat' && e.direction !== p.direction) L = 1 - L;
-      const prior = p.confidence || 0.5;
-      const posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.01, 0.99);
-      // nudge predicted_pct toward edge-inferred magnitude
-      const mag = e.magnitude || 0;
-      const newPct = (p.predicted_pct || 0) * 0.7 + mag * 0.3;
-      const cal = tdb.calibrate(posterior);
-      tdb.insertPredictionUpdate({
-        prediction_id: p.id, trigger_event_id: e.id, trigger_desc: e.title,
-        prev_confidence: prior, new_confidence: posterior,
+      // pick the highest-reliability edge event
+      if (!bestEvent || (edges[0].reliability || 0) > (bestEdge?.reliability || 0)) {
+        bestEvent = e; bestEdge = edges[0];
+      }
+    }
+    if (!bestEvent || !bestEdge) continue;
+    const e = bestEvent, edge = bestEdge;
+    let L = clamp(edge.reliability || 0.5, 0.05, 0.95);
+    // if event direction opposes prediction direction, invert likelihood
+    if (e.direction && p.direction !== 'flat' && e.direction !== p.direction) L = 1 - L;
+    const prior = p.confidence || 0.5;
+    const posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.01, 0.99);
+    // nudge predicted_pct toward edge-inferred magnitude
+    const mag = e.magnitude || 0;
+    const newPct = (p.predicted_pct || 0) * 0.7 + mag * 0.3;
+    const cal = tdb.calibrate(posterior);
+    tdb.insertPredictionUpdate({
+      prediction_id: p.id, trigger_event_id: e.id, trigger_desc: e.title,
+      prev_confidence: prior, new_confidence: posterior,
         prev_calibrated: p.calibrated_confidence, new_calibrated: cal,
         prev_pct: p.predicted_pct, new_pct: newPct, reason: 'به‌روزرسانی بیزی بر اساس رویداد جدید',
       });
       tdb.updatePrediction(p.id, { confidence: posterior, calibrated_confidence: cal, predicted_pct: newPct });
       p.confidence = posterior; p.calibrated_confidence = cal; p.predicted_pct = newPct;
+      perPredictionRevised++;
       updates++;
-    }
   }
   if (updates) console.log(`[tl-predict] ${updates} Bayesian revisions`);
   return updates;
