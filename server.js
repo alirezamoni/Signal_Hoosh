@@ -32,6 +32,7 @@ try { _crawlers.job = require('./job-crawler'); } catch(e) { console.warn('[warn
 const jobRouter = require('./job-api');
 const { startPolymarketScheduler } = require('./polymarket-crawler');
 const polymarketRouter = require('./polymarket-api');
+const timelineRouter = require('./timeline-api');
 const { startDigestScheduler, loadDigest, refresh4h, refresh24h } = require('./ai-digest');
 const { startNewsBot } = require('./news-bot');
 const newsRouter = require('./news-api');
@@ -184,6 +185,7 @@ app.use('/api/jobs', requireAuth, jobRouter);
 app.use('/api/news', requireAuth, newsRouter);
 app.use('/api/finance', requireAuth, financeRouter);
 app.use('/api/polymarket', requireAuth, polymarketRouter);
+app.use('/api/timeline', requireAuth, timelineRouter);
 
 // media proxy برای عکس/ویدیو تلگرام
 app.get('/api/news/media', requireAuth, (req, res) => {
@@ -432,16 +434,28 @@ app.post('/api/settings/ai-model', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/settings/timeline-ai-model', requireAuth, (req, res) => {
+  const { modelId } = req.body;
+  // empty modelId = clear, fall back to general model
+  if (modelId === '') { settingsDB.set('timeline_ai_model', ''); }
+  else if (modelId) { settingsDB.set('timeline_ai_model', modelId); }
+  else return res.status(400).json({ error: 'modelId required' });
+  console.log(`[settings] timeline_ai_model set to "${modelId||'(use general)'}" by user ${req.user.id}`);
+  res.json({ ok: true });
+});
+
 app.get('/api/settings/ai-models', requireAuth, async (req, res) => {
   const current = settingsDB.get('ai_model','google/gemma-4-26b-a4b-it:free');
+  const tlRaw = settingsDB.get('timeline_ai_model','');
+  const timeline_current = tlRaw ? tlRaw : current; // empty => falls back to general
   try {
     const all = await fetchOpenRouterModels();
     const pinnedIds = new Set(FREE_DEFAULTS.map(m=>m.id));
     const otherFree = all.filter(m=>m.free && !pinnedIds.has(m.id));
     const paid = all.filter(m=>!m.free);
-    res.json({ models:[...FREE_DEFAULTS,...otherFree,...paid], current });
+    res.json({ models:[...FREE_DEFAULTS,...otherFree,...paid], current, timeline_current });
   } catch(e) {
-    res.json({ models: FREE_DEFAULTS, current });
+    res.json({ models: FREE_DEFAULTS, current, timeline_current });
   }
 });
 
@@ -545,4 +559,5 @@ app.listen(PORT, () => {
   if (financeCrawler) financeCrawler.startScheduler();
   startNewsBot();
   migrateMediaToDisk().catch(console.error);
+  try { require('./timeline-engine').startScheduler(); } catch(e) { console.warn('[warn] timeline-engine not started:', e.message); }
 });

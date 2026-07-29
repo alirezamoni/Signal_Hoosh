@@ -694,6 +694,67 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .tstat-sub{font-size:10px;color:var(--text2);margin-top:3px}
 @media(max-width:900px){.trends-stats-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.trends-stats-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* — ترند آینده (Future Timeline) — */
+.future-wrap{display:none;padding:0 0 50px}.future-wrap.visible{display:block}
+.future-inner{padding:18px 22px;max-width:1280px;margin:0 auto}
+.future-section{margin-bottom:30px}
+.future-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:0 2px;flex-wrap:wrap}
+.future-header h3{font-size:15px;font-weight:700;color:var(--text);margin:0}
+.future-desc{font-size:12.5px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-right:3px solid var(--accent);border-radius:10px;padding:10px 14px;margin:0 2px 16px;line-height:1.8}
+.future-pred-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.future-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+.future-graph-canvas{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;min-height:320px;position:relative;overflow:hidden}
+.fstat-label{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:4px}
+.fstat-value{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:-0.02em}
+.fstat-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.conf-bar{height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:6px 0}
+.conf-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px;transition:width .5s ease}
+.attr-bar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:3px 0}
+.attr-bar-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.future-card-hypothesis{border-color:var(--amber)!important}
+.future-card-hypothesis .fstat-value{color:var(--amber)}
+.future-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative}
+.future-card .ftarget{font-size:15px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.future-card .fmeta{font-size:11px;color:var(--text3);margin-top:2px}
+.future-card .fwhy{font-size:11px;color:var(--text2);margin-top:10px;margin-bottom:4px;font-weight:600}
+.regime-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(155,124,252,.15);color:var(--purple)}
+.root-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--bg3);color:var(--text2);margin:2px 0}
+.root-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.calib-tag{font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(15,209,122,.12);color:var(--green);margin-right:6px}
+.future-ribbon{display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;margin:6px 4px 20px}
+.ribbon-label{font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
+.ribbon-bar{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.ribbon-fill{height:100%;border-radius:4px;transition:width .5s ease,background .5s ease}
+.ribbon-value{font-size:15px;font-weight:800;min-width:50px;text-align:left}
+.future-collapse{border:1px solid var(--border);border-radius:10px;margin-top:10px;overflow:hidden}
+.future-collapse-head{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--bg3);cursor:pointer;font-size:12px;font-weight:600;color:var(--text2)}
+.future-collapse-body{padding:12px 14px;display:none}
+.future-collapse.open .future-collapse-body{display:block}
+.whatif-box,.compare-box{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.whatif-box input,.compare-box select{flex:1;min-width:180px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none}
+.whatif-box input:focus,.compare-box select:focus{border-color:var(--accent)}
+.whatif-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.whatif-chip{font-size:11px;padding:5px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;transition:all .15s}
+.whatif-chip:hover{border-color:var(--accent);color:var(--accent)}
+.sim-card{border:1px dashed var(--border2)!important;background:rgba(79,131,247,.04)!important}
+.radar-container{display:flex;gap:20px;align-items:center;flex-wrap:wrap;justify-content:center}
+.anomaly-alert{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);border-radius:10px;padding:10px 14px;color:var(--amber);font-size:12px;font-weight:600}
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap}
+.frel-bar{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;min-width:50px}
+.frel-bar-fill{height:100%;border-radius:3px}
+.chain-tree{position:relative;padding:8px 0 8px 18px}
+.chain-tree::before{content:'';position:absolute;right:8px;top:0;bottom:0;width:2px;background:var(--border2)}
+.chain-node{position:relative;padding:6px 10px 6px 0;margin-bottom:6px;background:var(--bg3);border-radius:8px;font-size:12px}
+.chain-node::before{content:'';position:absolute;right:-12px;top:14px;width:12px;height:2px;background:var(--border2)}
+.chain-time{font-size:10px;color:var(--text3);margin-top:2px}
+.pred-empty{text-align:center;padding:40px 16px;color:var(--text3);font-size:13px}
+.warmup-banner{display:flex;flex-direction:column;align-items:center;gap:10px;padding:30px;text-align:center}
+.warmup-bar{width:100%;max-width:300px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.warmup-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:3px}
+.dash-icon{width:14px;height:14px;display:inline-block;vertical-align:middle}
+@media(max-width:900px){.future-inner{padding:14px 14px}.future-pred-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}.future-stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.future-inner{padding:12px 10px}.future-pred-grid,.future-stats-grid{grid-template-columns:1fr;gap:12px}.future-section{margin-bottom:22px}.future-desc{font-size:12px;padding:9px 11px}.future-header h3{font-size:14px}.future-ribbon{flex-wrap:wrap;gap:10px;padding:10px 14px}.ribbon-label{font-size:11px}.ribbon-value{font-size:14px}.market-table{font-size:11.5px}.market-table th,.market-table td{padding:8px 8px}.future-stats-grid .msum-card{padding:12px 14px}.fstat-value{font-size:20px}.whatif-box,.compare-box{flex-direction:column}.whatif-box input,.compare-box select{width:100%}.radar-container{flex-direction:column}.future-graph-canvas{padding:12px;min-height:260px}}
 </style>
 </head>
 <body>
@@ -756,6 +817,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   <div class="tab" onclick="switchTab('news',this)">ترند اخبار ایران</div>
   <div class="tab" onclick="switchTab('finance',this)">ترند بازارهای مالی</div>
   <div class="tab" onclick="switchTab('polymarket',this)">ترند های پلی مارکت</div>
+  <div class="tab" onclick="switchTab('future',this)">ترند آینده</div>
 </div>
 
 
@@ -1178,6 +1240,165 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
   </div>
 </div>
 
+<!-- ═══ ترند آینده — Future Timeline ═══ -->
+<div class="future-wrap" id="futureWrap">
+ <div class="future-inner">
+
+  <!-- Confidence Ribbon -->
+  <div class="future-ribbon" id="confidenceRibbon">
+    <span class="ribbon-label">اطمینان کلی سیستم</span>
+    <div class="ribbon-bar"><div class="ribbon-fill" id="ribbonFill" style="width:0%"></div></div>
+    <span class="ribbon-value" id="ribbonValue">—</span>
+  </div>
+
+  <!-- تحلیل هوشمند آینده -->
+  <div class="future-section">
+    <div class="future-header">
+      <h3>تحلیل هوشمند آینده</h3>
+      <button class="btn-sm" id="intelRefreshBtn" onclick="loadIntelligence(true)">تحلیل تازه</button>
+    </div>
+    <blockquote class="future-desc">جمع‌بندی هوشمند از کل داده‌های سیستم: زنجیره‌های فعال، پیش‌بینی‌ها، الگوها و رژیم بازار — یک پیش‌بینی کلی از آینده‌ی کوتاه‌مدت (۳ ساعت)، میان‌مدت (۱۲ ساعت) و بلندمدت (۲۴ ساعت) با ذکر محرک‌های اصلی.</blockquote>
+    <div id="intelligenceBox" class="msum-card" style="min-height:80px"><div class="pred-empty">برای دریافت تحلیل کلی، روی «تحلیل تازه» بزنید.</div></div>
+  </div>
+
+  <!-- Section 1: Active cascades -->
+  <div class="future-section">
+    <div class="future-header"><h3>زنجیره‌های فعال</h3><span class="tab-count" id="futureChainCount">۰</span></div>
+    <blockquote class="future-desc">این بخش زنجیره‌ی رویدادهایی که همین الان در حال رخ دادن‌اند را به‌صورت یک درخت نشان می‌دهد: ریشه‌ی خبر، واکنش مردم (اسپایک جستجو) و واکنش بازار. درخت نشان می‌دهد کدام علت‌ها همزمان باعث این نتیجه شدند. اگر پیش‌بینی ساخته شده باشد، کارت آن با تفکیک دلایلش نمایش داده می‌شود.</blockquote>
+    <div id="futureTimeline" class="pred-empty">در حال بارگذاری…</div>
+  </div>
+
+  <!-- Section 2: Forward predictions grid -->
+  <div class="future-section">
+    <div class="future-header"><h3>پیش‌بینی‌های پیش‌رو</h3><span class="tab-count" id="futurePredCount">۰</span></div>
+    <blockquote class="future-desc">قلب تب ترند آینده: گریدی از کارت‌های پیش‌بینی زنده. هر کارت نماد، جهت، بازه درصدی، اطمینان کالیبره‌شده، تفکیک دلایل (الگوی تاریخی / شدت خبر / ترند / بازار)، منشأ زنجیره و رژیم بازار را نشان می‌دهد و نمودار رشد اطمینان از ایجاد تا اکنون را دارد.</blockquote>
+    <div id="futurePredictions" class="future-pred-grid"></div>
+  </div>
+
+  <!-- Section 3: Multi-asset matrix -->
+  <div class="future-section">
+    <div class="future-header"><h3>ماتریکس پیش‌بینی بازار</h3></div>
+    <blockquote class="future-desc">یک نگاه کامل بر بازار ایران در ۲۴ ساعت آینده: ردیف‌ها نمادها، ستون‌ها افق‌های زمانی ۳/۱۲/۲۴ ساعته. سلول‌های سبز صعودی، قرمز نزولی، خاکستری خنثی. با کلیک روی هر سلول جزئیات کامل پیش‌بینی باز می‌شود.</blockquote>
+    <div class="market-table-wrap">
+      <table class="market-table" id="predMatrix">
+        <thead><tr><th>نماد</th><th>۳ ساعت</th><th>۱۲ ساعت</th><th>۲۴ ساعت</th></tr></thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 4: Signal graph -->
+  <div class="future-section">
+    <div class="future-header"><h3>گراف سیگنال‌ها — چه چیزی چه چیزی را پیش‌بینی می‌کند</h3></div>
+    <blockquote class="future-desc">این بخش کشف سیستمی را بصری می‌کند: کدام سیگنال کدام را پیش‌بینی می‌کند، با چند دقیقه تأخیر و چقدر قابل اعتماد. این روابط دستی تعریف نشده‌اند — سیستم خودشان را از داده کشف کرده. هرچه یال ضخیم‌تر و پررنگ‌تر، رابطه قوی‌تر.</blockquote>
+    <div id="futureGraph" class="future-graph-canvas"></div>
+  </div>
+
+  <!-- Section 5: Anomaly radar -->
+  <div class="future-section">
+    <div class="future-header"><h3>رادار ناهنجاری سیگنال‌ها</h3></div>
+    <blockquote class="future-desc">نمودار راداری ۶ محوره که همزمان وضعیت همه سیگنال‌ها را نشان می‌دهد: شدت خبر، رشد جستجو، تغییر قیمت، حجم پلی‌مارکت، فعالیت تلگرام و نوسان بازار. وقتی همزمان چند محور صعودی شوند، سیستم هشدار می‌دهد ناهنجاری ترکیبی رخ داده است.</blockquote>
+    <div class="radar-container">
+      <canvas id="anomalyRadar" width="320" height="320"></canvas>
+      <div id="anomalyAlert"></div>
+    </div>
+  </div>
+
+  <!-- Section 6: Accuracy & intelligence -->
+  <div class="future-section">
+    <div class="future-header"><h3>دقت و هوش سیستم</h3></div>
+    <blockquote class="future-desc">شفافیت کامل: سیستم چقدر درست پیش‌بینی کرده، آیا اطمینان‌ها واقعاً معنا دارند (کالیبراسیون)، آیا الگوهای قدیمی هنوز کار می‌کنند (رانش مفهومی) و کدام منبع قابل‌اعتمادتر است. ۴ کارت بالا یک نگاه کلی می‌دهند و زیربخش‌های بازشونده جزئیات کامل را نشان می‌دهند.</blockquote>
+    <div class="future-stats-grid">
+      <div class="msum-card"><div class="fstat-label">دقت جهت</div><div class="fstat-value" id="futureDirAcc">—</div><div class="fstat-sub" id="futureDirSub">—</div></div>
+      <div class="msum-card"><div class="fstat-label">امتیاز مهارت (Skill)</div><div class="fstat-value" id="futureSkill">—</div><div class="fstat-sub" id="futureSkillSub">—</div></div>
+      <div class="msum-card"><div class="fstat-label">خطای کالیبراسیون (ECE)</div><div class="fstat-value" id="futureECE">—</div><div class="fstat-sub" id="futureECESub">—</div></div>
+      <div class="msum-card"><div class="fstat-label">روند بهبود</div><div class="fstat-value" id="futureTrend">—</div><div class="fstat-sub" id="futureTrendSub">—</div></div>
+    </div>
+    <div style="height:90px;position:relative;margin-bottom:6px"><canvas id="futureScoreChart"></canvas></div>
+    <div class="market-table-wrap" style="margin-top:14px">
+      <table class="market-table">
+        <thead><tr><th>نماد</th><th>تعداد</th><th>دقت جهت</th><th>MAPE</th><th>امتیاز مهارت</th></tr></thead>
+        <tbody id="futureAccTable"></tbody>
+      </table>
+    </div>
+
+    <div class="future-collapse" id="clCalib">
+      <div class="future-collapse-head" onclick="document.getElementById('clCalib').classList.toggle('open')"><span>جدول کالیبراسیون</span><span>›</span></div>
+      <div class="future-collapse-body"><div class="market-table-wrap"><table class="market-table"><thead><tr><th>بازه اطمینان</th><th>تعداد</th><th>دقت واقعی</th><th>خطا</th><th>وضعیت</th></tr></thead><tbody id="futureCalibTable"></tbody></table></div></div>
+    </div>
+    <div class="future-collapse" id="clSrc">
+      <div class="future-collapse-head" onclick="document.getElementById('clSrc').classList.toggle('open')"><span>قابلیت اعتماد منابع</span><span>›</span></div>
+      <div class="future-collapse-body"><div class="market-table-wrap"><table class="market-table"><thead><tr><th>منبع</th><th>برچسب</th><th>اطمینان</th><th>گرایش</th><th>نمونه</th><th>وضعیت</th></tr></thead><tbody id="futureSrcTable"></tbody></table></div></div>
+    </div>
+    <div class="future-collapse" id="clDrift">
+      <div class="future-collapse-head" onclick="document.getElementById('clDrift').classList.toggle('open')"><span>رانش مفهومی (Concept Drift)</span><span>›</span></div>
+      <div class="future-collapse-body"><div id="futureDriftList" class="pred-empty">—</div></div>
+    </div>
+    <div class="future-collapse" id="clInd">
+      <div class="future-collapse-head" onclick="document.getElementById('clInd').classList.toggle('open')"><span>شاخص‌های پیشرو (Leading Indicators)</span><span>›</span></div>
+      <div class="future-collapse-body"><div class="market-table-wrap"><table class="market-table"><thead><tr><th>شاخص</th><th>نماد هدف</th><th>تأخیر</th><th>دقت</th><th>همبستگی</th></tr></thead><tbody id="futureIndTable"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- Section 7: Pattern library -->
+  <div class="future-section">
+    <div class="future-header"><h3>الگوهای آموخته‌شده</h3></div>
+    <blockquote class="future-desc">حافظه‌ی بلندمدت سیستم: همه الگوهای علّی کشف‌شده در یک جدول. هر ردیف یک الگو است: محرک به نماد در افقی، جهت، درصد میانگین، دقت و نمونه. الگوهای در حال تضعیف با هشدار زرد و آرشیو‌شده خط‌خورده نشان داده می‌شوند.</blockquote>
+    <div class="market-table-wrap">
+      <table class="market-table">
+        <thead><tr><th>محرک</th><th>نماد</th><th>افق</th><th>جهت</th><th>درصد میانگین</th><th>تأخیر</th><th>قابلیت اعتماد</th><th>نمونه</th></tr></thead>
+        <tbody id="futurePatternsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 8: What-if simulator -->
+  <div class="future-section">
+    <div class="future-header"><h3>شبیه‌ساز چه‌می‌شود</h3></div>
+    <blockquote class="future-desc">تعاملی‌ترین قسمت: یک سناریوی فرضی وارد کنید — مثلاً «اگر فردا خبر تحریم بیاید چه می‌شود؟» سیستم در الگوهای تاریخی مشابه می‌گردد و پیش‌بینی می‌کند دلار/سکه/طلا در ۳/۱۲/۲۴ ساعت چه می‌شود، بدون اینکه خبر واقعاً رخ داده باشد. می‌توانید چند سناریو را کنار هم بگذارید و مقایسه کنید.</blockquote>
+    <div class="whatif-box msum-card">
+      <input type="text" id="whatifInput" placeholder="مثلاً: خبر تحریم جدید علیه ایران">
+      <button class="btn-sm" onclick="runWhatIf()">شبیه‌سازی</button>
+    </div>
+    <div class="whatif-chips" id="whatifChips"></div>
+    <div id="whatifResults" style="margin-top:14px"></div>
+  </div>
+
+  <!-- Section 9: Historical comparison -->
+  <div class="future-section">
+    <div class="future-header"><h3>تایم‌لاین مقایسه‌ای رویدادها</h3></div>
+    <blockquote class="future-desc">دو رویداد تاریخی را کنار هم بگذارید و مقایسه کنید: چقدر طول کشید بازار واکنش نشان دهد، شدت واکنش چقدر بود، کدام منبع زودتر خبر داد. این دید می‌دهد که آیا بازار سریع‌تر یاد می‌گیرد یا کندتر.</blockquote>
+    <div class="compare-box msum-card">
+      <select id="compareA"><option value="">رویداد اول…</option></select>
+      <select id="compareB"><option value="">رویداد دوم…</option></select>
+      <button class="btn-sm" onclick="runCompare()">مقایسه</button>
+    </div>
+    <div id="compareResults" style="margin-top:14px"></div>
+  </div>
+
+  <!-- Section 10: Prediction archive -->
+  <div class="future-section">
+    <div class="future-header">
+      <h3>آرشیو پیش‌بینی‌های گذشته</h3>
+      <div class="filter-chips">
+        <button class="msrc-btn active" onclick="filterArchive('all',this)">همه</button>
+        <button class="msrc-btn" onclick="filterArchive('correct',this)">درست</button>
+        <button class="msrc-btn" onclick="filterArchive('wrong',this)">اشتباه</button>
+        <button class="msrc-btn" onclick="filterArchive('high_conf',this)">اطمینان بالا</button>
+      </div>
+    </div>
+    <blockquote class="future-desc">همه پیش‌بینی‌های گذشته که نتیجه‌شان مشخص شده، با امتیاز، تفاوت با واقعیت و دلیل درست/اشتباه بودن. شفافیت کامل که سیستم کجا قوی است و کجا ضعیف.</blockquote>
+    <div class="market-table-wrap">
+      <table class="market-table">
+        <thead><tr><th>زنجیره</th><th>نماد</th><th>افق</th><th>پیش‌بینی</th><th>واقعیت</th><th>امتیاز</th><th>مهارت</th></tr></thead>
+        <tbody id="archiveTable"></tbody>
+       </table>
+     </div>
+   </div>
+
+ </div>
+</div>
+
 <!-- Finance Detail Modal -->
 <div class="fin-modal" id="financeModal" onclick="if(event.target===this)closeFinanceModal()">
   <div class="fin-modal-box">
@@ -1255,6 +1476,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
     <div style="margin-bottom:16px;font-size:13px;color:var(--text2)">انتخاب مدل هوش مصنوعی برای تحلیل‌ها و ترجمه‌ها:</div>
     <div id="aiModelList" style="display:flex;flex-direction:column;gap:8px"></div>
     <div style="margin-top:16px;font-size:11px;color:var(--text3)">مدل پیش‌فرض: openai/gpt-oss-20b:free — همه مدل‌ها رایگان هستند</div>
+
+    <div style="margin:24px 0 12px;border-top:1px solid var(--border);padding-top:18px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">مدل تحلیل بخش «ترند آینده»</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">مدل هوش مصنوعی که به‌صورت جداگانه برای تحلیل هوشمند آینده و پیش‌بینی‌های این بخش استفاده می‌شود. اگر انتخاب نکنید، همان مدل کلی بالا به‌کار می‌رود.</div>
+      <div id="timelineModelList" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
   </div>
 </div>
 
@@ -1614,17 +1841,21 @@ function switchTab(tab,el){
   const isNews    = tab==='news';
   const isFinance = tab==='finance';
   const isPoly    = tab==='polymarket';
+  const isFuture  = tab==='future';
   document.getElementById('dashContent').style.display  = isTrend ? 'block' : 'none';
   document.getElementById('marketWrap').classList.toggle('visible', isMarket);
   document.getElementById('jobsWrap').classList.toggle('visible', isJobs);
   document.getElementById('newsWrap').classList.toggle('visible', isNews);
   document.getElementById('financeWrap').classList.toggle('visible', isFinance);
   document.getElementById('polymarketWrap').classList.toggle('visible', isPoly);
+  document.getElementById('futureWrap').classList.toggle('visible', isFuture);
+  if(!isFuture) stopFuturePolling();
   if(isMarket)  loadMarket();
   if(isJobs)    loadJobs();
   if(isNews)    loadNews();
   if(isFinance){ loadFinance(); loadFinanceMessages(); }
   if(isPoly)    loadPolymarket();
+  if(isFuture){ startFuturePolling(); loadFutureAll(); }
 }
 
 // ══ ADMIN ══
@@ -2104,9 +2335,42 @@ async function loadAIModels() {
       <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">${paid.map(modelCard).join('')}</div>`;
 
     listEl.innerHTML = html;
+
+    // — مدل جداگانه برای بخش ترند آینده —
+    const tlList = document.getElementById('timelineModelList');
+    if (tlList) {
+      const tlCurrent = d.timeline_current || d.current;
+      const tlModels = [...pinned, ...otherFree, ...paid].slice(0, 40);
+      let tlHtml = '';
+      // گزینه «استفاده از مدل کلی»
+      tlHtml += `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid ${(!tlCurrent)?'var(--accent)':'var(--border)'};background:${(!tlCurrent)?'rgba(79,131,247,.08)':'var(--bg3)'};cursor:pointer">
+        <input type="radio" name="tlAIModel" value="" ${!tlCurrent?'checked':''} onchange="setTimelineAIModel('')">
+        <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text)">همان مدل کلی</div><div style="font-size:10px;color:var(--text3)">از مدل تحلیل‌های اصلی استفاده شود</div></div>
+      </label>`;
+      tlHtml += tlModels.map(m => {
+        const isCur = m.id === tlCurrent;
+        const tag = m.free ? '<span style="font-size:9px;background:rgba(15,209,122,.15);color:var(--green);padding:1px 6px;border-radius:3px;margin-right:4px">رایگان</span>' : '<span style="font-size:9px;background:rgba(245,158,11,.15);color:#f59e0b;padding:1px 6px;border-radius:3px;margin-right:4px">پولی</span>';
+        return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid ${isCur?'var(--accent)':'var(--border)'};background:${isCur?'rgba(79,131,247,.08)':'var(--bg3)'};cursor:pointer">
+          <input type="radio" name="tlAIModel" value="${m.id}" ${isCur?'checked':''} onchange="setTimelineAIModel('${m.id}')">
+          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center">${tag}${m.name}</div><div style="font-size:10px;color:var(--text3);direction:ltr;margin-top:2px">${m.id}</div></div>
+          ${isCur?'<span style="font-size:10px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;flex-shrink:0">فعال</span>':''}
+        </label>`;
+      }).join('');
+      tlList.innerHTML = tlHtml;
+    }
   } catch(e) {
     listEl.innerHTML = '<div style="color:var(--red);font-size:12px">خطا در بارگذاری مدل‌ها</div>';
   }
+}
+
+async function setTimelineAIModel(modelId) {
+  try {
+    const r = await fetch('/api/settings/timeline-ai-model', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify({modelId})});
+    if (!r.ok) { toast('خطا در ذخیره مدل بخش ترند آینده'); return; }
+    toast(modelId ? 'مدل تحلیل ترند آینده تغییر کرد' : 'مدل بخش ترند آینده روی حالت کلی تنظیم شد');
+    loadAIModels();
+  } catch(e) { toast('خطا در اتصال به سرور'); }
 }
 
 async function setAIModel(modelId) {
@@ -3441,6 +3705,316 @@ function drawFinanceChart(history) {
     }
   });
 }
+
+// ════════════════════════════════════════════════════════
+//  ترند آینده — Future Timeline (Causal Discovery Engine)
+// ════════════════════════════════════════════════════════
+const FUTURE_SYM = {usd:'دلار',coin:'سکه',gold18:'طلا',tether:'تتر',bitcoin:'بیت‌کوین',oil_brent:'نفت',stock_market:'بورس',mesghal:'مثقال',ounce:'انس'};
+const FUTURE_REGIME = {normal:'عادی',war:'جنگ',election:'انتخابات',sanctions:'تحریم',currency_crisis:'بحران ارزی',oil_shock:'شوک نفت'};
+const NODE_COLOR = {news:'#f05252',trend:'#4f83f7',poly:'#9b7cfc',fin_tg:'#0fd17a',usd:'#22d3ee',coin:'#f5a623',gold18:'#f5a623',tether:'#22d3ee',bitcoin:'#f472b6',oil_brent:'#f5a623',stock_market:'#9b7cfc',mesghal:'#f5a623',ounce:'#f5a623'};
+const NODE_LABEL = Object.assign({news:'اخبار',trend:'جستجو',poly:'پلی‌مارکت',fin_tg:'تلگرام قیمت'}, FUTURE_SYM);
+
+let _futurePollTimer=null, _futurePredState=new Map(), _futureArchiveFilter='all', _futureScoreChart=null, _radarChart=null;
+const WHATIF_EXAMPLES = ['خبر تحریم جدید علیه ایران','تغییر قیمت بنزین','انتخابات ریاست‌جمهوری','کاهش قیمت نفت','حمله نظامی منطقه‌ای'];
+
+function fDirBadge(dir){return dir==='up'?'<span class="mdelta up">▲ صعودی</span>':dir==='down'?'<span class="mdelta down">▼ نزولی</span>':'<span class="mdelta flat">▬ خنثی</span>';}
+function fPct(p){const v=p||0;const s=v>=0?'+':'';return toFa(s+(+v).toFixed(1))+'٪';}
+function fNum(v,p=2){return (v==null||v===undefined)?'—':toFa((+v).toFixed(p));}
+function fConfBar(conf){const pct=Math.round((conf||0)*100);return `<div class="conf-bar"><div class="conf-bar-fill" style="width:${pct}%"></div></div><div style="font-size:11px;color:var(--text2);margin-top:2px">اطمینان ${toFa(pct)}٪</div>`;}
+function fAttrBars(json){
+  let att={};try{att=JSON.parse(json||'{}')}catch(e){}
+  const rows=[['تاریخی',att.historical_similarity,'#4f83f7'],['شدت خبر',att.news_severity,'#f05a52'],['ترند',att.trend_confirmation,'#22d3ee'],['بازار',att.market_context,'#9b7cfc']];
+  return rows.map(([l,v,c])=>{const w=Math.round((v||0)*100);return `<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text2)"><span style="width:42px">${l}</span><div class="attr-bar" style="flex:1"><div class="attr-bar-fill" style="width:${w}%;background:${c}"></div></div><span style="width:30px;text-align:left">${toFa(w)}٪</span></div>`;}).join('');
+}
+function warmupBanner(){
+  return `<div class="msum-card warmup-banner"><div class="ai-spinner" style="width:22px;height:22px;border-width:3px"></div>
+    <div style="font-size:13px;color:var(--text2)">سیستم در حال یادگیری الگوهاست — پیش‌بینی پس از جمع‌آوری داده کافی فعال می‌شود</div>
+    <div class="warmup-bar"><div class="warmup-fill" style="width:0%"></div></div></div>`;
+}
+function relBadge(r){const v=r||0;const col=v>0.8?'var(--green)':v>0.55?'var(--amber)':'var(--red)';return `<div class="frel-bar" style="flex:1"><div class="frel-bar-fill" style="width:${Math.round(v*100)}%;background:${col}"></div></div><span style="font-size:11px;width:34px;text-align:left">${toFa(Math.round(v*100))}٪</span>`;}
+
+async function loadFutureAll(){
+  await Promise.allSettled([loadConfidenceRibbon(),loadFutureTimeline(),loadFuturePredictions(),loadFutureMatrix(),loadFutureGraph(),loadAnomalyRadar(),loadFutureAccuracy(),loadFuturePatterns(),loadFutureArchive(),loadIntelligence(false)]);
+  populateCompareDropdowns(); populateWhatIfChips();
+}
+
+// ── تحلیل هوشمند آینده (short/medium/long) ──
+let _intelLoading=false;
+async function loadIntelligence(force){
+  if(_intelLoading) return;
+  const box=document.getElementById('intelligenceBox');
+  if(force){ box.innerHTML='<div class="pred-empty">در حال تحلیل هوشمند…</div>'; }
+  _intelLoading=true;
+  try{
+    const r=await fetch('/api/timeline/intelligence',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok){ box.innerHTML='<div class="pred-empty">خطا در دریافت تحلیل</div>'; return; }
+    const d=await r.json();
+    const horizons=[['short','کوتاه‌مدت (۳ ساعت)'],['medium','میان‌مدت (۱۲ ساعت)'],['long','بلندمدت (۲۴ ساعت)']];
+    const cards=horizons.map(([k,label])=>{
+      const h=d[k]||{};
+      const dir=h.direction||'flat';
+      const conf=h.confidence!=null?toFa(Math.round(h.confidence*100))+'٪':'—';
+      return `<div class="msum-card" style="border-right:3px solid ${dir==='up'?'var(--green)':dir==='down'?'var(--red)':'var(--text3)'}">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">${label}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${fDirBadge(dir)}<span style="font-size:11px;color:var(--text3)">اطمینان ${conf}</span></div>
+        <div style="font-size:12px;color:var(--text);line-height:1.8">${h.analysis||'تحلیلی موجود نیست.'}</div>
+      </div>`;
+    }).join('');
+    box.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">${cards}</div>
+      ${d.overall?`<div class="msum-card" style="border-right:3px solid var(--purple)"><div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:6px">جمع‌بندی کلی</div><div style="font-size:13px;color:var(--text);line-height:1.9">${d.overall}</div></div>`:''}
+      ${d.regime?`<div style="font-size:11px;color:var(--text3);margin-top:10px">رژیم بازار: <span class="regime-badge">${FUTURE_REGIME[d.regime]||d.regime}</span> · مدل: ${d.model||'—'}</div>`:''}`;
+  }catch(e){ box.innerHTML='<div class="pred-empty">خطا در دریافت تحلیل</div>'; }
+  finally{ _intelLoading=false; }
+}
+
+// ── Confidence ribbon ──
+async function loadConfidenceRibbon(){
+  const r=await fetch('/api/timeline/confidence-ribbon',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const d=await r.json();
+  const fill=document.getElementById('ribbonFill'), val=document.getElementById('ribbonValue');
+  if(d.status==='warming_up'||!d.count){ fill.style.width='0%'; val.textContent='در حال جمع‌آوری داده'; val.style.color='var(--text3)'; return; }
+  const pct=Math.round(d.avg_confidence*100);
+  fill.style.width=pct+'%';
+  fill.style.background = pct>70?'var(--green)':pct>40?'var(--amber)':'var(--red)';
+  val.textContent=toFa(pct)+'٪'; val.style.color=fill.style.background;
+}
+
+// ── Section 1: cascades ──
+async function loadFutureTimeline(){
+  const r=await fetch('/api/timeline/chains?status=active&limit=20',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const chains=await r.json();
+  document.getElementById('futureChainCount').textContent=toFa(chains.length);
+  const wrap=document.getElementById('futureTimeline');
+  if(!chains.length){ wrap.className='pred-empty'; wrap.innerHTML='هنوز زنجیره‌ی فعالی ساخته نشده — سیستم در حال جمع‌آوری سیگنال‌هاست.'; return; }
+  wrap.className='';
+  wrap.innerHTML=chains.map(c=>{
+    let roots=[];try{roots=JSON.parse(c.root_causes||'[]')}catch(e){}
+    if(!roots.length) roots=(c.root_node?[c.root_node]:[]);
+    const evByNode={}; let evs=[]; try{const t=JSON.parse(c.event_ids);evs=t.roots||[]}catch(e){}
+    const rootBadge = roots.length?`<div class="root-badge"><span class="root-dot" style="background:${NODE_COLOR[c.root_node]||'#7c8db5'}"></span>${toFa(roots.length)} عامل هم‌زمان</div>`:'';
+    const peak=Math.round((c.peak_severity_decayed||c.peak_severity||0)*100);
+    return `<div class="msum-card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700">${c.title||'زنجیره'}</div>
+        ${rootBadge}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0">سپر ساخت: ${fmtDate(c.started_at)} · شدت: ${toFa(peak)}٪</div>
+      ${c.ai_analysis?`<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.7">${c.ai_analysis}</div>`:''}
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">رژیم: <span class="regime-badge">${FUTURE_REGIME[c.regime]||c.regime||'عادی'}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Section 2: predictions grid ──
+async function loadFuturePredictions(){
+  const r=await fetch('/api/timeline/predictions?status=open',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const preds=await r.json();
+  document.getElementById('futurePredCount').textContent=toFa(preds.length);
+  const wrap=document.getElementById('futurePredictions');
+  _futurePredState.forEach(v=>{try{v.chart&&v.chart.destroy()}catch(e){}}); _futurePredState.clear();
+  if(!preds.length){ wrap.innerHTML=warmupBanner(); return; }
+  wrap.innerHTML=preds.map(predCardHTML).join('');
+  preds.forEach(p=>loadPredSpark(p));
+}
+function predCardHTML(p){
+  const conf=p.calibrated_confidence!=null?p.calibrated_confidence:p.confidence;
+  const calib = p.calibrated_confidence!=null?'<span class="calib-tag">کالیبره</span>':'';
+  const hyp = (p.ensemble_json&&JSON.parse(p.ensemble_json))||{};
+  const isHyp = !Object.keys(hyp).length;
+  return `<div class="future-card msum-card ${isHyp?'future-card-hypothesis':''}" data-pid="${p.id}">
+    <div class="ftarget"><span>${FUTURE_SYM[p.target]||p.target} <span style="font-size:10px;color:var(--text3)">${toFa(p.time_horizon)} ساعت آینده</span></span>${fDirBadge(p.direction)}</div>
+    <div style="font-size:18px;font-weight:800;margin:4px 0">${fPct(p.predicted_min)} تا ${fPct(p.predicted_max)}</div>
+    ${calib}${fConfBar(conf)}
+    <div class="fwhy">چرا؟</div>
+    ${fAttrBars(p.attribution_json)}
+    <div style="margin-top:8px;font-size:10px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap">
+      <span class="root-badge">منشأ: ${NODE_LABEL[p.target]||p.target}</span>
+      <span class="regime-badge">رژیم: ${FUTURE_REGIME[p.regime]||p.regime||'عادی'}</span>
+    </div>
+    <div style="margin-top:8px;height:48px;position:relative"><canvas id="spark${p.id}"></canvas></div>
+  </div>`;
+}
+async function loadPredSpark(p){
+  try{
+    const r=await fetch(`/api/timeline/predictions/${p.id}/timeline`,{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok) return;
+    const d=await r.json(); const series=d.series||[]; if(!series.length) return;
+    const cv=document.getElementById('spark'+p.id); if(!cv) return;
+    const chart=new Chart(cv,{type:'line',data:{labels:series.map(s=>s.t.slice(11,16)),datasets:[{data:series.map(s=>+(s.calibrated*100).toFixed(1)),borderColor:'#4f83f7',backgroundColor:'rgba(79,131,247,.12)',fill:true,borderWidth:2,pointRadius:2,tension:.3}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>series[i[0].dataIndex].desc||'',label:c=>toFa(c.parsed.y)+'٪'}}},scales:{x:{display:false},y:{display:false,min:0,max:100}},maintainAspectRatio:false,responsive:true}});
+    _futurePredState.set(p.id,{chart});
+  }catch(e){}
+}
+
+// ── Section 3: matrix ──
+async function loadFutureMatrix(){
+  const r=await fetch('/api/timeline/predictions/matrix',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const m=await r.json();
+  document.getElementById('matrixBody').innerHTML=(m.rows||[]).map(row=>{
+    const cells=[3,12,24].map(h=>{const c=row.cells[h];
+      if(!c) return '<td style="color:var(--text3)">—</td>';
+      const bg=c.dir==='up'?'rgba(15,209,122,.13)':c.dir==='down'?'rgba(240,82,82,.13)':'var(--bg3)';
+      return `<td style="background:${bg};cursor:pointer;text-align:center" onclick="openPredModal(${c.id})">${fDirBadge(c.dir).replace(/<span[^>]*>|<\/span>/g,'')}<div style="font-size:11px;font-weight:700;margin-top:2px">${fPct(c.pct)}</div><div style="font-size:9px;color:var(--text2)">${toFa(Math.round((c.conf||0)*100))}٪</div></td>`;
+    }).join('');
+    return `<tr><td><strong>${row.label}</strong></td>${cells}</tr>`;
+  }).join('');
+}
+function openPredModal(id){ // lightweight alert-style detail (could be modal)
+  fetch(`/api/timeline/predictions/${id}/timeline`,{headers:{Authorization:'Bearer '+TOKEN}}).then(r=>r.json()).then(d=>{
+    const p=d.prediction||{};
+    const s=(d.series||[]); const last=s[s.length-1]||{};
+    alert(`${FUTURE_SYM[p.target]||p.target} · ${toFa(p.time_horizon)} ساعت\nجهت: ${p.direction} · درصد: ${fPct(p.predicted_pct)}\nاطمینان: ${toFa(Math.round(((last.calibrated||p.calibrated_confidence||0)*100)))}٪\n${p.attribution_json||''}`);
+  }).catch(()=>{});
+}
+
+// ── Section 4: signal graph (SVG) ──
+async function loadFutureGraph(){
+  const r=await fetch('/api/timeline/graph',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const d=await r.json();
+  const wrap=document.getElementById('futureGraph');
+  const edges=d.edges||[];
+  if(!edges.length){ wrap.innerHTML='<div class="pred-empty">گراف در حال کشف است — به زودی روابط بین سیگنال‌ها نمایش داده می‌شود.</div>'; return; }
+  const causeNodes=['news','trend','poly','fin_tg'].filter(n=>d.nodes.find(x=>x.id===n));
+  const tgtNodes=[...new Set(edges.map(e=>e.to))];
+  const W=600,H=Math.max(320,40+Math.max(causeNodes.length,tgtNodes.length)*54);
+  const lx=80, rx=W-80;
+  const pos={};
+  causeNodes.forEach((n,i)=>pos[n]={x:lx,y:50+i*(H-40)/Math.max(1,causeNodes.length)});
+  tgtNodes.forEach((n,i)=>pos[n]={x:rx,y:50+i*(H-40)/Math.max(1,tgtNodes.length)});
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px" xmlns="http://www.w3.org/2000/svg">`;
+  // edges
+  edges.forEach(e=>{
+    const a=pos[e.from],b=pos[e.to]; if(!a||!b) return;
+    const rel=e.reliability||0; const w=1+rel*5; const op=0.2+rel*0.8;
+    const mx=(a.x+b.x)/2;
+    const lbl=`${toFa(Math.round(e.lead||0))}م · ${toFa(Math.round(rel*100))}٪`;
+    svg+=`<path d="M${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}" fill="none" stroke="${e.reliability>0.6?'#4f83f7':'#7c8db5'}" stroke-width="${w}" stroke-opacity="${op}"/>`;
+    svg+=`<text x="${mx-30}" y="${(a.y+b.y)/2}" fill="#7c8db5" font-size="9" font-family="Vazirmatn">${lbl}</text>`;
+  });
+  // nodes
+  d.nodes.filter(n=>pos[n.id]).forEach(n=>{
+    const r=n.size||24; const col=n.color||NODE_COLOR[n.id]||'#7c8db5';
+    svg+=`<circle cx="${pos[n.id].x}" cy="${pos[n.id].y}" r="${r/2}" fill="${col}" fill-opacity="0.25" stroke="${col}" stroke-width="2"/>`;
+    svg+=`<text x="${pos[n.id].x}" y="${pos[n.id].y+r/2+12}" fill="#eef2ff" font-size="11" font-family="Vazirmatn" text-anchor="middle">${n.label||NODE_LABEL[n.id]||n.id}</text>`;
+  });
+  svg+='</svg>';
+  wrap.innerHTML=svg;
+}
+
+// ── Section 5: anomaly radar ──
+async function loadAnomalyRadar(){
+  const r=await fetch('/api/timeline/anomaly-radar',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const d=await r.json();
+  const cv=document.getElementById('anomalyRadar');
+  if(_radarChart){_radarChart.destroy();}
+  _radarChart=new Chart(cv,{type:'radar',data:{labels:d.axes,datasets:[{label:'الان',data:d.values,borderColor:'#4f83f7',backgroundColor:'rgba(79,131,247,.15)',borderWidth:2,pointRadius:3},
+    {label:'آستانه',data:d.axes.map(()=>d.threshold),borderColor:'rgba(245,166,35,.4)',borderWidth:1,borderDash:[4,4],pointRadius:0}]},
+    options:{plugins:{legend:{labels:{color:'#7c8db5',font:{size:10}}}},scales:{r:{min:0,max:1,ticks:{display:false},grid:{color:'rgba(255,255,255,.06)'},angleLines:{color:'rgba(255,255,255,.06)'},    pointLabels:{color:'#7c8db5',font:{size:11}}}},responsive:false,maintainAspectRatio:false}});
+  document.getElementById('anomalyAlert').innerHTML = d.anomaly_detected ? `<div class="anomaly-alert">${d.message}</div>` : '<div style="font-size:11px;color:var(--text3)">ناهنجاری ترکیبی شناسایی نشد.</div>';
+}
+
+// ── Section 6: accuracy ──
+async function loadFutureAccuracy(){
+  const r=await fetch('/api/timeline/accuracy',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return;
+  const a=await r.json();
+  const o=a.overall||{};
+  document.getElementById('futureDirAcc').textContent=o.total?toFa(Math.round(o.direction_accuracy*100))+'٪':'—';
+  document.getElementById('futureDirSub').textContent=o.total?`از ${toFa(o.total)} پیش‌بینی`:'هنوز داده‌ای نیست';
+  document.getElementById('futureSkill').textContent=fNum(o.avg_skill);
+  document.getElementById('futureSkillSub').innerHTML=o.avg_skill>0?'<span style="color:var(--green)">↑ بهتر از حدس تصادفی</span>':'<span style="color:var(--text3)">—</span>';
+  document.getElementById('futureECE').textContent=a.calibration?fNum(a.calibration.ece):'—';
+  document.getElementById('futureECESub').innerHTML=a.calibration&&a.calibration.well_calibrated?'<span style="color:var(--green)">بله کالیبره شده</span>':'<span style="color:var(--amber)">نیاز به کالیبراسیون</span>';
+  document.getElementById('futureTrend').textContent = a.improvement?(a.improvement.trend==='improving'?'بله':a.improvement.trend==='declining'?'خیر':'ثابت'):'—';
+  document.getElementById('futureTrendSub').textContent = a.improvement?`آخرین ۱۰: ${toFa(a.improvement.last_10_skill?Math.round(a.improvement.last_10_skill*100)/100:0)} | قبلی: ${toFa(a.improvement.prev_10_skill?Math.round(a.improvement.prev_10_skill*100)/100:0)}`:'';
+  // per-target table
+  document.getElementById('futureAccTable').innerHTML=Object.entries(a.by_target||{}).map(([k,v])=>`<tr><td><strong>${FUTURE_SYM[k]||k}</strong></td><td>${toFa(v.total)}</td><td>${toFa(Math.round(v.direction_accuracy*100))}٪</td><td>${fNum(v.mape)}</td><td>${fNum(v.avg_skill)}</td></tr>`).join('')||'<tr><td colspan="5" class="pred-empty">هنوز داده‌ای نیست</td></tr>';
+  // score chart: by_horizon
+  const bh=a.by_horizon||{};
+  if(_futureScoreChart){_futureScoreChart.destroy();}
+  const cv=document.getElementById('futureScoreChart');
+  if(Object.keys(bh).length){
+    _futureScoreChart=new Chart(cv,{type:'bar',data:{labels:Object.keys(bh),datasets:[{label:'دقت جهت',data:Object.values(bh).map(v=>Math.round(v*100)),backgroundColor:'#4f83f7'}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#7c8db5',callback:v=>toFa(v)+'٪'},grid:{color:'rgba(255,255,255,.06)'}},x:{ticks:{color:'#7c8db5'}}},maintainAspectRatio:false}});
+  }
+  // collapsibles
+  document.getElementById('futureCalibTable').innerHTML=(a.calibration&&a.calibration.buckets?a.calibration.buckets:[]).map(b=>{const err=b.calibration_error||0;const col=err<0.05?'var(--green)':err<0.15?'var(--amber)':'var(--red)';return `<tr><td>${toFa(Math.round(b.bucket_min*100))}–${toFa(Math.round(b.bucket_max*100))}٪</td><td>${toFa(b.total)}</td><td>${b.total?toFa(Math.round(b.actual_accuracy*100))+'٪':'—'}</td><td>${fNum(err)}</td><td><span style="color:${col}">${err<0.05?'مناسب':err<0.15?'متوسط':'ضعیف'}</span></td></tr>`;}).join('')||'<tr><td colspan="5" class="pred-empty">—</td></tr>';
+}
+async function loadFutureSources(){
+  const r=await fetch('/api/timeline/source-reliability',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return; const d=await r.json();
+  document.getElementById('futureSrcTable').innerHTML=d.map(s=>{const v=s.reliability||0;const badge=v>0.8?'<span style="color:var(--green);font-size:10px">موثق</span>':v<0.3?'<span style="color:var(--red);font-size:10px">ضعیف</span>':'<span style="color:var(--amber);font-size:10px">متوسط</span>';return `<tr><td>${s.source_type}</td><td>${s.label||'—'}</td><td>${toFa(Math.round(v*100))}٪</td><td>${s.bias||'—'}</td><td>${toFa(s.sample_count)}</td><td>${badge}</td></tr>`;}).join('')||'<tr><td colspan="6" class="pred-empty">—</td></tr>';
+}
+async function loadFutureIndicators(){
+  const r=await fetch('/api/timeline/leading-indicators',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return; const d=await r.json();
+  document.getElementById('futureIndTable').innerHTML=d.map(i=>`<tr><td>${NODE_LABEL[i.indicator]||i.indicator}</td><td>${FUTURE_SYM[i.target]||i.target}</td><td>${i.lead_time_min?toFa(Math.round(i.lead_time_min))+'م':'—'}</td><td>${toFa(Math.round((i.accuracy||0)*100))}٪</td><td>${fNum(i.correlation)}</td></tr>`).join('')||'<tr><td colspan="5" class="pred-empty">—</td></tr>';
+}
+async function loadFutureDrift(){
+  const r=await fetch('/api/timeline/accuracy',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return; const a=await r.json();
+  const patterns=await (await fetch('/api/timeline/patterns',{headers:{Authorization:'Bearer '+TOKEN}})).json();
+  const drifted=(patterns||[]).filter(p=>(p.concept_drift_score||0)>0.05);
+  document.getElementById('futureDriftList').className=drifted.length?'':'pred-empty';
+  document.getElementById('futureDriftList').innerHTML=drifted.length?drifted.map(p=>{const sc=p.concept_drift_score||0;const st=sc>0.6?'<span style="color:var(--red);text-decoration:line-through">آرشیو شده</span>':sc>0.3?'<span style="color:var(--amber)">در حال تضعیف</span>':'<span style="color:var(--text2)">پایدار</span>';return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${p.trigger_topic} → ${FUTURE_SYM[p.target]||p.target}</span><span>رانش: ${toFa(Math.round(sc*100)/100)} · ${st}</span></div>`;}).join(''):'الگوی در حال رانش یافت نشد.';
+}
+
+// ── Section 7: patterns ──
+async function loadFuturePatterns(){
+  const r=await fetch('/api/timeline/patterns',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return; const d=await r.json();
+  document.getElementById('futurePatternsTable').innerHTML=(d||[]).map(p=>{const sc=p.concept_drift_score||0;const archived=sc>0.6;const style=archived?'opacity:.4;text-decoration:line-through':sc>0.3?'border-right:3px solid var(--amber)':'';return `<tr style="${style}"><td>${p.trigger_topic||'—'}</td><td><strong>${FUTURE_SYM[p.target]||p.target}</strong></td><td>${toFa(p.time_horizon)}س</td><td>${fDirBadge(p.outcome_dir).replace(/<span[^>]*>|<\/span>/g,'')}</td><td>${fPct(p.outcome_pct)}</td><td>${p.avg_lag_min?toFa(Math.round(p.avg_lag_min))+'م':'—'}</td><td><div style="display:flex;align-items:center;gap:6px">${relBadge(p.reliability)}</div></td><td>${toFa(p.sample_count)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="pred-empty">هنوز الگویی آموخته نشده</td></tr>';
+}
+
+// ── Section 8: what-if ──
+function populateWhatIfChips(){ document.getElementById('whatifChips').innerHTML=WHATIF_EXAMPLES.map(e=>`<span class="whatif-chip" onclick="document.getElementById('whatifInput').value=this.textContent;runWhatIf()">${e}</span>`).join(''); }
+async function runWhatIf(){
+  const scenario=document.getElementById('whatifInput').value.trim();
+  if(!scenario){toast('سناریو را وارد کنید','error');return;}
+  const res=document.getElementById('whatifResults'); res.innerHTML='<div class="pred-empty">در حال شبیه‌سازی…</div>';
+  const r=await fetch('/api/timeline/whatif',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},body:JSON.stringify({scenario})});
+  if(!r.ok){res.innerHTML='<div class="pred-empty">خطا در شبیه‌سازی</div>';return;}
+  const d=await r.json();
+  const matches=d.matches||[];
+  if(!matches.length){res.innerHTML=`<div class="msum-card sim-card"><div style="font-size:12px;color:var(--text2)">موضوع: <strong>${d.topic||scenario}</strong></div><div class="pred-empty" style="padding:20px">الگوی تاریخی مشابه یافت نشد — نمونه کافی نیست (فرضیه)</div></div>`;return;}
+  res.innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:10px">موضوع شناسایی‌شده: <strong>${d.topic||scenario}</strong> · شبیه‌سازی — داده واقعی نیست</div>`+`<div class="future-pred-grid">`+matches.map(m=>`<div class="future-card msum-card sim-card"><div class="ftarget"><span>${FUTURE_SYM[m.target]||m.target} <span style="font-size:10px;color:var(--text3)">${toFa(m.horizon)}س</span></span>${fDirBadge(m.direction)}</div><div style="font-size:16px;font-weight:800;margin:4px 0">${fPct(m.pct)}</div>${fConfBar(m.confidence)}<div style="font-size:10px;color:var(--text3);margin-top:6px">${toFa(m.sample_count)} نمونه · رانش: ${toFa(Math.round((m.drift||0)*100)/100)}</div></div>`).join('')+`</div>`;
+}
+
+// ── Section 9: compare ──
+async function populateCompareDropdowns(){
+  const r=await fetch('/api/timeline/chains?limit=50',{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return; const chains=await r.json();
+  const opts=chains.map(c=>`<option value="${c.id}">${c.title||'زنجیره'} · ${fmtDate(c.started_at)}</option>`).join('');
+  document.getElementById('compareA').innerHTML='<option value="">رویداد اول…</option>'+opts;
+  document.getElementById('compareB').innerHTML='<option value="">رویداد دوم…</option>'+opts;
+}
+async function runCompare(){
+  const a=document.getElementById('compareA').value, b=document.getElementById('compareB').value;
+  if(!a||!b){toast('دو رویداد را انتخاب کنید','error');return;}
+  const res=document.getElementById('compareResults'); res.innerHTML='<div class="pred-empty">در حال بارگذاری…</div>';
+  const [ra,rb]=await Promise.all([fetch(`/api/timeline/chains/${a}`,{headers:{Authorization:'Bearer '+TOKEN}}),fetch(`/api/timeline/chains/${b}`,{headers:{Authorization:'Bearer '+TOKEN}})]);
+  const da=await ra.json(), db=await rb.json();
+  const card=(c,t)=>{const evs=(c.events||[]);const peak=Math.round((c.peak_severity||0)*100);const first=evs[0],last=evs[evs.length-1];const span=first&&last?Math.round((new Date(last.detected_at)-new Date(first.detected_at))/60000):0;return `<div class="msum-card" style="flex:1"><div style="font-weight:700;font-size:13px;margin-bottom:6px">${t}</div><div style="font-size:11px;color:var(--text3)">${c.title||'—'}</div><div style="font-size:11px;margin-top:6px">رژیم: ${FUTURE_REGIME[c.regime]||c.regime}</div><div style="font-size:11px">شدت: ${toFa(peak)}٪</div><div style="font-size:11px">تعداد رویداد: ${toFa(evs.length)}</div><div style="font-size:11px">زمان واکنش: ${toFa(span)} دقیقه</div><div style="font-size:11px">ریشه: ${NODE_LABEL[c.root_node]||c.root_node||'—'}</div></div>`;};
+  res.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap">${card(da,'رویداد اول')}${card(db,'رویداد دوم')}</div>`;
+}
+
+// ── Section 10: archive ──
+function filterArchive(filter,el){_futureArchiveFilter=filter;document.querySelectorAll('#archiveTable').forEach(()=>{});document.querySelectorAll('.filter-chips .msrc-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');loadFutureArchive();}
+async function loadFutureArchive(){
+  const r=await fetch(`/api/timeline/predictions?status=validated&filter=${_futureArchiveFilter}&limit=50`,{headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok) return; const preds=await r.json();
+  document.getElementById('archiveTable').innerHTML=(preds||[]).map(p=>{const v=p.validated||{};const sc=v.overall_score||0;const sccol=sc>=75?'var(--green)':sc>=50?'var(--amber)':'var(--red)';const skill=v.skill_score>0?'<span style="color:var(--green)">بله</span>':'<span style="color:var(--red)">خیر</span>';return `<tr><td>${p.chain_id?'#'+toFa(p.chain_id):'—'}</td><td><strong>${FUTURE_SYM[p.target]||p.target}</strong></td><td>${toFa(p.time_horizon)}س</td><td>${fDirBadge(p.direction)} ${fPct(p.predicted_pct)}</td><td>${fDirBadge(v.actual_direction)} ${v.actual_pct!=null?fPct(v.actual_pct):'—'}</td><td><span style="color:${sccol};font-weight:700">${toFa(Math.round(sc))}</span></td><td>${skill}</td></tr>`;}).join('')||'<tr><td colspan="7" class="pred-empty">هنوز پیش‌بینی اعتبارسنجی‌شده‌ای نیست</td></tr>';
+}
+
+// ── polling ──
+function startFuturePolling(){ if(_futurePollTimer) return; _futurePollTimer=setInterval(async()=>{ if(currentTab!=='future') return; await Promise.allSettled([loadConfidenceRibbon(),loadFutureTimeline(),loadFuturePredictions(),loadFutureMatrix(),loadFutureAccuracy()]); },30000); }
+function stopFuturePolling(){ if(_futurePollTimer){clearInterval(_futurePollTimer);_futurePollTimer=null;} if(_futureScoreChart){_futureScoreChart.destroy();_futureScoreChart=null;} if(_radarChart){_radarChart.destroy();_radarChart=null;} _futurePredState.forEach(v=>{try{v.chart&&v.chart.destroy()}catch(e){}}); _futurePredState.clear(); }
+// load collapsible bodies lazily on first open
+document.addEventListener('click',e=>{const h=e.target.closest('.future-collapse-head');if(!h)return;const col=h.closest('.future-collapse');if(!col.classList.contains('open')){if(col.id==='clSrc'&&!col.dataset.loaded){col.dataset.loaded=1;loadFutureSources();}if(col.id==='clInd'&&!col.dataset.loaded){col.dataset.loaded=1;loadFutureIndicators();}if(col.id==='clDrift'&&!col.dataset.loaded){col.dataset.loaded=1;loadFutureDrift();}}});
 
 checkAuth();
 </script>

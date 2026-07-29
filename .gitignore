@@ -16,3 +16,4 @@ data/
 .DS_Store
 public/channel-photos/*.jpg
 test-server.js
+timeline-demo-seed.js
