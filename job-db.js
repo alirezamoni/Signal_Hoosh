@@ -94,13 +94,16 @@ function getSummary(date) {
   };
 
   // EHI — نسبت به میانگین ۳۰ روز
+  const d = new Date(lastDate);
+  d.setDate(d.getDate() - 30);
+  const cutoff = d.toISOString().slice(0, 10);
   const avg30 = db.prepare(`
     SELECT AVG(total) as avg FROM (
       SELECT snap_date, SUM(count) as total FROM job_snapshots
-      WHERE category='total' AND snap_date >= date(?,' -30 days')
+      WHERE category='total' AND snap_date >= ?
       GROUP BY snap_date
     )
-  `).get(lastDate)?.avg;
+  `).get(cutoff)?.avg;
   result.ehi = avg30 && totalCurr ? Math.round(totalCurr / avg30 * 100) : null;
 
   // دسته‌بندی‌ها
