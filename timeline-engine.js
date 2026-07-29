@@ -24,7 +24,8 @@ function polyDB()  { return require('./polymarket-db'); }
 // in-memory snapshot maps for diffing
 const _prevTrends = new Set();          // keywords seen last trend scan
 const _finPrice = new Map();             // symbol -> { price, dir, count }
-const _finTgPrice = new Map();           // 'usd'|'coin'|... -> { price, dir, count, lastMsgAt }
+const _finTgPrice = new Map();           // 'usd'|'coin'|... -> { price, basePrice, baseAt, dir, count, lastMsgAt }
+let _finTgLastMsgId = 0;                 // only process new finance telegram messages
 const _polySnap = new Map();             // poly_id -> { price, vol24 }
 const _polyVolAvg = new Map();           // poly_id -> recent avg volume
 
@@ -292,22 +293,21 @@ function detectFinTgMove() {
   let msgs;
   try { msgs = fdb.getLatestFinanceMessages(50); } catch (e) { return; }
   if (!msgs || !msgs.length) return;
-  const nowMs = Date.now();
-  const recentCutoff = nowMs - 5 * 60000;
-  // also track a 10-minute baseline per target
-  const baselineCutoff = nowMs - 10 * 60000;
-  for (const m of msgs) {
+  // only process NEW messages (id > last seen) — sort oldest-first for chronological baseline
+  const newMsgs = msgs.filter(m => m.id > _finTgLastMsgId).sort((a, b) => a.id - b.id);
+  if (!newMsgs.length) return;
+  _finTgLastMsgId = Math.max(...msgs.map(m => m.id));
+  for (const m of newMsgs) {
     const pubMs = new Date(String(m.published_at).replace(' ', 'T') + 'Z').getTime() || new Date(m.published_at).getTime();
-    if (pubMs < recentCutoff) continue; // only process last 5 min
     const prices = parseFinTgPrices(m.text_fa || m.text);
     for (const p of prices) {
       const cur = _finTgPrice.get(p.target);
-      // update baseline: if no baseline or baseline is older than 10 min, set it
+      // set baseline if none, or if baseline is older than 10 min
       if (!cur || !cur.basePrice || pubMs - cur.baseAt > 10 * 60000) {
-        _finTgPrice.set(p.target, { ...cur, price: p.price, basePrice: p.price, baseAt: pubMs, dir: 'flat', count: 0, lastMsgAt: m.published_at });
+        _finTgPrice.set(p.target, { price: p.price, basePrice: p.price, baseAt: pubMs, dir: 'flat', count: 0, lastMsgAt: m.published_at });
         continue;
       }
-      // compare against the 10-minute baseline (cumulative move), not just previous tick
+      // compare against the 10-minute baseline (cumulative move)
       const pct = ((p.price - cur.basePrice) / cur.basePrice) * 100;
       if (Math.abs(pct) > 0.25) {
         const dir = pct > 0 ? 'up' : 'down';
