@@ -278,11 +278,20 @@ const TG_KEYWORDS = [
 function parseFinTgPrices(text) {
   if (!text) return [];
   const found = [];
+  // reasonable price ranges per target (covers toman + rial scales)
+  const RANGES = {
+    usd: [100, 500000000], coin: [100, 5000000000], gold18: [100, 500000000],
+    tether: [10, 500000000], bitcoin: [100, 500000000], oil_brent: [1, 5000],
+    stock_market: [100, 500000000], ounce: [1, 50000], mesghal: [100, 500000000],
+  };
   for (const k of TG_KEYWORDS) {
     const m = text.match(k.re);
     if (m) {
       const num = parseFloat(toEn(m[1]).replace(/[,،\s]/g, ''));
-      if (isFinite(num) && num > 0) found.push({ target: k.target, price: num });
+      if (!isFinite(num) || num <= 0) continue;
+      const range = RANGES[k.target];
+      if (range && (num < range[0] || num > range[1])) continue; // discard out-of-range
+      found.push({ target: k.target, price: num });
     }
   }
   return found;

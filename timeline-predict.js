@@ -129,14 +129,26 @@ function _chainsWithOpenPredictions() {
   return new Set((tdb.getOpenPredictions() || []).map(p => p.chain_id).filter(Boolean));
 }
 
-async function generatePrediction(chain, fullChain, target, horizon, regime, triggerTopic) {
+async function generatePrediction(chain, fullChain, target, horizon, regime, triggerTopic, bestEdge) {
   const base = currentPrice(target);
   if (base == null) return null; // pitfall 9: base_price required
 
   const A = patternModel(target, horizon, regime, triggerTopic);
   const B = similarityModel(target, horizon, regime, triggerTopic);
   const C = await llmModel(fullChain, target, horizon, regime, A, B);
-  const combo = combine(A, B, C);
+  let combo = combine(A, B, C);
+
+  // Cold-start fallback: if all models are null but we have a usable edge,
+  // create a low-confidence "hypothesis" prediction from the edge alone.
+  if (!combo && bestEdge) {
+    const dir = bestEdge.correlation >= 0 ? 'up' : 'down';
+    combo = {
+      direction: dir,
+      pct: dir === 'up' ? 1.0 : -1.0,
+      confidence: clamp(bestEdge.reliability * 0.3, 0.1, 0.4), // capped low for hypothesis
+      agreement: 0.33, regimeConf: (tdb.getCurrentRegime() || {}).confidence || 0.7,
+    };
+  }
   if (!combo) return null;
 
   const regimeConf = combo.regimeConf;
@@ -178,9 +190,10 @@ async function tryGeneratePredictions() {
       const edges = (tdb.getEdgeTo(target, regime) || []).filter(e => signalNodes.includes(e.from_node));
       const hasPattern = (tdb.getPatternsForTopic(triggerTopic, target, regime) || []).length > 0;
       if (!edges.length && !hasPattern) continue;
+      const bestEdge = edges.length ? edges[0] : null; // highest reliability (already sorted)
       for (const horizon of HORIZONS) {
         try {
-          if (await generatePrediction(chain, full, target, horizon, regime, triggerTopic)) made++;
+          if (await generatePrediction(chain, full, target, horizon, regime, triggerTopic, bestEdge)) made++;
         } catch (e) { /* continue */ }
       }
     }
