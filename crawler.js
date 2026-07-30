@@ -58,13 +58,30 @@ function fmtUnit(v) {
 }
 
 let browser = null;
+let browserTimer = null;
+
+async function safeKillBrowser() {
+  if (browserTimer) { clearTimeout(browserTimer); browserTimer = null; }
+  try {
+    if (browser) {
+      const proc = browser.process();
+      if (proc) proc.kill('SIGKILL');
+      try { await browser.close(); } catch (e) {}
+    }
+  } catch (e) {}
+  browser = null;
+}
+
 async function getBrowser() {
-  if (browser && browser.isConnected()) return browser;
-  browser = await puppeteer.launch({
+  try { if (browser && browser.isConnected()) return browser; } catch (e) {}
+  await safeKillBrowser();
+  const b = await puppeteer.launch({
     executablePath: CONFIG.chromePath,
     headless: 'new',
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
+  browser = b;
+  browserTimer = setTimeout(() => safeKillBrowser(), 90000);
   return browser;
 }
 
@@ -252,8 +269,14 @@ async function crawl() {
   console.log(`\n═══ Crawl started at ${new Date().toISOString()} ═══`);
   try {
     // sequential برای جلوگیری از race condition روی browser
-    const d4  = await scrapeTrends(CONFIG.urls.h4,  '4h');
-    const d24 = await scrapeTrends(CONFIG.urls.h24, '24h');
+    const d4  = await Promise.race([
+      scrapeTrends(CONFIG.urls.h4,  '4h'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 50000)),
+    ]);
+    const d24 = await Promise.race([
+      scrapeTrends(CONFIG.urls.h24, '24h'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 50000)),
+    ]);
 
     // یه call به AI برای همه کلیدواژه‌های ترکیب‌شده
     const allKeywords = [...d4];
@@ -271,6 +294,7 @@ async function crawl() {
     if (d24.length) save('h24', d24);
   } catch(e) {
     console.error('[crawl] error:', e.message);
+    await safeKillBrowser();
   }
   console.log(`═══ Crawl done ═══\n`);
 }

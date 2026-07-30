@@ -9,13 +9,35 @@ const CONFIG = {
 };
 
 let browser = null;
+let browserTimer = null;
+
+// Force-kill browser process regardless of state. This is the ONLY reliable
+// way to prevent zombie Chrome processes when Puppeteer gets into a bad state.
+async function safeKillBrowser() {
+  if (browserTimer) { clearTimeout(browserTimer); browserTimer = null; }
+  try {
+    if (browser) {
+      const proc = browser.process();
+      if (proc) proc.kill('SIGKILL');
+      try { await browser.close(); } catch (e) { /* already dead */ }
+    }
+  } catch (e) { /* ignore */ }
+  browser = null;
+}
+
 async function getBrowser() {
-  if (browser && browser.isConnected()) return browser;
-  browser = await puppeteer.launch({
+  // If the old browser is alive, reuse it
+  try { if (browser && browser.isConnected()) return browser; } catch (e) {}
+  // Kill the old one first (it's dead or dying)
+  await safeKillBrowser();
+  const b = await puppeteer.launch({
     executablePath: CONFIG.chromePath,
     headless: 'new',
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
+  browser = b;
+  // Safety: if the browser doesn't respond for 90s, nuke it
+  browserTimer = setTimeout(() => safeKillBrowser(), 90000);
   return browser;
 }
 
@@ -186,7 +208,10 @@ async function scrapeTgju() {
 async function crawl() {
   try {
     console.log('[finance] scraping tgju.org...');
-    const snapshots = await scrapeTgju();
+    const snapshots = await Promise.race([
+      scrapeTgju(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), CONFIG.maxCrawlMs)),
+    ]);
     if (snapshots.length) {
       financeDB.saveSnapshots(snapshots);
       console.log(`[finance] saved ${snapshots.length} snapshots`);
@@ -195,6 +220,8 @@ async function crawl() {
     }
   } catch(e) {
     console.error('[finance] crawl error:', e.message);
+    // kill the browser on any error to prevent zombie buildup
+    await safeKillBrowser();
   }
 }
 
