@@ -19,7 +19,7 @@ async function safeKillBrowser() {
     if (browser) {
       const proc = browser.process();
       if (proc) proc.kill('SIGKILL');
-      try { await browser.close(); } catch (e) { /* already dead */ }
+      browser.close().catch(() => {}); // fire-and-forget — never await a dead browser
     }
   } catch (e) { /* ignore */ }
   browser = null;
