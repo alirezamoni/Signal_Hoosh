@@ -10,6 +10,7 @@ const CONFIG = {
 
 let browser = null;
 let browserTimer = null;
+let consecutiveFailures = 0;  // backoff counter: stop trying after too many crashes
 
 // Force-kill browser process regardless of state. This is the ONLY reliable
 // way to prevent zombie Chrome processes when Puppeteer gets into a bad state.
@@ -206,12 +207,18 @@ async function scrapeTgju() {
 }
 
 async function crawl() {
+  // Exponential backoff: if Puppeteer keeps failing, give it a rest
+  if (consecutiveFailures > 3) {
+    console.warn(`[finance] ${consecutiveFailures} consecutive failures — skipping tick`);
+    return;
+  }
   try {
     console.log('[finance] scraping tgju.org...');
     const snapshots = await Promise.race([
       scrapeTgju(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), CONFIG.maxCrawlMs)),
     ]);
+    consecutiveFailures = 0; // reset on success
     if (snapshots.length) {
       financeDB.saveSnapshots(snapshots);
       console.log(`[finance] saved ${snapshots.length} snapshots`);
@@ -219,9 +226,10 @@ async function crawl() {
       console.warn('[finance] no data scraped');
     }
   } catch(e) {
-    console.error('[finance] crawl error:', e.message);
+    consecutiveFailures++;
+    console.error(`[finance] crawl error (${consecutiveFailures}):`, e.message);
     // kill the browser on any error to prevent zombie buildup
-    await safeKillBrowser();
+    safeKillBrowser();
   }
 }
 
