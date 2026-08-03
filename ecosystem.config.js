@@ -6,6 +6,7 @@ module.exports = {
       name: 'signal',
       script: 'server.js',
       cwd: __dirname,
+      max_memory_restart: '700M',
       env: {
         NODE_ENV: process.env.NODE_ENV || 'production',
         PORT: process.env.PORT || 3001,
