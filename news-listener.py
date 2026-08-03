@@ -170,8 +170,8 @@ async def main():
 
         text = ''
         for m in msgs:
-            if m.text or m.caption:
-                text = m.text or m.caption
+            if m.text:
+                text = m.text
                 break
 
         media_list = []
@@ -250,7 +250,7 @@ async def main():
                 )
                 return
 
-            text = msg.text or msg.caption or ''
+            text = msg.text or ''
             media_type = get_media_type(msg)
 
             media_dl = None
