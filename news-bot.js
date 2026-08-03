@@ -295,9 +295,11 @@ ${newsText}
 function startNewsBot() {
   if (!BOT_TOKEN) { console.log('[news-bot] no BOT_TOKEN, skipping'); return; }
 
-  console.log('[news-bot] starting polling...');
-  // polling هر ۲ ثانیه
-  setInterval(poll, 2000);
+  // Bot API polling is intentionally NOT started: getUpdates only delivers posts from
+  // channels where the bot is an admin, which is not the case for the news channels we
+  // watch. Real collection goes through news-listener.py (Telethon/MTProto). The poll()
+  // function is kept for the day a bot-admin channel is added.
+  console.log('[news-bot] digest scheduler starting (Bot API polling disabled — Telethon is the collector)');
   // گزارش عصر هر ۴ ساعت
   setInterval(generateDigest, 4 * 60 * 60 * 1000);
   // cleanup هفتگی
@@ -311,7 +313,7 @@ function startNewsBot() {
   }, 60 * 60 * 1000);
   // اولین digest بعد از ۱ دقیقه
   setTimeout(generateDigest, 60000);
-  console.log('[news-bot] polling every 2s, digest every 4h');
+  console.log('[news-bot] digest every 4h');
 }
 
 // تابع مشترک برای ذخیره پیام از Telethon

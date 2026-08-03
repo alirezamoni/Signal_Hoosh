@@ -17,6 +17,25 @@ const SYMBOL_LABEL = {
 };
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+// ±40% band around the point estimate. Must use min/max, not [pct*0.6, pct*1.4]:
+// for a negative pct that ordering flips (-0.6 > -1.4) and NO outcome can ever fall
+// inside the band, so magnitude_in_range scored 0 on every bearish prediction.
+function pctRange(pct) {
+  const a = pct * 0.6, b = pct * 1.4;
+  return { min: Math.min(a, b), max: Math.max(a, b) };
+}
+
+// `magnitude` is NOT a common unit across event types: news_wave stores an article
+// count (3..303), trend_spike a search-growth percent (50..1000), fin_tg sometimes a
+// raw price. Only price_move events on a real finance symbol carry something that is
+// actually a price-change percentage and can be blended into predicted_pct.
+function magnitudeAsPricePct(event) {
+  if (!event || event.event_type !== 'price_move') return null;
+  if (!TO_NODES.includes(event.node_key)) return null;
+  const m = Number(event.magnitude);
+  return Number.isFinite(m) ? m : null;
+}
 function median(arr) { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 function nowIso() { return new Date().toISOString(); }
 
@@ -161,7 +180,7 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
   const regimeConf = combo.regimeConf;
   const attribution = buildAttribution(fullChain, A, B, regimeConf);
   const calibrated = tdb.calibrate(combo.confidence);
-  const min = combo.pct * 0.6, max = combo.pct * 1.4;
+  const { min, max } = pctRange(combo.pct);
 
   const id = tdb.insertPrediction({
     chain_id: chain.id, target, time_horizon: horizon, regime,
@@ -233,18 +252,25 @@ function reviseOpenPredictions(newEvents) {
   const open = tdb.getOpenPredictions() || [];
   if (!open.length || !newEvents || !newEvents.length) return;
   let updates = 0;
-  // cap revisions per cycle to prevent churn (max 1 update per prediction per cycle)
+  // the loop already visits each open prediction at most once
   let perPredictionRevised = 0;
   for (const p of open) {
-    if (perPredictionRevised >= open.length) break; // one pass max
+    // getEdgeTo() depends only on the prediction, not on the event, but used to be called
+    // once per event: 6 open predictions x ~650 recent events = ~3900 queries at ~12ms each,
+    // so this single loop took over 2 minutes while fastLoop runs every 60s — the process
+    // never caught up and pinned a core, starving the HTTP server. Fetch once, index by node.
+    const edgeByNode = new Map();
+    for (const ed of (tdb.getEdgeTo(p.target, p.regime) || [])) {
+      if (!edgeByNode.has(ed.from_node)) edgeByNode.set(ed.from_node, ed);
+    }
     // only consider the MOST RECENT significant event for this prediction's target
     let bestEvent = null, bestEdge = null;
     for (const e of newEvents) {
-      const edges = (tdb.getEdgeTo(p.target, p.regime) || []).filter(ed => ed.from_node === e.node_key);
-      if (!edges.length) continue;
+      const edge = edgeByNode.get(e.node_key);
+      if (!edge) continue;
       // pick the highest-reliability edge event
-      if (!bestEvent || (edges[0].reliability || 0) > (bestEdge?.reliability || 0)) {
-        bestEvent = e; bestEdge = edges[0];
+      if (!bestEvent || (edge.reliability || 0) > (bestEdge?.reliability || 0)) {
+        bestEvent = e; bestEdge = edge;
       }
     }
     if (!bestEvent || !bestEdge) continue;
@@ -257,20 +283,33 @@ function reviseOpenPredictions(newEvents) {
     let posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.01, 0.95);
     // during cold-start (no validations yet), cap confidence at 0.5 — don't show fake high confidence
     if (tdb.countValidations() < 20) posterior = Math.min(posterior, 0.5);
-    // nudge predicted_pct toward edge-inferred magnitude, but cap at 5% (prevent outlier corruption)
-    const mag = clamp(e.magnitude || 0, -5, 5);
-    const newPct = clamp((p.predicted_pct || 0) * 0.7 + mag * 0.3, -5, 5);
+    // Only nudge predicted_pct when the trigger carries a comparable price-percentage.
+    // A news wave ("magnitude" = 12 articles) or a trend spike ("magnitude" = 100% search
+    // growth) used to be blended straight into the price forecast, which dragged bearish
+    // predictions up to the +5 clamp. Those events still revise confidence, just not pct.
+    const mag = magnitudeAsPricePct(e);
+    const newPct = mag == null
+      ? p.predicted_pct
+      : clamp((p.predicted_pct || 0) * 0.7 + clamp(mag, -5, 5) * 0.3, -5, 5);
     const cal = tdb.calibrate(posterior);
     tdb.insertPredictionUpdate({
       prediction_id: p.id, trigger_event_id: e.id, trigger_desc: e.title,
       prev_confidence: prior, new_confidence: posterior,
-        prev_calibrated: p.calibrated_confidence, new_calibrated: cal,
-        prev_pct: p.predicted_pct, new_pct: newPct, reason: 'به‌روزرسانی بیزی بر اساس رویداد جدید',
-      });
-      tdb.updatePrediction(p.id, { confidence: posterior, calibrated_confidence: cal, predicted_pct: newPct });
-      p.confidence = posterior; p.calibrated_confidence = cal; p.predicted_pct = newPct;
-      perPredictionRevised++;
-      updates++;
+      prev_calibrated: p.calibrated_confidence, new_calibrated: cal,
+      prev_pct: p.predicted_pct, new_pct: newPct, reason: 'به‌روزرسانی بیزی بر اساس رویداد جدید',
+    });
+    // keep the band in sync with the point estimate — it used to stay frozen at the
+    // original value while pct drifted, so pct often sat outside its own min/max
+    const patch = { confidence: posterior, calibrated_confidence: cal, predicted_pct: newPct };
+    if (newPct !== p.predicted_pct) {
+      const band = pctRange(newPct);
+      patch.predicted_min = band.min;
+      patch.predicted_max = band.max;
+    }
+    tdb.updatePrediction(p.id, patch);
+    p.confidence = posterior; p.calibrated_confidence = cal; p.predicted_pct = newPct;
+    perPredictionRevised++;
+    updates++;
   }
   if (updates) console.log(`[tl-predict] ${updates} Bayesian revisions`);
   return updates;
@@ -338,5 +377,6 @@ async function whatIf(scenario) {
 module.exports = {
   onNewEvents, tryGeneratePredictions, reviseOpenPredictions, generatePrediction,
   getPredictionMatrix, whatIf, patternModel, similarityModel, llmModel, combine, buildAttribution,
+  pctRange, magnitudeAsPricePct,
   TO_NODES, HORIZONS, SYMBOL_LABEL,
 };
