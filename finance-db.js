@@ -87,7 +87,7 @@ function getLatestBySymbol(symbol) {
 function getSparkline(symbol, points = 30) {
   const rows = db.prepare(`
     SELECT price, timestamp FROM finance_snapshots
-    WHERE symbol=? AND timestamp >= datetime('now','-24 hours')
+    WHERE symbol=? AND datetime(timestamp) >= datetime('now','-24 hours')
     ORDER BY timestamp ASC
   `).all(symbol);
   if (!rows.length) return [];
@@ -103,7 +103,7 @@ function getSparkline(symbol, points = 30) {
 function getHistory(symbol, hours = 24) {
   return db.prepare(`
     SELECT * FROM finance_snapshots
-    WHERE symbol=? AND timestamp >= datetime('now', ?)
+    WHERE symbol=? AND datetime(timestamp) >= datetime('now', ?)
     ORDER BY timestamp ASC
   `).all(symbol, `-${hours} hours`);
 }
@@ -116,7 +116,7 @@ function getChanges(symbol) {
   function priceAt(hoursAgo) {
     return db.prepare(`
       SELECT price FROM finance_snapshots
-      WHERE symbol=? AND timestamp <= datetime('now', ?)
+      WHERE symbol=? AND datetime(timestamp) <= datetime('now', ?)
       ORDER BY timestamp DESC LIMIT 1
     `).get(symbol, `-${hoursAgo} hours`);
   }

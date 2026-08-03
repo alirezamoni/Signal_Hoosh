@@ -34,6 +34,9 @@ const { startPolymarketScheduler } = require('./polymarket-crawler');
 const polymarketRouter = require('./polymarket-api');
 const timelineRouter = require('./timeline-api');
 const trendRouter = require('./trend-api');
+const carRouter = require('./car-api');
+let carCrawler;
+try { carCrawler = require('./car-crawler'); } catch(e) { console.warn('[warn] car-crawler not loaded:', e.message); }
 const { startDigestScheduler, loadDigest, refresh4h, refresh24h } = require('./ai-digest');
 const { startNewsBot } = require('./news-bot');
 const newsRouter = require('./news-api');
@@ -188,6 +191,7 @@ app.use('/api/finance', requireAuth, financeRouter);
 app.use('/api/polymarket', requireAuth, polymarketRouter);
 app.use('/api/timeline', requireAuth, timelineRouter);
 app.use('/api/trend-history', requireAuth, trendRouter);
+app.use('/api/cars', requireAuth, carRouter);
 
 // media proxy برای عکس/ویدیو تلگرام
 app.get('/api/news/media', requireAuth, (req, res) => {
@@ -559,6 +563,7 @@ app.listen(PORT, () => {
   startPolymarketScheduler();
   startDigestScheduler();
   if (financeCrawler) financeCrawler.startScheduler();
+  if (carCrawler) carCrawler.startCarScheduler();
   startNewsBot();
   migrateMediaToDisk().catch(console.error);
   try { require('./timeline-engine').startScheduler(); } catch(e) { console.warn('[warn] timeline-engine not started:', e.message); }

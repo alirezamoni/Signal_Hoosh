@@ -100,11 +100,60 @@ async function llmModel(chain, target, horizon, regime, A, B) {
 }
 
 // ════════════════════════════════════════════════════════
+//  MODEL D — DOMAIN PRIOR  (cold-start only)
+// ════════════════════════════════════════════════════════
+// Everything above is learned from data. With only a handful of validations the
+// learned models are noise: production was publishing "دلار ▼ احتمال نزول" during
+// a `war` regime off a SINGLE historical sample with reliability 0, which is the
+// opposite of how the Iranian market actually behaves under conflict.
+//
+// This is a documented domain prior, NOT a discovered pattern. It only fires when
+// the learned models have nothing to say, its confidence is capped low, and the
+// API labels it so the UI can mark it as a prior rather than a learned signal.
+const REGIME_PRIORS = {
+  war:              { usd: 'up', gold18: 'up', coin: 'up', mesghal: 'up', ounce: 'up', oil_brent: 'up', stock_market: 'down' },
+  sanctions:        { usd: 'up', gold18: 'up', coin: 'up', mesghal: 'up', tether: 'up' },
+  currency_crisis:  { usd: 'up', gold18: 'up', coin: 'up', mesghal: 'up', tether: 'up' },
+  oil_shock:        { oil_brent: 'up', usd: 'up' },
+};
+const PRIOR_CONFIDENCE = 0.30;   // deliberately low — this is a heuristic, not evidence
+const PRIOR_PCT = { up: 0.8, down: -0.8 };
+
+function priorModel(target, regime) {
+  const dir = (REGIME_PRIORS[regime] || {})[target];
+  if (!dir) return null;
+  return {
+    direction: dir,
+    pct: PRIOR_PCT[dir] || 0,
+    confidence: PRIOR_CONFIDENCE,
+    is_prior: true,
+    reason: `پیش‌فرض دامنه‌ای: در رژیم «${regime}» رفتار تاریخی بازار ایران برای ${SYMBOL_LABEL[target] || target} ${dir === 'up' ? 'صعودی' : 'نزولی'} است`,
+  };
+}
+
+// A learned model only counts as real evidence if it has both confidence and samples.
+function hasEvidence(m) {
+  if (!m) return false;
+  if (m.is_prior) return true;
+  if (!(m.confidence > 0.02)) return false;
+  if (m.sample_count != null && m.sample_count < 3) return false;
+  return true;
+}
+
+// ════════════════════════════════════════════════════════
 //  ENSEMBLE COMBINE  (§8.3)
 // ════════════════════════════════════════════════════════
-function combine(A, B, C) {
-  const labeled = [['A', A, tdb.getWeight('w_model_a', 0.40)], ['B', B, tdb.getWeight('w_model_b', 0.30)], ['C', C, tdb.getWeight('w_model_c', 0.30)]];
-  const active = labeled.filter(([, m]) => m);
+function combine(A, B, C, D) {
+  const labeled = [
+    ['A', A, tdb.getWeight('w_model_a', 0.40)],
+    ['B', B, tdb.getWeight('w_model_b', 0.30)],
+    ['C', C, tdb.getWeight('w_model_c', 0.30)],
+    ['D', D, tdb.getWeight('w_model_d', 0.20)],
+  ];
+  // Models with no real evidence must not vote. Previously a model with
+  // confidence 0 still won the direction argmax (all scores tied at 0), which is
+  // how a single zero-reliability sample became a published forecast.
+  const active = labeled.filter(([, m]) => hasEvidence(m));
   if (!active.length) return null;
   const wsum = active.reduce((s, [, , w]) => s + w, 0) || 1;
 
@@ -116,6 +165,8 @@ function combine(A, B, C) {
     confList.push((m.confidence || 0) * (w / wsum));
   }
   const finalDir = Object.entries(dirScore).sort((a, b) => b[1] - a[1])[0][0];
+  // no side actually scored -> no direction to publish
+  if (!(dirScore[finalDir] > 0)) return null;
   const finalPct = median(pctList);
   const agreeCount = active.filter(([, m]) => m.direction === finalDir).length;
   const agreement = agreeCount / active.length;
@@ -124,7 +175,15 @@ function combine(A, B, C) {
   finalConf = Math.min(finalConf, 0.95);
   // disagreement across the ensemble LOWERS confidence (§14 honesty)
   if (agreement < 0.67) finalConf *= 0.8;
-  return { direction: finalDir, pct: finalPct, confidence: finalConf, agreement, regimeConf };
+  // Below this the arrow is indistinguishable from a coin flip; publishing it as a
+  // directional call is what made the whole panel untrustworthy.
+  if (finalConf < 0.05) return null;
+  const priorOnly = active.length === 1 && active[0][1].is_prior;
+  return {
+    direction: finalDir, pct: finalPct, confidence: finalConf, agreement, regimeConf,
+    basis: priorOnly ? 'prior' : 'learned',
+    basis_note: priorOnly ? (active[0][1].reason || 'پیش‌فرض دامنه‌ای') : null,
+  };
 }
 
 // ════════════════════════════════════════════════════════
@@ -158,7 +217,9 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
   const A = patternModel(target, horizon, regime, triggerTopic);
   const B = similarityModel(target, horizon, regime, triggerTopic);
   const C = await llmModel(fullChain, target, horizon, regime, A, B);
-  let combo = combine(A, B, C);
+  // D only participates when A/B/C carry no real evidence (cold start / AI quota out)
+  const D = (hasEvidence(A) || hasEvidence(B) || hasEvidence(C)) ? null : priorModel(target, regime);
+  let combo = combine(A, B, C, D);
 
   // Cold-start fallback: if all models are null but we have a usable edge,
   // create a low-confidence "hypothesis" prediction from the edge alone.
@@ -173,6 +234,7 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
       // scale by both edge skill and how one-sided the direction was
       confidence: clamp(bestEdge.reliability * (0.3 + 0.4 * Math.abs(bias)), 0.1, 0.4),
       agreement: 0.33, regimeConf: (tdb.getCurrentRegime() || {}).confidence || 0.7,
+      basis: 'edge', basis_note: 'فرضیه بر پایه یال کشف‌شده، بدون الگوی تأییدشده',
     };
   }
   if (!combo) return null;
@@ -187,7 +249,7 @@ async function generatePrediction(chain, fullChain, target, horizon, regime, tri
     direction: combo.direction, predicted_pct: combo.pct, predicted_min: min, predicted_max: max,
     confidence: combo.confidence, calibrated_confidence: calibrated, prior_confidence: combo.confidence,
     base_price: base,
-    ensemble_json: JSON.stringify({ A, B, C }),
+    ensemble_json: JSON.stringify({ A, B, C, D, basis: combo.basis, basis_note: combo.basis_note }),
     attribution_json: JSON.stringify(attribution),
     status: 'open', created_at: nowIso(),
     expires_at: new Date(Date.now() + horizon * 3600000).toISOString(),
@@ -377,6 +439,6 @@ async function whatIf(scenario) {
 module.exports = {
   onNewEvents, tryGeneratePredictions, reviseOpenPredictions, generatePrediction,
   getPredictionMatrix, whatIf, patternModel, similarityModel, llmModel, combine, buildAttribution,
-  pctRange, magnitudeAsPricePct,
-  TO_NODES, HORIZONS, SYMBOL_LABEL,
+  pctRange, magnitudeAsPricePct, priorModel, hasEvidence,
+  TO_NODES, HORIZONS, SYMBOL_LABEL, REGIME_PRIORS,
 };

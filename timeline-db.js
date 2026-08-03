@@ -363,8 +363,10 @@ function recomputeDecay(id) {
 }
 function getEvent(id) { return db.prepare('SELECT * FROM timeline_events WHERE id=?').get(id); }
 function getEventsSince(minutes, nodeKey) {
+  // detected_at is ISO-8601 from JS; without datetime() the raw-string compare made
+  // every event from today pass, so "last 3 minutes" was returning ~900 rows.
   const params = [`-${minutes} minutes`];
-  let sql = `SELECT * FROM timeline_events WHERE detected_at >= datetime('now',?)`;
+  let sql = `SELECT * FROM timeline_events WHERE datetime(detected_at) >= datetime('now',?)`;
   if (nodeKey) { sql += ' AND node_key=?'; params.push(nodeKey); }
   sql += ' ORDER BY detected_at DESC';
   return db.prepare(sql).all(...params);
@@ -381,7 +383,7 @@ function getUnlinkedEvents(hours) {
   // events in last `hours` not referenced by any ACTIVE chain (archived chains release their events)
   return db.prepare(`
     SELECT e.* FROM timeline_events e
-    WHERE e.detected_at >= datetime('now', ?)
+    WHERE datetime(e.detected_at) >= datetime('now', ?)
       AND e.id NOT IN (
         SELECT value FROM signal_chains, json_each(json_extract(signal_chains.event_ids,'$.roots')) WHERE signal_chains.status='active'
         UNION
@@ -396,14 +398,14 @@ function getLatestByNodeTopic(nodeKey, topic, minutes) {
   return db.prepare(`
     SELECT * FROM timeline_events
     WHERE node_key=? AND (topic=? OR ? IS NULL)
-      AND detected_at >= datetime('now',?)
+      AND datetime(detected_at) >= datetime('now',?)
     ORDER BY detected_at DESC LIMIT 1
   `).get(nodeKey, topic, topic, `-${minutes || 30} minutes`);
 }
 function countEventsByNode(nodeKey, minutes) {
   const r = db.prepare(`
     SELECT COUNT(*) c FROM timeline_events
-    WHERE node_key=? AND detected_at >= datetime('now',?)
+    WHERE node_key=? AND datetime(detected_at) >= datetime('now',?)
   `).get(nodeKey, `-${minutes || 60} minutes`);
   return r ? r.c : 0;
 }
@@ -594,7 +596,12 @@ function getPredictions(status, filter, limit) {
   return rows;
 }
 function getExpiredOpen() {
-  return db.prepare("SELECT * FROM predictions WHERE status='open' AND expires_at <= datetime('now')").all();
+  // datetime() on BOTH sides is required: expires_at is written from JS as ISO-8601
+  // ("2026-08-03T20:41:11.758Z") while datetime('now') yields "2026-08-03 23:04:12".
+  // Compared as raw strings the 'T' (0x54) sorts after the space (0x20), so an expired
+  // prediction never satisfied <= and NOTHING was ever validated — the learning loop
+  // had been starved since day one.
+  return db.prepare("SELECT * FROM predictions WHERE status='open' AND datetime(expires_at) <= datetime('now')").all();
 }
 function insertPredictionUpdate(u) {
   db.prepare(
