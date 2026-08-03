@@ -423,8 +423,16 @@ function getReliabilityForSource(sourceType, sourceKey) {
   const d = _srcDefault.get(sourceType);
   return d || { reliability: 0.5, historical_accuracy: 0.5, source_type: sourceType, source_key: null, label: sourceType };
 }
-function getSourceReliabilityList() {
-  return db.prepare('SELECT * FROM source_reliability ORDER BY reliability DESC').all();
+function getSourceReliabilityList(limit) {
+  // ~10k rows accumulate here (one per channel key). Sending them all made the UI
+  // build a 10,000-row table and appear frozen. Sources with more observations rank
+  // first so the top of the list is the part worth reading.
+  return db.prepare(
+    'SELECT * FROM source_reliability ORDER BY sample_count DESC, reliability DESC LIMIT ?'
+  ).all(Math.min(parseInt(limit) || 200, 2000));
+}
+function countSourceReliability() {
+  return db.prepare('SELECT COUNT(*) c FROM source_reliability').get().c;
 }
 const _upsertSrc = db.prepare(`
   INSERT INTO source_reliability (source_type,source_key,label,historical_accuracy,bias,update_speed,reliability,sample_count,last_event,updated_at)
@@ -890,7 +898,7 @@ module.exports = {
   // events
   insertEvent, getEvent, getEvents, getEventsSince, getUnlinkedEvents, getLatestByNodeTopic, countEventsByNode,
   // source reliability
-  getReliabilityForSource, getSourceReliabilityList, upsertSourceReliability, adjustSourceAccuracy,
+  getReliabilityForSource, getSourceReliabilityList, countSourceReliability, upsertSourceReliability, adjustSourceAccuracy,
   // edges
   upsertEdge, getEdges, getUsableEdges, getEdgesFrom, getEdgeTo,
   // chains

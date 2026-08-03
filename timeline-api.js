@@ -177,7 +177,10 @@ router.get('/patterns', (req, res) => {
 
 // ── SOURCE RELIABILITY ──
 router.get('/source-reliability', (req, res) => {
-  try { res.json(tdb.getSourceReliabilityList() || []); } catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 200, 2000);
+    res.json({ total: tdb.countSourceReliability(), shown: limit, sources: tdb.getSourceReliabilityList(limit) || [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── CALIBRATION ──
