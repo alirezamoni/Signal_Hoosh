@@ -4,6 +4,7 @@
  */
 const puppeteer = require('puppeteer');
 const marketDB  = require('./market-db');
+const { withCrawlLock } = require('./lib/crawl-lock');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -126,7 +127,7 @@ async function crawlMarket() {
   const today = new Date().toISOString().slice(0, 10);
   console.log(`\n═══ Market crawl ${today} ═══`);
   try {
-    const weekData = await scrapeDigikala(CONFIG.urls.week, 'week');
+    const weekData = await withCrawlLock('market', () => scrapeDigikala(CONFIG.urls.week, 'week'));
     if (weekData.length) marketDB.saveBatch(weekData, 'week', today);
     else console.log('[market] WARNING: 0 products');
     marketDB.cleanup();

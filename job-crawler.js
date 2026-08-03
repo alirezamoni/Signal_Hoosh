@@ -4,6 +4,7 @@
  */
 const puppeteer = require('puppeteer');
 const jobDB = require('./job-db');
+const { withCrawlLock } = require('./lib/crawl-lock');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -55,6 +56,10 @@ async function scrapeCount(page, url, regex) {
 }
 
 async function crawlJobs() {
+  return withCrawlLock('job', _crawlJobs, 10 * 60 * 1000);
+}
+
+async function _crawlJobs() {
   const today = new Date().toISOString().slice(0, 10);
   console.log(`\n═══ Job crawl ${today} ═══`);
   const b = await getBrowser();

@@ -1,17 +1,21 @@
 const puppeteer = require('puppeteer');
 const financeDB = require('./finance-db');
+const { withCrawlLock } = require('./lib/crawl-lock');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
   url: 'https://www.tgju.org/',
   timeout: 30000,
   maxCrawlMs: 45000,
-  intervalMs: 60 * 1000,
+  // هر ۳ دقیقه به‌جای هر ۱ دقیقه: قیمت ارز/طلا در این بازه تفاوت معناداری ندارد،
+  // ولی تعداد اجرای کروم روی این VPS دو‌هسته‌ای یک‌سوم می‌شود.
+  intervalMs: 3 * 60 * 1000,
 };
 
 let browser = null;
 let browserTimer = null;
-let consecutiveFailures = 0;  // backoff counter: stop trying after too many crashes
+let consecutiveFailures = 0;  // backoff counter
+let lastFailureAt = 0;
 
 // Force-kill browser process regardless of state. This is the ONLY reliable
 // way to prevent zombie Chrome processes when Puppeteer gets into a bad state.
@@ -93,7 +97,9 @@ async function scrapeTgju() {
   try {
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8' });
-    await page.goto(CONFIG.url, { waitUntil: 'networkidle2', timeout: CONFIG.timeout });
+    // domcontentloaded (نه networkidle2): tgju پر از اسکریپت/تبلیغ است و شبکه‌اش
+    // به‌ندرت «آرام» می‌شود؛ سیگنال واقعی آماده‌بودن، همان selector جدول پایین است.
+    await page.goto(CONFIG.url, { waitUntil: 'domcontentloaded', timeout: CONFIG.timeout });
 
     // صبر کن جدول بازار لود بشه
     await page.waitForSelector('tr[data-market-row]', { timeout: 15000 }).catch(() => {});
@@ -208,17 +214,20 @@ async function scrapeTgju() {
 }
 
 async function crawl() {
-  // Exponential backoff: if Puppeteer keeps failing, give it a rest
+  // Back off after repeated failures, but always recover: wait 2^n ticks (capped),
+  // then try again. The previous version skipped every tick forever once it hit 4
+  // failures, so one bad spell disabled finance data until the next restart.
   if (consecutiveFailures > 3) {
-    console.warn(`[finance] ${consecutiveFailures} consecutive failures — skipping tick`);
-    return;
+    const cooldownMs = Math.min(2 ** (consecutiveFailures - 3), 16) * CONFIG.intervalMs;
+    if (Date.now() - lastFailureAt < cooldownMs) return;
+    console.log(`[finance] retrying after ${consecutiveFailures} failures (cooldown ${Math.round(cooldownMs / 60000)}min)`);
   }
   try {
     console.log('[finance] scraping tgju.org...');
-    const snapshots = await Promise.race([
+    const snapshots = await withCrawlLock('finance', () => Promise.race([
       scrapeTgju(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), CONFIG.maxCrawlMs)),
-    ]);
+    ]));
     consecutiveFailures = 0; // reset on success
     if (snapshots.length) {
       financeDB.saveSnapshots(snapshots);
@@ -228,6 +237,7 @@ async function crawl() {
     }
   } catch(e) {
     consecutiveFailures++;
+    lastFailureAt = Date.now();
     console.error(`[finance] crawl error (${consecutiveFailures}):`, e.message);
     // kill the browser on any error to prevent zombie buildup
     safeKillBrowser();
@@ -235,10 +245,9 @@ async function crawl() {
 }
 
 function startScheduler() {
-  console.log('[finance] scheduler started — runs every 1 minute');
+  console.log(`[finance] scheduler started — runs every ${CONFIG.intervalMs / 60000} minutes`);
   // اولین اجرا بعد از ۱۰ ثانیه
   setTimeout(crawl, 10000);
-  // بعد هر ۱ دقیقه
   setInterval(crawl, CONFIG.intervalMs);
   // cleanup هر ۲۴ ساعت
   setInterval(() => financeDB.cleanup(), 24 * 60 * 60 * 1000);

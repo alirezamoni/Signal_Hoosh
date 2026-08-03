@@ -7,6 +7,7 @@ const https = require('https');
 const fs   = require('fs');
 const path = require('path');
 const aiClient = require('./lib/ai-client');
+const { withCrawlLock } = require('./lib/crawl-lock');
 
 const CONFIG = {
   chromePath:  process.env.CHROME_PATH    || '/usr/bin/google-chrome',
@@ -80,7 +81,10 @@ async function getBrowser() {
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
   browser = b;
-  browserTimer = setTimeout(() => safeKillBrowser(), 90000);
+  // Backstop only — the crawl kills the browser itself when it finishes. This must stay
+  // longer than a full crawl (2 scrapes x 50s + AI), or it fires mid-scrape and the page
+  // dies with "Protocol error: Connection closed".
+  browserTimer = setTimeout(() => safeKillBrowser(), 4 * 60 * 1000);
   return browser;
 }
 
@@ -196,18 +200,26 @@ function load(key) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+// دو اسکرپ پشت‌سرهم انجام می‌شود؛ ۲×این مقدار باید کمتر از backstop مرورگر (۴ دقیقه) بماند
+const SCRAPE_BUDGET_MS = 75000;
+
 async function crawl() {
   console.log(`\n═══ Crawl started at ${new Date().toISOString()} ═══`);
   try {
     // sequential برای جلوگیری از race condition روی browser
-    const d4  = await Promise.race([
-      scrapeTrends(CONFIG.urls.h4,  '4h'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 50000)),
-    ]);
-    const d24 = await Promise.race([
-      scrapeTrends(CONFIG.urls.h24, '24h'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 50000)),
-    ]);
+    const [d4, d24] = await withCrawlLock('trends', async () => {
+      const a = await Promise.race([
+        scrapeTrends(CONFIG.urls.h4,  '4h'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), SCRAPE_BUDGET_MS)),
+      ]);
+      const b = await Promise.race([
+        scrapeTrends(CONFIG.urls.h24, '24h'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), SCRAPE_BUDGET_MS)),
+      ]);
+      return [a, b];
+    });
+    // free the ~150MB Chrome as soon as scraping is done — the AI step below doesn't need it
+    await safeKillBrowser();
 
     // یه call به AI برای همه کلیدواژه‌های ترکیب‌شده
     const allKeywords = [...d4];
@@ -234,6 +246,7 @@ async function crawl() {
 const RSS_URL = 'https://trends.google.com/trending/rss?geo=IR';
 const RSS_FILE = path.join(CONFIG.dataDir, 'rss_live.json');
 
+const RSS_TITLE_MEMORY = 500; // فید معمولاً ۲۰ آیتم دارد؛ ۵۰۰ عنوان اخیر برای تشخیص تکراری کافی است
 let prevRssTitles = new Set();
 
 function loadRssLive() {
@@ -277,6 +290,11 @@ async function pollRSS() {
     const isFirst = prevRssTitles.size === 0;
     const newItems = isFirst ? [] : items.filter(i => !prevRssTitles.has(i.title));
     items.forEach(i => prevRssTitles.add(i.title));
+    // این Set هر ۳۰ ثانیه رشد می‌کرد و هیچ‌وقت خالی نمی‌شد (نشت حافظه آرام).
+    // فقط به اندازه‌ای که برای تشخیص «جدید بودن» لازم است نگه می‌داریم.
+    if (prevRssTitles.size > RSS_TITLE_MEMORY) {
+      prevRssTitles = new Set([...prevRssTitles].slice(-RSS_TITLE_MEMORY));
+    }
 
     if (newItems.length) {
       console.log(`[RSS] ${newItems.length} new item(s): ${newItems.map(i=>i.title).join(', ')}`);
