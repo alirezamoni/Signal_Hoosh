@@ -2,10 +2,10 @@
  * job-api.js — endpoints مارکت کار ایران
  */
 const express  = require('express');
-const https    = require('https');
 const router   = express.Router();
 const jobDB    = require('./job-db');
 const { crawlJobs } = require('./job-crawler');
+const aiClient = require('./lib/ai-client');
 
 const CAT_LABELS = {
   'human-resources':   'منابع انسانی',
@@ -33,19 +33,7 @@ router.get('/history/:category', (req, res) => {
   res.json(jobDB.getCategoryHistory(req.params.category, days));
 });
 
-// تحلیل AI (با fallback مدل‌های رایگان)
-const FREE_MODELS = [
-  'google/gemma-4-26b-a4b-it:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'nvidia/nemotron-3-nano-30b-a3b:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'openai/gpt-oss-20b:free',
-];
-
 router.get('/ai-analysis', async (req, res) => {
-  const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
-  if (!OPENROUTER_KEY) return res.json({ analysis: null });
-
   const summary = jobDB.getSummary();
   if (!summary) return res.json({ analysis: 'داده کافی موجود نیست' });
 
@@ -61,29 +49,8 @@ router.get('/ai-analysis', async (req, res) => {
 دسته‌ها: ${cats}
 در ۳ جمله وضعیت بازار کار ایران را تحلیل کن. فقط بر اساس داده‌ها.`;
 
-  const settingsDB = require('./settings-db');
-  const preferred = settingsDB.get('ai_model','google/gemma-4-26b-a4b-it:free');
-  const models = [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
-
-  for (const model of models) {
-    try {
-      const body = JSON.stringify({model, messages:[{role:'user',content:prompt}], max_tokens:1000, reasoning:{enabled:false}});
-      const result = await new Promise((resolve,reject)=>{
-        const req2 = https.request({hostname:'openrouter.ai',path:'/api/v1/chat/completions',method:'POST',
-          headers:{'Authorization':`Bearer ${OPENROUTER_KEY}`,'Content-Type':'application/json','HTTP-Referer':'https://signal.ir','Content-Length':Buffer.byteLength(body)}
-        },r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>{try{resolve(JSON.parse(d));}catch(e){reject(e);}});});
-        req2.on('error',reject);
-        req2.setTimeout(30000,()=>{req2.destroy();reject(new Error('timeout'));});
-        req2.write(body);req2.end();
-      });
-      const text = result.choices?.[0]?.message?.content || result.choices?.[0]?.message?.reasoning || '';
-      if (!text || result.error) { console.warn(`[job-ai] ${model}: ${result.error?.message?.slice(0,50)||'no output'}`); continue; }
-      return res.json({ analysis: text });
-    } catch(e) {
-      console.warn(`[job-ai] ${model} error:`, e.message);
-    }
-  }
-  res.json({ analysis: null });
+  const text = await aiClient.callText(prompt, { max_tokens: 1000, tag: 'job-ai', validate: () => true });
+  res.json({ analysis: text });
 });
 
 router.post('/crawl', async (req, res) => {

@@ -6,11 +6,10 @@ const puppeteer = require('puppeteer');
 const https = require('https');
 const fs   = require('fs');
 const path = require('path');
-const settingsDB = require('./settings-db');
+const aiClient = require('./lib/ai-client');
 
 const CONFIG = {
   chromePath:  process.env.CHROME_PATH    || '/usr/bin/google-chrome',
-  openrouterKey: process.env.OPENROUTER_KEY || '',
   dataDir:     path.join(__dirname, 'data'),
   urls: {
     h4:  'https://trends.google.com/trending?geo=IR&hours=4&hl=fa',
@@ -162,15 +161,7 @@ async function scrapeTrends(url, label) {
   }
 }
 
-// ── AI دسته‌بندی (با fallback مدل‌های رایگان) ──────────────
-const FREE_MODELS = [
-  'google/gemma-4-26b-a4b-it:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'nvidia/nemotron-3-nano-30b-a3b:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'openai/gpt-oss-20b:free',
-];
-
+// ── AI دسته‌بندی (fallback مدل‌ها + rate limit سراسری از lib/ai-client) ──
 async function aiCategorize(trends) {
   if (!trends.length) return trends;
   const keywords = trends.map((t,i)=>`${i+1}. ${t.keyword}`).join('\n');
@@ -183,74 +174,14 @@ ${keywords}
 
 دسته‌بندی‌های مجاز (فقط از این‌ها): ورزشی، اقتصادی، سیاسی، سرگرمی، اجتماعی، مذهبی، تکنولوژی، خودرو، سلامت، مالی، قیمت کالا، علم`;
 
-  // مدل‌های امتحان: اول مدل تنظیمات، بعد fallback
-  const preferred = settingsDB.get('ai_model', 'google/gemma-4-26b-a4b-it:free');
-  const models = [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
-
-  for (const model of models) {
-    try {
-      const body = JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2000,
-        reasoning: { enabled: false },
-      });
-
-      const result = await new Promise((resolve, reject) => {
-        const req = https.request({
-          hostname: 'openrouter.ai',
-          path: '/api/v1/chat/completions',
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${CONFIG.openrouterKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://signal.ir',
-            'X-Title': 'Signal Crawler',
-            'Content-Length': Buffer.byteLength(body),
-          },
-        }, res => {
-          let data = '';
-          res.on('data', chunk => data += chunk);
-          res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
-        });
-        req.on('error', reject);
-        req.setTimeout(25000, () => { req.destroy(); reject(new Error('timeout')); });
-        req.write(body);
-        req.end();
-      });
-
-      const text = result.choices?.[0]?.message?.content || result.choices?.[0]?.message?.reasoning || '';
-      if (!text || result.error) {
-        console.warn(`[AI categorize] ${model}: ${result.error?.message?.slice(0,60)||'no output'}`);
-        continue;
-      }
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.warn(`[AI categorize] ${model}: no JSON in response`);
-        continue;
-      }
-      // کلیدهای عددی بدون quote رو اصلاح کن: {1: → {"1":
-      let jsonStr = jsonMatch[0].replace(/\{(\d+):/g, '{"$1":').replace(/,(\d+):/g, ',"$1":');
-      let catMap;
-      try { catMap = JSON.parse(jsonStr); }
-      catch(e2) {
-        console.warn(`[AI categorize] ${model}: JSON parse failed:`, jsonStr.slice(0, 100));
-        continue;
-      }
-      // چک کن که حداقل یک دسته غیرخالی داریم
-      const hasCats = Object.values(catMap).some(v => v && v.trim());
-      if (!hasCats) {
-        console.warn(`[AI categorize] ${model}: all categories empty`);
-        continue;
-      }
-      console.log(`[AI] categories assigned (${model})`);
-      return trends.map((t,i) => ({ ...t, cat: catMap[String(i+1)] || '' }));
-    } catch(e) {
-      console.warn(`[AI categorize] ${model} error:`, e.message);
-    }
+  const catMap = await aiClient.callJSON(prompt, { max_tokens: 2000, tag: 'trend-categorize' });
+  const hasCats = catMap && Object.values(catMap).some(v => v && String(v).trim());
+  if (!hasCats) {
+    console.warn('[AI categorize] all models failed or empty, returning without categories');
+    return trends;
   }
-  console.warn('[AI categorize] all models failed, returning without categories');
-  return trends;
+  console.log('[AI] categories assigned');
+  return trends.map((t,i) => ({ ...t, cat: catMap[String(i+1)] || '' }));
 }
 
 function save(key, data) {

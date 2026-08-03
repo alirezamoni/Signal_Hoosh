@@ -3,26 +3,12 @@
  * ۴h: هر ۱۵ دقیقه، ۳ بار تلاش
  * ۲۴h: هر ۳ ساعت، ۳ بار تلاش
  */
-const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const settingsDB = require('./settings-db');
+const aiClient = require('./lib/ai-client');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
-
-const FREE_MODELS = [
-  'google/gemma-4-26b-a4b-it:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'nvidia/nemotron-3-nano-30b-a3b:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'openai/gpt-oss-20b:free',
-];
-
-function getModels() {
-  const preferred = settingsDB.get('ai_model', 'google/gemma-4-26b-a4b-it:free');
-  return [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
-}
 
 const DIGEST_FILES = {
   '4h':  path.join(DATA_DIR, 'digest_4h.json'),
@@ -39,7 +25,7 @@ function loadTrends(key) {
 
 function buildItems(trends, count) {
   return trends.slice(0, count).map((t, i) => {
-    const kw = (t.keyword || '').replace(/[\u200f\u200e]/g, '').trim();
+    const kw = (t.keyword || '').replace(/[‏‎]/g, '').trim();
     return `${i+1}. ${kw} | حجم: ${t.vol||0}+ | رشد: ${t.growth||0}٪`;
   }).join('\n');
 }
@@ -75,68 +61,12 @@ ${items}
 }
 
 async function callAI(prompt) {
-  const freeModels = getModels();
-  for (const model of freeModels) {
-    try {
-      const body = JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 2000, reasoning: { enabled: false } });
-      const result = await new Promise((resolve, reject) => {
-        const req = https.request({
-          hostname: 'openrouter.ai', path: '/api/v1/chat/completions', method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://signal.ir',
-            'X-Title': 'Signal Hoosh',
-            'Content-Length': Buffer.byteLength(body),
-          },
-        }, res => {
-          let d = ''; res.on('data', c => d += c);
-          res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
-        });
-        req.on('error', reject);
-        req.setTimeout(30000, () => { req.destroy(); reject(new Error('timeout')); });
-        req.write(body); req.end();
-      });
-      const text = result.choices?.[0]?.message?.content || '';
-      if (!text || result.error) { console.warn(`[digest] ${model}: ${result.error?.message?.slice(0,50)||'no output'}`); continue; }
-      console.log(`[digest] OK with ${model}`);
-      return text;
-    } catch(e) {
-      console.warn(`[digest] ${model} error:`, e.message);
-    }
-  }
-  return null;
+  // scoring/acceptance happens in fetchWithRetry below, so accept whatever text comes back here
+  return aiClient.callText(prompt, { max_tokens: 2000, tag: 'digest', validate: () => true });
 }
 
-// نسبت حروف فارسی/عربی به کل کاراکترهای غیرفاصله
-function persianRatio(text) {
-  const stripped = text.replace(/\s/g, '');
-  if (!stripped.length) return 0;
-  const persianChars = stripped.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0660-\u0669\u06F0-\u06F9]/g) || [];
-  return persianChars.length / stripped.length;
-}
-
-// تشخیص chain-of-thought / reasoning leak
-function isChainOfThoughtJunk(text) {
-  const lower = text.toLowerCase();
-  const markers = [
-    'the word', 'let me', 'actually it', 'so we', 'we need', 'we must',
-    'now produce', 'but still', 'must avoid', 'we can', 'thus we',
-    'note:', 'note that', 'check:', 'check for', 'check if',
-    'step 1', 'step 2', 'i need', 'i should', 'i will',
-    'let\'s', 'lets ', 'here is', 'here are', 'here\'s',
-    'you need', 'you should', 'you must', 'you can',
-    'i think', 'i believe', 'in this', 'in the following',
-    'first,', 'second,', 'third,', 'finally,',
-    'that is', 'this is', 'this means',
-  ];
-  let hits = 0;
-  for (const m of markers) {
-    if (lower.includes(m)) hits++;
-    if (hits >= 3) return true;
-  }
-  return false;
-}
+// persianRatio + isChainOfThoughtJunk now come from lib/ai-client.js (duplicates removed)
+const { persianRatio, isChainOfThoughtJunk } = aiClient;
 
 function isComplete(text) {
   if (!text || text.length < 100) return false;

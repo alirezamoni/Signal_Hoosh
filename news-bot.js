@@ -6,23 +6,10 @@ const https  = require('https');
 const fs     = require('fs');
 const path   = require('path');
 const newsDB = require('./news-db');
-const settingsDB = require('./settings-db');
+const aiClient = require('./lib/ai-client');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
-
-const FREE_MODELS = [
-  'google/gemma-4-26b-a4b-it:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'nvidia/nemotron-3-nano-30b-a3b:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'openai/gpt-oss-20b:free',
-];
-
-function getModels() {
-  const preferred = settingsDB.get('ai_model', 'google/gemma-4-26b-a4b-it:free');
-  return [preferred, ...FREE_MODELS.filter(m => m !== preferred)];
-}
 
 // کانال‌های پیش‌فرض — بعداً از DB می‌خونه
 const DEFAULT_CHANNELS = [];
@@ -297,43 +284,12 @@ ${newsText}
 ---
 قوانین: فقط بر اساس اخبار | فارسی روان | بدون کلمه انگلیسی`;
 
-  const freeModels = getModels();
+  const text = await aiClient.callText(prompt, { max_tokens: 1500, tag: 'news-digest', validate: () => true });
+  if (!text) { console.warn('[digest] all models failed'); return; }
 
-  for (const model of freeModels) {
-    try {
-      const body = JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 1500, reasoning: { enabled: false } });
-      const result = await new Promise((resolve, reject) => {
-        const req = https.request({
-          hostname: 'openrouter.ai', path: '/api/v1/chat/completions', method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://signal.ir',
-            'X-Title': 'Signal Hoosh',
-            'Content-Length': Buffer.byteLength(body),
-          },
-        }, res => {
-          let d = '';
-          res.on('data', c => d += c);
-          res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
-        });
-        req.on('error', reject);
-        req.setTimeout(30000, () => { req.destroy(); reject(new Error('timeout')); });
-        req.write(body); req.end();
-      });
-
-      const text = result.choices?.[0]?.message?.content || '';
-      if (!text || result.error) { console.warn(`[digest] ${model} failed:`, result.error?.message?.slice(0,50)); continue; }
-
-      const now = new Date().toISOString();
-      newsDB.saveDigest(text, new Date(Date.now() - 4*60*60*1000).toISOString(), now);
-      console.log(`[news-bot] digest saved (${model})`);
-      return;
-    } catch(e) {
-      console.warn(`[digest] ${model} error:`, e.message);
-    }
-  }
-  console.warn('[digest] all models failed');
+  const now = new Date().toISOString();
+  newsDB.saveDigest(text, new Date(Date.now() - 4*60*60*1000).toISOString(), now);
+  console.log('[news-bot] digest saved');
 }
 
 function startNewsBot() {
