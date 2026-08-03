@@ -5,6 +5,7 @@ const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
   url: 'https://www.tgju.org/',
   timeout: 30000,
+  maxCrawlMs: 45000,
   intervalMs: 60 * 1000,
 };
 
