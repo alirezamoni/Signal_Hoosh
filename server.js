@@ -33,6 +33,7 @@ const jobRouter = require('./job-api');
 const { startPolymarketScheduler } = require('./polymarket-crawler');
 const polymarketRouter = require('./polymarket-api');
 const timelineRouter = require('./timeline-api');
+const trendRouter = require('./trend-api');
 const { startDigestScheduler, loadDigest, refresh4h, refresh24h } = require('./ai-digest');
 const { startNewsBot } = require('./news-bot');
 const newsRouter = require('./news-api');
@@ -186,6 +187,7 @@ app.use('/api/news', requireAuth, newsRouter);
 app.use('/api/finance', requireAuth, financeRouter);
 app.use('/api/polymarket', requireAuth, polymarketRouter);
 app.use('/api/timeline', requireAuth, timelineRouter);
+app.use('/api/trend-history', requireAuth, trendRouter);
 
 // media proxy برای عکس/ویدیو تلگرام
 app.get('/api/news/media', requireAuth, (req, res) => {

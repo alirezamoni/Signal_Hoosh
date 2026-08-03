@@ -8,6 +8,9 @@ const fs   = require('fs');
 const path = require('path');
 const aiClient = require('./lib/ai-client');
 const { withCrawlLock } = require('./lib/crawl-lock');
+const { categorizeKeyword } = require('./lib/categorize');
+let trendDB = null;
+try { trendDB = require('./trend-db'); } catch (e) { console.warn('[warn] trend-db not loaded:', e.message); }
 
 const CONFIG = {
   chromePath:  process.env.CHROME_PATH    || '/usr/bin/google-chrome',
@@ -165,11 +168,29 @@ async function scrapeTrends(url, label) {
   }
 }
 
-// ── AI دسته‌بندی (fallback مدل‌ها + rate limit سراسری از lib/ai-client) ──
+// ── دسته‌بندی ترندها ────────────────────────────────────────
+// سه لایه، به این ترتیب: کش (دسته‌ای که قبلاً گرفته‌ایم) → AI (بهترین کیفیت،
+// ولی سهمیه رایگانش تقریباً هر روز تمام می‌شود) → قاعده‌محور (همیشه جواب می‌دهد).
+// قبلاً فقط لایه AI بود، برای همین وقتی سهمیه تمام می‌شد همه ترندها بدون دسته
+// ذخیره می‌شدند و کارت «موضوعات غالب» همیشه خالی بود.
 async function aiCategorize(trends) {
   if (!trends.length) return trends;
-  const keywords = trends.map((t,i)=>`${i+1}. ${t.keyword}`).join('\n');
-  const prompt = `این لیست کلیدواژه‌های ترند جستجو در ایران است. برای هر کدام یک دسته‌بندی فارسی مناسب بنویس.
+
+  const cats = new Array(trends.length).fill('');
+
+  // ۱) کش
+  if (trendDB) {
+    trends.forEach((t, i) => {
+      const c = trendDB.getCachedCat(t.keyword);
+      if (c) cats[i] = c;
+    });
+  }
+
+  // ۲) AI — فقط برای آن‌هایی که هنوز دسته ندارند
+  const missing = trends.map((t, i) => ({ t, i })).filter(x => !cats[x.i]);
+  if (missing.length) {
+    const keywords = missing.map((x, n) => `${n + 1}. ${x.t.keyword}`).join('\n');
+    const prompt = `این لیست کلیدواژه‌های ترند جستجو در ایران است. برای هر کدام یک دسته‌بندی فارسی مناسب بنویس.
 
 ${keywords}
 
@@ -178,20 +199,48 @@ ${keywords}
 
 دسته‌بندی‌های مجاز (فقط از این‌ها): ورزشی، اقتصادی، سیاسی، سرگرمی، اجتماعی، مذهبی، تکنولوژی، خودرو، سلامت، مالی، قیمت کالا، علم`;
 
-  const catMap = await aiClient.callJSON(prompt, { max_tokens: 2000, tag: 'trend-categorize' });
-  const hasCats = catMap && Object.values(catMap).some(v => v && String(v).trim());
-  if (!hasCats) {
-    console.warn('[AI categorize] all models failed or empty, returning without categories');
-    return trends;
+    const catMap = await aiClient.callJSON(prompt, { max_tokens: 2000, tag: 'trend-categorize' });
+    if (catMap) {
+      const learned = [];
+      missing.forEach((x, n) => {
+        const c = catMap[String(n + 1)];
+        if (c && String(c).trim()) {
+          cats[x.i] = String(c).trim();
+          learned.push([x.t.keyword, cats[x.i]]);
+        }
+      });
+      if (learned.length) {
+        console.log(`[AI] categories assigned for ${learned.length} keyword(s)`);
+        if (trendDB) trendDB.setCachedCatBulk(learned, 'ai');
+      }
+    }
   }
-  console.log('[AI] categories assigned');
-  return trends.map((t,i) => ({ ...t, cat: catMap[String(i+1)] || '' }));
+
+  // ۳) قاعده‌محور — تور ایمنی برای هر چه هنوز خالی مانده
+  const ruled = [];
+  trends.forEach((t, i) => {
+    if (cats[i]) return;
+    const c = categorizeKeyword(t.keyword);
+    if (c) { cats[i] = c; ruled.push([t.keyword, c]); }
+  });
+  if (ruled.length) {
+    console.log(`[categorize] ${ruled.length} keyword(s) categorized by rules`);
+    if (trendDB) trendDB.setCachedCatBulk(ruled, 'rule');
+  }
+
+  return trends.map((t, i) => ({ ...t, cat: cats[i] || '' }));
 }
 
 function save(key, data) {
-  const payload = { updatedAt: new Date().toISOString(), count: data.length, trends: data };
+  const capturedAt = new Date().toISOString();
+  const payload = { updatedAt: capturedAt, count: data.length, trends: data };
   fs.writeFileSync(path.join(CONFIG.dataDir, `${key}.json`), JSON.stringify(payload, null, 2));
   console.log(`[save] ${key}.json — ${data.length} items`);
+  // JSON بالا هر بار replace می‌شود؛ نسخه تاریخی را هم نگه دار (فرانت فعلی دست‌نخورده می‌ماند)
+  if (trendDB) {
+    try { trendDB.saveSnapshot(data, key === 'h4' ? '4h' : '24h', capturedAt); }
+    catch (e) { console.warn('[trend-db] saveSnapshot error:', e.message); }
+  }
 }
 
 function load(key) {
