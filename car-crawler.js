@@ -8,6 +8,7 @@
 const puppeteer = require('puppeteer');
 const carDB = require('./car-db');
 const { withCrawlLock } = require('./lib/crawl-lock');
+const { makeProfileDir, cleanupProfileDir } = require('./lib/browser-lifecycle');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -34,6 +35,7 @@ const MILEAGE_MAX = 2_000_000;
 
 let browser = null;
 let browserTimer = null;
+let browserProfileDir = null;
 
 async function safeKillBrowser() {
   if (browserTimer) { clearTimeout(browserTimer); browserTimer = null; }
@@ -45,14 +47,20 @@ async function safeKillBrowser() {
     }
   } catch (e) { /* ignore */ }
   browser = null;
+  // Puppeteer's own temp-dir cleanup does not reliably fire under SIGKILL (this is
+  // what filled the disk to 100% on 2026-08-05). We own the dir, so we delete it.
+  cleanupProfileDir(browserProfileDir);
+  browserProfileDir = null;
 }
 
 async function getBrowser() {
   try { if (browser && browser.isConnected()) return browser; } catch (e) {}
   await safeKillBrowser();
+  browserProfileDir = makeProfileDir('cars');
   browser = await puppeteer.launch({
     executablePath: CONFIG.chromePath,
     headless: 'new',
+    userDataDir: browserProfileDir,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
   });
   browserTimer = setTimeout(() => safeKillBrowser(), CONFIG.maxCrawlMs + 60000);

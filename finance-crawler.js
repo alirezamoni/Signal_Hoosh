@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const financeDB = require('./finance-db');
 const { withCrawlLock } = require('./lib/crawl-lock');
+const { makeProfileDir, cleanupProfileDir } = require('./lib/browser-lifecycle');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -14,6 +15,7 @@ const CONFIG = {
 
 let browser = null;
 let browserTimer = null;
+let browserProfileDir = null;
 let consecutiveFailures = 0;  // backoff counter
 let lastFailureAt = 0;
 
@@ -29,6 +31,10 @@ async function safeKillBrowser() {
     }
   } catch (e) { /* ignore */ }
   browser = null;
+  // Puppeteer's own temp-dir cleanup does not reliably fire under SIGKILL (this is
+  // what filled the disk to 100% on 2026-08-05). We own the dir, so we delete it.
+  cleanupProfileDir(browserProfileDir);
+  browserProfileDir = null;
 }
 
 async function getBrowser() {
@@ -36,9 +42,11 @@ async function getBrowser() {
   try { if (browser && browser.isConnected()) return browser; } catch (e) {}
   // Kill the old one first (it's dead or dying)
   await safeKillBrowser();
+  browserProfileDir = makeProfileDir('finance');
   const b = await puppeteer.launch({
     executablePath: CONFIG.chromePath,
     headless: 'new',
+    userDataDir: browserProfileDir,
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
   browser = b;

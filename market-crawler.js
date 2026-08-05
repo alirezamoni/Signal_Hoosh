@@ -5,6 +5,7 @@
 const puppeteer = require('puppeteer');
 const marketDB  = require('./market-db');
 const { withCrawlLock } = require('./lib/crawl-lock');
+const { makeProfileDir, cleanupProfileDir } = require('./lib/browser-lifecycle');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -13,11 +14,17 @@ const CONFIG = {
 };
 
 let browser = null;
+let browserProfileDir = null;
 async function getBrowser() {
   if (browser && browser.isConnected()) return browser;
+  // if the previous browser died on its own (crash/disconnect), its temp profile
+  // dir was never cleaned up — same leak class that filled the disk on 2026-08-05
+  cleanupProfileDir(browserProfileDir);
+  browserProfileDir = makeProfileDir('market');
   browser = await puppeteer.launch({
     executablePath: CONFIG.chromePath,
     headless: 'new',
+    userDataDir: browserProfileDir,
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
   return browser;

@@ -555,6 +555,11 @@ app.use((req, res) => {
 
 db.seedSuperAdmin();
 
+// Safety net for the 2026-08-05 disk-full outage: if the process was killed
+// mid-crawl (crash, OOM, `pm2 kill`), the in-memory reference to that crawl's
+// Chrome profile dir is lost and it leaks forever. Sweep anything stale on boot.
+try { require('./lib/browser-lifecycle').sweepStaleProfileDirs(); } catch (e) { console.warn('[warn] profile-dir sweep failed:', e.message); }
+
 app.listen(PORT, () => {
   console.log(`\nSignal → http://localhost:${PORT}`);
   _crawlers.scheduler?.startScheduler?.();
