@@ -30,6 +30,19 @@ async function getBrowser() {
   return browser;
 }
 
+// این کرالر فقط روزی یک‌بار اجرا می‌شود؛ نگه‌داشتن کروم زنده بین دو اجرا (۲۴ ساعت
+// فاصله) فقط رم را برای هیچ به هدر می‌دهد — و روی این سرور که به‌خاطر ری‌استارت‌های
+// مکرر PM2 هر بار بلافاصله بعد از boot این کرال اول اجرا می‌شود، چند کروم دائمی
+// (این + job-crawler) کنار هم دقیقاً همان چیزی بود که حافظه را به سقف رساند.
+async function closeBrowser() {
+  try {
+    if (browser) { const p = browser.process(); if (p) p.kill('SIGKILL'); await browser.close().catch(() => {}); }
+  } catch (e) { /* ignore */ }
+  browser = null;
+  cleanupProfileDir(browserProfileDir);
+  browserProfileDir = null;
+}
+
 async function scrapeDigikala(url, label) {
   const b = await getBrowser();
   const page = await b.newPage();
@@ -143,6 +156,8 @@ async function crawlMarket() {
   } catch(e) {
     console.error('[market crawl] error:', e.message);
     return { error: e.message };
+  } finally {
+    await closeBrowser();
   }
 }
 

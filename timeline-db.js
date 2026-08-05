@@ -15,6 +15,16 @@ const db = new Database(path.join(DATA_DIR, 'timeline.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
 
+// detected_at/expires_at are ISO-8601 strings written from JS ("2026-08-03T20:41:11.758Z").
+// SQLite's own datetime('now', ...) produces a different-looking, space-separated format
+// ("2026-08-03 20:41:11"), so comparing the raw column against it never worked. Wrapping
+// the COLUMN in datetime() "fixed" that but made the query non-sargable (SCAN instead of
+// SEARCH on the index) — with timeline_events past ~15k rows and this called every 60s
+// from the fastLoop, that pegged the CPU and froze the whole HTTP server. Computing the
+// bound as an ISO string in JS keeps both sides the same format AND keeps the index usable.
+function isoMinutesAgo(m) { return new Date(Date.now() - (m || 0) * 60000).toISOString(); }
+function isoHoursAgo(h) { return new Date(Date.now() - (h || 0) * 3600000).toISOString(); }
+
 // ════════════════════════════════════════════════════════
 //  SCHEMA
 // ════════════════════════════════════════════════════════
@@ -281,17 +291,16 @@ const _seedSrc = db.prepare(
    VALUES (?,?,?,?,?,?,?,?)`
 );
 const DEFAULT_SOURCES = [
-  ['news_agency', null, 'خبرگزاری‌های رسمی', 0.85, 'neutral', 'fast', 0.85, 0],
-  ['telegram_channel', null, 'کانال تلگرامی خبری', 0.50, 'unknown', 'fast', 0.50, 0],
-  ['finance_tg', null, 'کانال تلگرامی قیمت', 0.75, 'neutral', 'real_time', 0.75, 0],
-  ['rss', null, 'Google Trends RSS', 0.75, 'neutral', 'medium', 0.75, 0],
-  ['polymarket', null, 'Polymarket', 0.70, 'neutral', 'medium', 0.70, 0],
-  ['finance_api', null, 'tgju.org', 0.90, 'neutral', 'fast', 0.90, 0],
+  ['news_agency', '', 'خبرگزاری‌های رسمی', 0.85, 'neutral', 'fast', 0.85, 0],
+  ['telegram_channel', '', 'کانال تلگرامی خبری', 0.50, 'unknown', 'fast', 0.50, 0],
+  ['finance_tg', '', 'کانال تلگرامی قیمت', 0.75, 'neutral', 'real_time', 0.75, 0],
+  ['rss', '', 'Google Trends RSS', 0.75, 'neutral', 'medium', 0.75, 0],
+  ['polymarket', '', 'Polymarket', 0.70, 'neutral', 'medium', 0.70, 0],
+  ['finance_api', '', 'tgju.org', 0.90, 'neutral', 'fast', 0.90, 0],
 ];
-// NOTE: UNIQUE(source_type, source_key) cannot dedupe the default rows because
-// SQLite treats NULLs as distinct, so every module load would append duplicates.
-// Guard explicitly on (source_type, source_key IS NULL).
-const _srcDefaultExists = db.prepare('SELECT 1 FROM source_reliability WHERE source_type=? AND source_key IS NULL');
+// '' (not NULL — see the note on upsertSourceReliability above) is the sentinel for
+// "no specific key", so the exists-guard and seed rows below must use it too.
+const _srcDefaultExists = db.prepare("SELECT 1 FROM source_reliability WHERE source_type=? AND source_key=''");
 const _seedSrcs = db.transaction(() => DEFAULT_SOURCES.forEach(s => {
   if (!_srcDefaultExists.get(s[0])) _seedSrc.run(...s);
 }));
@@ -363,10 +372,8 @@ function recomputeDecay(id) {
 }
 function getEvent(id) { return db.prepare('SELECT * FROM timeline_events WHERE id=?').get(id); }
 function getEventsSince(minutes, nodeKey) {
-  // detected_at is ISO-8601 from JS; without datetime() the raw-string compare made
-  // every event from today pass, so "last 3 minutes" was returning ~900 rows.
-  const params = [`-${minutes} minutes`];
-  let sql = `SELECT * FROM timeline_events WHERE datetime(detected_at) >= datetime('now',?)`;
+  const params = [isoMinutesAgo(minutes)];
+  let sql = `SELECT * FROM timeline_events WHERE detected_at >= ?`;
   if (nodeKey) { sql += ' AND node_key=?'; params.push(nodeKey); }
   sql += ' ORDER BY detected_at DESC';
   return db.prepare(sql).all(...params);
@@ -383,7 +390,7 @@ function getUnlinkedEvents(hours) {
   // events in last `hours` not referenced by any ACTIVE chain (archived chains release their events)
   return db.prepare(`
     SELECT e.* FROM timeline_events e
-    WHERE datetime(e.detected_at) >= datetime('now', ?)
+    WHERE e.detected_at >= ?
       AND e.id NOT IN (
         SELECT value FROM signal_chains, json_each(json_extract(signal_chains.event_ids,'$.roots')) WHERE signal_chains.status='active'
         UNION
@@ -392,29 +399,36 @@ function getUnlinkedEvents(hours) {
         SELECT value FROM signal_chains, json_each(json_extract(signal_chains.root_causes,'$')) WHERE signal_chains.status='active'
       )
     ORDER BY e.detected_at ASC
-  `).all(`-${hours || 6} hours`);
+  `).all(isoHoursAgo(hours || 6));
 }
 function getLatestByNodeTopic(nodeKey, topic, minutes) {
   return db.prepare(`
     SELECT * FROM timeline_events
     WHERE node_key=? AND (topic=? OR ? IS NULL)
-      AND datetime(detected_at) >= datetime('now',?)
+      AND detected_at >= ?
     ORDER BY detected_at DESC LIMIT 1
-  `).get(nodeKey, topic, topic, `-${minutes || 30} minutes`);
+  `).get(nodeKey, topic, topic, isoMinutesAgo(minutes || 30));
 }
 function countEventsByNode(nodeKey, minutes) {
   const r = db.prepare(`
     SELECT COUNT(*) c FROM timeline_events
-    WHERE node_key=? AND datetime(detected_at) >= datetime('now',?)
-  `).get(nodeKey, `-${minutes || 60} minutes`);
+    WHERE node_key=? AND detected_at >= ?
+  `).get(nodeKey, isoMinutesAgo(minutes || 60));
   return r ? r.c : 0;
 }
 
 // ════════════════════════════════════════════════════════
 //  SOURCE RELIABILITY  (§5.7)
 // ════════════════════════════════════════════════════════
+// Same NULL-uniqueness bug as signal_edges: UNIQUE(source_type,source_key) does not
+// dedupe when source_key is NULL, and getReliabilityForSource's "no specific key"
+// fallback intentionally used NULL as that sentinel — so every call for a channel
+// without a stable key (e.g. no username) inserted a fresh duplicate default row.
+// Confirmed in production: source_reliability reached 20,501 rows, ~99.9% of them
+// NULL-keyed duplicates with sample_count 0, all for the same handful of source
+// types. '' is the sentinel now instead of NULL, since '' does compare equal to ''.
 const _srcExact = db.prepare('SELECT * FROM source_reliability WHERE source_type=? AND source_key=?');
-const _srcDefault = db.prepare('SELECT * FROM source_reliability WHERE source_type=? AND source_key IS NULL');
+const _srcDefault = db.prepare("SELECT * FROM source_reliability WHERE source_type=? AND source_key=''");
 function getReliabilityForSource(sourceType, sourceKey) {
   if (sourceKey) {
     const r = _srcExact.get(sourceType, sourceKey);
@@ -449,7 +463,7 @@ const _upsertSrc = db.prepare(`
 `);
 function upsertSourceReliability(src) {
   _upsertSrc.run(
-    src.source_type, src.source_key || null, src.label || null,
+    src.source_type, src.source_key || '', src.label || null,
     src.historical_accuracy != null ? src.historical_accuracy : 0.5,
     src.bias || 'unknown', src.update_speed || 'medium',
     src.reliability != null ? src.reliability : 0.5,
@@ -488,7 +502,15 @@ const _upsertEdge = db.prepare(`
     updated_at=datetime('now')
 `);
 function upsertEdge(e) {
-  _upsertEdge.run(e.from_node, e.to_node, e.topic || null, e.regime || 'normal',
+  // SQLite's UNIQUE constraint treats every NULL as distinct from every other NULL,
+  // so UNIQUE(from_node,to_node,topic,regime) does NOT dedupe rows where topic is
+  // NULL — which is exactly what the main discovery loop always passes (no topic
+  // filter). Every 30-min discovery cycle inserted a fresh duplicate instead of
+  // updating the existing row: confirmed in production, signal_edges reached
+  // 1,506,461 rows (279MB) over about a week before this was caught, and every
+  // getEdgeTo/getEdgesFrom call scanning that table was what froze the whole
+  // server. '' compares equal to '' under UNIQUE, so it dedupes correctly.
+  _upsertEdge.run(e.from_node, e.to_node, e.topic || '', e.regime || 'normal',
     e.lead_time_min, e.lead_time_std || null, e.reliability || 0, e.correlation || 0,
     e.sample_count || 0, e.last_confirmed || null);
 }
@@ -604,12 +626,9 @@ function getPredictions(status, filter, limit) {
   return rows;
 }
 function getExpiredOpen() {
-  // datetime() on BOTH sides is required: expires_at is written from JS as ISO-8601
-  // ("2026-08-03T20:41:11.758Z") while datetime('now') yields "2026-08-03 23:04:12".
-  // Compared as raw strings the 'T' (0x54) sorts after the space (0x20), so an expired
-  // prediction never satisfied <= and NOTHING was ever validated — the learning loop
-  // had been starved since day one.
-  return db.prepare("SELECT * FROM predictions WHERE status='open' AND datetime(expires_at) <= datetime('now')").all();
+  // expires_at is ISO-8601 from JS; compare against a JS-computed ISO "now" (see
+  // isoMinutesAgo above) instead of wrapping the column in datetime().
+  return db.prepare("SELECT * FROM predictions WHERE status='open' AND expires_at <= ?").all(new Date().toISOString());
 }
 function insertPredictionUpdate(u) {
   db.prepare(

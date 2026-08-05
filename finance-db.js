@@ -9,6 +9,14 @@ const db = new Database(path.join(DATA_DIR, 'finance.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
 
+// timestamp is ISO-8601 from JS. Wrapping the column in datetime() to compare against
+// datetime('now', ...) works but is non-sargable (forces a full scan instead of using
+// idx_fin_ts) — computing the bound as an ISO string in JS keeps both sides the same
+// format without giving up the index. getHistory() in particular is called per
+// symbol/horizon from the causal-discovery engine's counterfactual baseline on every
+// prediction validation, so this was compounding badly as finance_snapshots grew.
+function isoHoursAgo(h) { return new Date(Date.now() - (h || 0) * 3600000).toISOString(); }
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS finance_snapshots (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,9 +95,9 @@ function getLatestBySymbol(symbol) {
 function getSparkline(symbol, points = 30) {
   const rows = db.prepare(`
     SELECT price, timestamp FROM finance_snapshots
-    WHERE symbol=? AND datetime(timestamp) >= datetime('now','-24 hours')
+    WHERE symbol=? AND timestamp >= ?
     ORDER BY timestamp ASC
-  `).all(symbol);
+  `).all(symbol, isoHoursAgo(24));
   if (!rows.length) return [];
   // sample down to ~points
   const step = Math.max(1, Math.floor(rows.length / points));
@@ -103,9 +111,9 @@ function getSparkline(symbol, points = 30) {
 function getHistory(symbol, hours = 24) {
   return db.prepare(`
     SELECT * FROM finance_snapshots
-    WHERE symbol=? AND datetime(timestamp) >= datetime('now', ?)
+    WHERE symbol=? AND timestamp >= ?
     ORDER BY timestamp ASC
-  `).all(symbol, `-${hours} hours`);
+  `).all(symbol, isoHoursAgo(hours));
 }
 
 // ── Changes: daily, 3m, 6m, yearly ─────────────────────
@@ -116,9 +124,9 @@ function getChanges(symbol) {
   function priceAt(hoursAgo) {
     return db.prepare(`
       SELECT price FROM finance_snapshots
-      WHERE symbol=? AND datetime(timestamp) <= datetime('now', ?)
+      WHERE symbol=? AND timestamp <= ?
       ORDER BY timestamp DESC LIMIT 1
-    `).get(symbol, `-${hoursAgo} hours`);
+    `).get(symbol, isoHoursAgo(hoursAgo));
   }
 
   function calc(old) {
