@@ -802,6 +802,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .basis-badge.prior{color:#e0a94f;border-color:#7a5d24}
 .basis-badge.edge{color:#8b9dc3;border-color:#3d4a63}
 .basis-badge.learned{color:#4fbf7f;border-color:#2f6b4a}
+
+.car-sub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:12px}
+.car-sub-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.car-sub-img{width:100%;height:90px;object-fit:cover;background:var(--bg2)}
+.car-sub-body{padding:10px 12px}
+.car-sub-name{font-size:12.5px;font-weight:700;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.car-sub-price{font-size:14px;font-weight:800}
+.car-sub-km{font-size:10.5px;color:var(--text3);margin-top:3px}
+@media(max-width:900px){
+  .cars-wrap .market-summary{grid-template-columns:repeat(3,1fr)}
+  .car-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  .car-sub-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+}
+@media(max-width:600px){
+  .cars-wrap .market-summary{grid-template-columns:repeat(2,1fr)}
+  .cars-wrap .finance-inner{padding:10px 10px}
+  .car-grid{grid-template-columns:1fr}
+  .car-sub-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .car-metrics{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -1339,13 +1359,22 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 <!-- ═══ ترند آینده — Future Timeline ═══ -->
 <div class="cars-wrap" id="carsWrap">
   <div class="finance-inner">
-    <blockquote class="future-desc">بازار خودروی ایران از روی آگهی‌های دیوار، هر ۱۲ ساعت یک‌بار در سه رده (پایین، میان، بالا) رصد می‌شود. برای هر برند حدود ۵۰ آگهی نمونه‌برداری و میانگین و میانه قیمت و کارکرد محاسبه می‌شود. سنجه کلیدی این بخش «قیمت بر کارکرد» است: چند تومان بابت هر کیلومتری که خودرو رفته پرداخت می‌کنید — عددی که مقایسه پراید تا بنز را ممکن می‌کند. چون در آگهی‌ها قیمت‌های پرت زیاد است، میانه ملاک اصلی است و آگهی‌های پرت با روش IQR کنار گذاشته می‌شوند.</blockquote>
+    <blockquote class="future-desc">تحلیل روند بازار خودرو ایران بر پایه داده‌های خرید و فروش. این بخش تغییرات قیمت، حجم آگهی‌ها، خودروهای داغ بازار و روند عرضه و تقاضا را نمایش می‌دهد. با توجه به اینکه خودرو در سال‌های اخیر علاوه بر یک کالای مصرفی، به یکی از دارایی‌های سرمایه‌ای (Investment Asset) در ایران تبدیل شده است، رصد این شاخص‌ها می‌تواند تصویری از انتظارات تورمی، رفتار سرمایه‌گذاران و جهت حرکت نقدینگی در اقتصاد ارائه دهد.</blockquote>
 
-    <div class="msum-grid" id="carSummary"></div>
+    <div class="market-summary" id="carSummary"></div>
 
     <div class="future-section">
       <div class="future-header"><h3>وضعیت فعلی بازار</h3></div>
       <div class="car-grid" id="carGrid">
+        <div class="car-skel"></div><div class="car-skel"></div><div class="car-skel"></div>
+      </div>
+    </div>
+
+    <div class="future-section">
+      <div class="future-header"><h3>تنوع مدل‌ها و زیرمدل‌ها</h3></div>
+      <blockquote class="future-desc">میانگین قیمت و کارکرد هر تریم/نسخه (مثلاً «سورن پلاس EF7 بنزینی» در برابر «LX ساده») مستقیماً از آمار دیوار روی کل آگهی‌های آن برند می‌آید، نه فقط نمونه ۵۰ تایی ما — تصویر کامل‌تری از تنوع بازار هر برند می‌دهد.</blockquote>
+      <div class="filter-chips" id="carSubChips"></div>
+      <div class="car-sub-grid" id="carSubGrid">
         <div class="car-skel"></div><div class="car-skel"></div><div class="car-skel"></div>
       </div>
     </div>
@@ -2015,14 +2044,19 @@ function carChg(pct){
 async function loadCars(){
   if(CARS_LOADED) return;
   try{
-    const r = await fetch('/api/cars/latest',{headers:{Authorization:'Bearer '+TOKEN}});
+    const [r,mr] = await Promise.all([
+      fetch('/api/cars/latest',{headers:{Authorization:'Bearer '+TOKEN}}),
+      fetch('/api/cars/momentum?days=14',{headers:{Authorization:'Bearer '+TOKEN}}),
+    ]);
     if(!r.ok) throw new Error('http '+r.status);
     const data = await r.json();
-    renderCarSummary(data);
+    const momentum = mr.ok ? await mr.json() : [];
+    renderCarSummary(data, momentum);
     renderCarGrid(data.models||[]);
     renderCarPerKmChart(data.models||[]);
     loadCarMetrics();
     loadCarTrend(data.models||[]);
+    loadCarSubmodels();
     CARS_LOADED = true;
   }catch(e){
     document.getElementById('carGrid').innerHTML =
@@ -2030,7 +2064,7 @@ async function loadCars(){
   }
 }
 
-function renderCarSummary(data){
+function renderCarSummary(data, momentum){
   const models=(data.models||[]).filter(m=>m.snapshot);
   const el=document.getElementById('carSummary');
   if(!models.length){ el.innerHTML=''; return; }
@@ -2038,11 +2072,58 @@ function renderCarSummary(data){
   const chp=models.find(m=>m.slug===data.summary.cheapest);
   const totalListings=models.reduce((s,m)=>s+(m.snapshot.listing_count||0),0);
   const updated=models[0].snapshot.captured_at;
+
+  const withMomentum=(momentum||[]).filter(m=>m.pct_per_day!=null);
+  const riser=withMomentum.length?withMomentum.reduce((a,b)=>b.pct_per_day>a.pct_per_day?b:a):null;
+  const faller=withMomentum.length?withMomentum.reduce((a,b)=>b.pct_per_day<a.pct_per_day?b:a):null;
+
   el.innerHTML=
     '<div class="msum-card"><div class="msum-label">مدل‌های رصد شده</div><div class="msum-val">'+toFa(models.length)+'</div><div class="msum-sub">'+toFa(totalListings)+' آگهی نمونه</div></div>'+
-    '<div class="msum-card hot"><div class="msum-label">گران‌ترین</div><div class="msum-val">'+(exp?exp.name_fa:'—')+'</div><div class="msum-sub">'+(exp?carToman(exp.snapshot.median_price)+' تومان':'')+'</div></div>'+
-    '<div class="msum-card cold"><div class="msum-label">ارزان‌ترین</div><div class="msum-val">'+(chp?chp.name_fa:'—')+'</div><div class="msum-sub">'+(chp?carToman(chp.snapshot.median_price)+' تومان':'')+'</div></div>'+
+    '<div class="msum-card hot"><div class="msum-label">بیشترین رشد قیمت</div><div class="msum-val">'+(riser&&riser.pct_per_day>0.05?riser.name_fa:'—')+'</div><div class="msum-sub">'+(riser&&riser.pct_per_day>0.05?toFa(riser.pct_per_day.toFixed(2))+'٪ در روز':'داده کافی نیست')+'</div></div>'+
+    '<div class="msum-card cold"><div class="msum-label">بیشترین افت قیمت</div><div class="msum-val">'+(faller&&faller.pct_per_day<-0.05?faller.name_fa:'—')+'</div><div class="msum-sub">'+(faller&&faller.pct_per_day<-0.05?toFa(Math.abs(faller.pct_per_day).toFixed(2))+'٪ در روز':'داده کافی نیست')+'</div></div>'+
+    '<div class="msum-card up"><div class="msum-label">گران‌ترین برند</div><div class="msum-val">'+(exp?exp.name_fa:'—')+'</div><div class="msum-sub">'+(exp?carToman(exp.snapshot.median_price)+' تومان':'')+'</div></div>'+
+    '<div class="msum-card down"><div class="msum-label">ارزان‌ترین برند</div><div class="msum-val">'+(chp?chp.name_fa:'—')+'</div><div class="msum-sub">'+(chp?carToman(chp.snapshot.median_price)+' تومان':'')+'</div></div>'+
     '<div class="msum-card"><div class="msum-label">آخرین بروزرسانی</div><div class="msum-val" style="font-size:15px">'+fmtDate(updated)+'</div><div class="msum-sub">هر ۱۲ ساعت</div></div>';
+}
+
+let CAR_SUB_DATA = null, CAR_SUB_ACTIVE = null;
+async function loadCarSubmodels(){
+  try{
+    const r = await fetch('/api/cars/submodels',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok) return;
+    CAR_SUB_DATA = await r.json();
+    const slugs = Object.keys(CAR_SUB_DATA);
+    if(!slugs.length){
+      document.getElementById('carSubGrid').innerHTML = '<div class="car-empty">هنوز داده‌ای ثبت نشده است.</div>';
+      return;
+    }
+    CAR_SUB_ACTIVE = slugs[0];
+    document.getElementById('carSubChips').innerHTML = slugs.map((s,i)=>{
+      const name = CAR_SUB_DATA[s][0] ? CAR_SUB_DATA[s][0].model_name : s;
+      return '<button class="msrc-btn'+(i===0?' active':'')+'" onclick="filterCarSub(\''+s+'\',this)">'+name+'</button>';
+    }).join('');
+    renderCarSubGrid();
+  }catch(e){}
+}
+function filterCarSub(slug, el){
+  CAR_SUB_ACTIVE = slug;
+  document.querySelectorAll('#carSubChips .msrc-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderCarSubGrid();
+}
+function renderCarSubGrid(){
+  const el = document.getElementById('carSubGrid');
+  const list = (CAR_SUB_DATA && CAR_SUB_ACTIVE) ? (CAR_SUB_DATA[CAR_SUB_ACTIVE]||[]) : [];
+  if(!list.length){ el.innerHTML = '<div class="car-empty">داده‌ای برای این برند نیست.</div>'; return; }
+  el.innerHTML = list.map(s=>{
+    const img = s.image_url ? '<img class="car-sub-img" src="'+s.image_url+'" alt="'+s.name_fa+'" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+    return '<div class="car-sub-card">'+img+
+      '<div class="car-sub-body">'+
+        '<div class="car-sub-name">'+s.name_fa+'</div>'+
+        '<div class="car-sub-price">'+carToman(s.avg_price)+' <span style="font-size:10px;font-weight:500;color:var(--text3)">تومان</span></div>'+
+        '<div class="car-sub-km">'+(s.avg_mileage?carKm(s.avg_mileage)+' کیلومتر':'کارکرد نامشخص')+'</div>'+
+      '</div></div>';
+  }).join('');
 }
 
 function renderCarGrid(models){

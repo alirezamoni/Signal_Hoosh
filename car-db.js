@@ -49,6 +49,25 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_cs_model ON car_snapshots(model_id);
   CREATE INDEX IF NOT EXISTS idx_cs_date  ON car_snapshots(snap_date);
+
+  -- زیرمدل‌ها (تریم/گیربکس/سوخت) از باکس آماری بالای صفحه دیوار، نه از تک‌تک آگهی‌ها.
+  -- این عدد را خود دیوار روی کل آگهی‌هایش حساب می‌کند (نه فقط نمونه ۵۰ تایی ما)،
+  -- برای همین جدا از car_snapshots نگه داشته می‌شود.
+  CREATE TABLE IF NOT EXISTS car_submodels (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id     INTEGER NOT NULL,
+    slug         TEXT NOT NULL,          -- از href دیوار، مثل samand/soren/plus/ef7-petrol
+    name_fa      TEXT NOT NULL,
+    avg_price    REAL,
+    avg_mileage  REAL,
+    image_url    TEXT,
+    captured_at  TEXT NOT NULL,
+    snap_date    TEXT NOT NULL,
+    slot         INTEGER NOT NULL,
+    UNIQUE(model_id, slug, snap_date, slot),
+    FOREIGN KEY(model_id) REFERENCES car_models(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_csub_model ON car_submodels(model_id);
 `);
 
 // ── مدل‌ها ────────────────────────────────────────────────
@@ -177,6 +196,43 @@ function getValueScores() {
   }));
 }
 
+// ── زیرمدل‌ها ────────────────────────────────────────────
+const _insertSubmodel = db.prepare(`
+  INSERT INTO car_submodels (model_id, slug, name_fa, avg_price, avg_mileage, image_url, captured_at, snap_date, slot)
+  VALUES (?,?,?,?,?,?,?,?,?)
+  ON CONFLICT(model_id, slug, snap_date, slot) DO UPDATE SET
+    name_fa=excluded.name_fa, avg_price=excluded.avg_price, avg_mileage=excluded.avg_mileage,
+    image_url=COALESCE(excluded.image_url, car_submodels.image_url), captured_at=excluded.captured_at
+`);
+
+function saveSubmodels(modelId, list, capturedAt) {
+  if (!list || !list.length) return;
+  const ts = capturedAt || new Date().toISOString();
+  const d = new Date(ts);
+  const slot = d.getUTCHours() < 12 ? 0 : 1;
+  const tx = db.transaction(rows => {
+    for (const r of rows) {
+      _insertSubmodel.run(modelId, r.slug, r.name_fa, r.avg_price ?? null, r.avg_mileage ?? null,
+        r.image_url || null, ts, ts.slice(0, 10), slot);
+    }
+  });
+  tx(list);
+}
+
+// آخرین زیرمدل‌های هر برند (برای دیدن «تنوع مدل‌ها»، مرتب بر اساس قیمت)
+function getLatestSubmodels() {
+  return db.prepare(`
+    SELECT cs.*, m.slug AS model_slug, m.name_fa AS model_name, m.tier AS model_tier
+    FROM car_submodels cs
+    JOIN car_models m ON m.id = cs.model_id
+    WHERE cs.captured_at = (
+      SELECT MAX(cs2.captured_at) FROM car_submodels cs2
+      WHERE cs2.model_id = cs.model_id AND cs2.slug = cs.slug
+    )
+    ORDER BY m.tier, m.name_fa, cs.avg_price DESC
+  `).all();
+}
+
 function getStats() {
   return db.prepare(`
     SELECT COUNT(*) snapshots, COUNT(DISTINCT model_id) models,
@@ -188,9 +244,12 @@ function getStats() {
 function cleanup() {
   const r = db.prepare(`DELETE FROM car_snapshots WHERE snap_date < date('now','-365 days')`).run();
   if (r.changes) console.log(`[car-db] cleanup: ${r.changes} old snapshots removed`);
+  const r2 = db.prepare(`DELETE FROM car_submodels WHERE snap_date < date('now','-365 days')`).run();
+  if (r2.changes) console.log(`[car-db] cleanup: ${r2.changes} old submodel rows removed`);
 }
 
 module.exports = {
   upsertModel, getModels, saveSnapshot, getLatest, getHistory,
   getMomentum, getValueScores, getStats, cleanup,
+  saveSubmodels, getLatestSubmodels,
 };

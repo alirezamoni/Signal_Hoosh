@@ -79,6 +79,21 @@ function parseNum(text) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// دیوار در باکس آماری بالای هر برند اعداد را به‌صورت «۱٫۱۵ میلیارد» یا
+// «۲۵۸ هزار کیلومتر» می‌نویسد (٫ = U+066B، جداکننده اعشار فارسی/عربی، نه همان نقطه).
+function parseFaAmount(text) {
+  if (!text) return null;
+  const t = faToEn(text).replace(/[,،٬]/g, '').replace(/٫/g, '.');
+  const m = t.match(/([\d.]+)/);
+  if (!m) return null;
+  let n = parseFloat(m[1]);
+  if (!isFinite(n)) return null;
+  if (/میلیارد/.test(text)) n *= 1e9;
+  else if (/میلیون/.test(text)) n *= 1e6;
+  else if (/هزار/.test(text)) n *= 1e3;
+  return Math.round(n);
+}
+
 function median(arr) {
   if (!arr.length) return null;
   const s = [...arr].sort((a, b) => a - b);
@@ -108,9 +123,53 @@ function trimOutliers(arr) {
   return kept.length >= Math.max(4, Math.floor(arr.length * 0.5)) ? kept : arr;
 }
 
+// باکس آماری زیرمدل‌ها (تریم/سوخت/گیربکس) بالای صفحه هر برند در دیوار — میانگین
+// قیمت و کارکردش را خود دیوار روی کل آگهی‌هایش حساب می‌کند، نه فقط نمونه ما.
+// نام کلاس‌ها (مثل card__content__title-IiIOrb) هر build عوض می‌شود، برای همین
+// روی پیشوند معنادار قبل از خط‌تیره match می‌کنیم، نه کل اسم کلاس.
+async function scrapeSubmodels(page) {
+  return page.evaluate(() => {
+    const out = [];
+    const seen = new Set();
+    for (const a of document.querySelectorAll('a[href*="/s/iran/car/"]')) {
+      const titleEl = a.querySelector('[class*="card__content__title"]');
+      if (!titleEl) continue; // لینک ناوبری معمولی، نه کارت زیرمدل
+      const href = (a.getAttribute('href') || '').split('?')[0];
+      if (!href || seen.has(href)) continue;
+      seen.add(href);
+      const labels = Array.from(a.querySelectorAll('[class*="description-title"]')).map(e => e.textContent.trim());
+      const values = Array.from(a.querySelectorAll('[class*="description-subtitle"]')).map(e => e.textContent.trim());
+      const img = a.querySelector('img');
+      const priceIdx = labels.findIndex(l => l.includes('قیمت'));
+      const mileageIdx = labels.findIndex(l => l.includes('کارکرد'));
+      out.push({
+        href,
+        title: titleEl.textContent.trim(),
+        priceText: priceIdx >= 0 ? values[priceIdx] : (values[0] || null),
+        mileageText: mileageIdx >= 0 ? values[mileageIdx] : (values[1] || null),
+        img: img ? (img.getAttribute('src') || '') : null,
+      });
+    }
+    return out;
+  });
+}
+
 async function scrapeModel(page, model) {
   await page.goto(model.url, { waitUntil: 'domcontentloaded', timeout: CONFIG.timeout });
   await new Promise(r => setTimeout(r, 5000));
+
+  // زیرمدل‌ها همین الان، قبل از اسکرول، در دام هستند — بخش ثابتی از بالای صفحه است
+  let submodels = [];
+  try {
+    const raw = await scrapeSubmodels(page);
+    submodels = raw.map(r => {
+      const slug = r.href.replace(/^\/s\/iran\/car\//, '');
+      const avg_price = parseFaAmount(r.priceText);
+      const avg_mileage = parseFaAmount(r.mileageText);
+      if (!avg_price) return null;
+      return { slug, name_fa: r.title, avg_price, avg_mileage, image_url: r.img };
+    }).filter(Boolean);
+  } catch (e) { console.warn(`[car] ${model.name_fa} submodel scrape error:`, e.message); }
 
   // دیوار آگهی‌ها را lazy load می‌کند؛ اسکرول تا رسیدن به تعداد هدف
   let listings = [];
@@ -177,6 +236,7 @@ async function scrapeModel(page, model) {
     median_mileage: median(cleanMileages),
     // تومان به ازای هر کیلومتر — میانه گرفته می‌شود تا آگهی‌های پرت اثر نگذارند
     price_per_km: median(trimOutliers(perKm)),
+    submodels,
   };
 }
 
@@ -202,8 +262,9 @@ async function _crawlCars() {
         if (!s) { console.warn(`[car] ${model.name_fa}: no usable listings`); continue; }
         const id = carDB.upsertModel({ ...model, image_url: s.image_url });
         carDB.saveSnapshot(id, s, capturedAt);
+        if (s.submodels && s.submodels.length) carDB.saveSubmodels(id, s.submodels, capturedAt);
         ok++;
-        console.log(`[car] ${model.name_fa}: ${s.listing_count} listings, median ${Math.round(s.median_price).toLocaleString()} تومان, ${s.price_per_km ? Math.round(s.price_per_km).toLocaleString() + ' تومان/کیلومتر' : 'price/km n/a'}`);
+        console.log(`[car] ${model.name_fa}: ${s.listing_count} listings (+${s.submodels ? s.submodels.length : 0} submodels), median ${Math.round(s.median_price).toLocaleString()} تومان, ${s.price_per_km ? Math.round(s.price_per_km).toLocaleString() + ' تومان/کیلومتر' : 'price/km n/a'}`);
       } catch (e) {
         console.warn(`[car] ${model.name_fa} error:`, e.message);
       }

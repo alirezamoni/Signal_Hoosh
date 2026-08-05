@@ -46,6 +46,16 @@ router.get('/history/:slug', (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// تنوع زیرمدل‌ها (تریم/سوخت/گیربکس) هر برند — از باکس آماری دیوار، گروه‌بندی‌شده
+router.get('/submodels', (req, res) => {
+  try {
+    const rows = carDB.getLatestSubmodels();
+    const grouped = {};
+    for (const r of rows) (grouped[r.model_slug] = grouped[r.model_slug] || []).push(r);
+    res.json(grouped);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // اجرای دستی کرال (برای وقتی که نمی‌خواهیم ۱۲ ساعت صبر کنیم)
 router.post('/crawl', (req, res) => {
   res.json({ message: 'car crawl started' });
