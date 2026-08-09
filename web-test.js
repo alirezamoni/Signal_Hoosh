@@ -174,7 +174,7 @@ function getNewsById(id) {
   try {
     return newsRO.prepare(`
       SELECT n.*, c.title channel_title, c.username channel_username, c.photo_url channel_photo
-      FROM news n LEFT JOIN channels c ON c.id=n.channel_id WHERE n.id=?`).get(id);
+      FROM news n LEFT JOIN channels c ON c.id=n.channel_id WHERE n.id=? AND COALESCE(n.blocked,0)=0`).get(id);
   } catch (e) { return null; }
 }
 
@@ -318,7 +318,7 @@ app.get('/news/:id', (req, res, next) => {
     related = newsRO.prepare(`
       SELECT n.id, n.text, n.text_fa, n.published_at, c.title channel_title, c.username channel_username
       FROM news n LEFT JOIN channels c ON c.id=n.channel_id
-      WHERE n.id != ? ORDER BY n.published_at DESC LIMIT 4`).all(id);
+      WHERE n.id != ? AND COALESCE(n.blocked,0)=0 ORDER BY n.published_at DESC LIMIT 4`).all(id);
   } catch (e) {}
   let fin = [];
   try { fin = (financeDB.getLatest() || []).slice(0, 4); } catch (e) {}
@@ -370,7 +370,7 @@ app.get('/sitemap.xml', (req, res) => {
   ];
   let items = '';
   try {
-    for (const r of newsRO.prepare('SELECT id, published_at FROM news ORDER BY published_at DESC LIMIT 2000').all()) {
+    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 ORDER BY published_at DESC LIMIT 2000').all()) {
       items += `<url><loc>${SITE}/news/${r.id}</loc><lastmod>${new Date(r.published_at).toISOString()}</lastmod><changefreq>never</changefreq><priority>0.6</priority></url>`;
     }
   } catch (e) {}

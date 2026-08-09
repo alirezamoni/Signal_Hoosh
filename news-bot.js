@@ -5,6 +5,7 @@
 const https  = require('https');
 const fs     = require('fs');
 const path   = require('path');
+const spamFilter = require('./lib/spam-filter');
 const newsDB = require('./news-db');
 const aiClient = require('./lib/ai-client');
 
@@ -319,6 +320,15 @@ function startNewsBot() {
 // تابع مشترک برای ذخیره پیام از Telethon
 async function translateAndSave(channel, msg) {
   const text = msg.text || '';
+
+  // فیلتر اسپم — تبلیغ شرط‌بندی/کلاهبرداری اصلاً ذخیره نمی‌شود
+  const spamHit = spamFilter.check(text);
+  if (spamHit) {
+    spamFilter.recordHit(spamHit.id);
+    console.log('[spam] blocked from', channel.title || channel.id, '| rule:', spamHit.pattern);
+    return;
+  }
+
   const lang = detectLang(text);
   let text_fa = null;
   // فقط اگه کانال نیاز به ترجمه داشته باشه و متن غیرفارسی باشه

@@ -122,7 +122,8 @@ function saveNews(item) {
 
 function getLatestNews(limit=20, channel_id=null, offset=0, since=0) {
   const sinceId = parseInt(since) || 0;
-  const where = [];
+  // اخبار بلاک‌شده (اسپم/تبلیغ) هرگز روی سایت نمایش داده نمی‌شوند
+  const where = ['COALESCE(n.blocked,0)=0'];
   const params = [];
   if (channel_id) { where.push('n.channel_id=?'); params.push(channel_id); }
   if (sinceId)     { where.push('n.id>?');        params.push(sinceId); }
