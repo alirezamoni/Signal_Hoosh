@@ -1,0 +1,90 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند اخبار ایران</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">ترند اخبار ایران</h1>
+      <p class="page-sub">اخبار لحظه‌ای از <%= fa(stats.channels || 0) %> کانال تلگرام · منابع غیرفارسی خودکار ترجمه می‌شوند</p>
+    </div>
+
+    <blockquote class="desc">
+      تحلیل هوشمند جریان خبری ایران و سنجش اثر اخبار بر رفتار بازار. این بخش، اخبار منتشرشده در
+      کانال‌های خبری پرمخاطب و با اخبار دقیق تلگرام را به‌صورت لحظه‌ای پایش کرده و با کمک هوش مصنوعی،
+      روندهای خبری، موضوعات داغ، شدت پوشش رسانه‌ای و تغییرات فضای خبری را تحلیل می‌کند. از آنجا که
+      اخبار یکی از محرک‌های اصلی احساسات عمومی و تصمیمات اقتصادی است، این داده‌ها امکان شناسایی
+      ارتباط میان رویدادهای خبری، تغییر احساسات بازار و شکل‌گیری روندهای جدید را فراهم می‌کنند.
+    </blockquote>
+
+    <div class="grid g4 mb3">
+      <div class="kpi"><div class="kpi-label">خبر امروز</div><div class="kpi-val"><%= fa(stats.today || 0) %></div><div class="kpi-note">مجموع <%= fa(stats.total || 0) %> خبر ذخیره‌شده</div></div>
+      <div class="kpi"><div class="kpi-label">کانال فعال</div><div class="kpi-val"><%= fa(stats.channels || 0) %></div><div class="kpi-note">منابع رصد‌شده</div></div>
+      <div class="kpi"><div class="kpi-label">دارای عکس یا ویدیو</div><div class="kpi-val"><%= fa(stats.withMedia || 0) %></div><div class="kpi-note">از کل اخبار</div></div>
+      <div class="kpi"><div class="kpi-label">پرکارترین منبع</div><div class="kpi-val fa"><%= stats.topChannel || '—' %></div><div class="kpi-note"><%= fa(stats.topChannelCount || 0) %> خبر</div></div>
+    </div>
+
+    <div class="filters" data-filters>
+      <span class="filters-label">کانال:</span>
+      <a class="filt<%= !current ? ' on' : '' %>" href="/news">همه</a>
+      <% channels.slice(0, 10).forEach(function (c) { %>
+      <a class="filt<%= String(current) === String(c.id) ? ' on' : '' %>" href="/news?channel=<%= c.id %>"><%= c.title || c.username %></a>
+      <% }); %>
+    </div>
+
+    <div class="grid g3">
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9h4M18 14h-8M15 18h-5M10 6h8v4h-8V6z"/></svg>
+            فید زنده
+          </h2>
+          <span class="panel-link">با اسکرول، اخبار بیشتری بارگذاری می‌شود</span>
+        </div>
+
+        <div class="panel-body-flush" id="newsFeed">
+          <% if (!news.length) { %>
+            <div class="sentinel"><div class="sentinel-txt">خبری برای نمایش نیست.</div></div>
+          <% } %>
+          <% news.forEach(function (n) { %>
+            <%- include('../partials/news-row', { n: n, fa: fa, timeAgo: timeAgo, mediaOf: mediaOf, excerpt: excerpt }) %>
+          <% }); %>
+        </div>
+
+        <div class="sentinel" id="newsSentinel">
+          <div class="spinner"></div>
+          <div class="sentinel-txt">در حال بارگذاری اخبار بیشتر…</div>
+        </div>
+      </section>
+
+      <div class="stack" style="gap:var(--s3);">
+        <% if (digest) { %>
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">گزارش خبری هوشمند</h2>
+            <span class="panel-link">هر ۴ ساعت</span>
+          </div>
+          <div class="ai-body"><%= digest.text %></div>
+        </section>
+        <% } %>
+
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">پرکارترین منابع</h2><span class="panel-link">امروز</span></div>
+          <div class="panel-body">
+            <% topChannels.forEach(function (c) { %>
+            <a class="drow" href="/news?channel=<%= c.id %>">
+              <div class="drow-main">
+                <% if (c.photo_url) { %><img class="avatar" src="<%= c.photo_url %>" alt="<%= c.title %>" width="20" height="20" loading="lazy"><% } else { %><span class="avatar"></span><% } %>
+                <span class="drow-name"><%= c.title || c.username %></span>
+              </div>
+              <div class="drow-val"><span><%= fa(c.cnt) %></span></div>
+            </a>
+            <% }); %>
+          </div>
+        </section>
+      </div>
+
+    </div>
+
+  </div>
+</main>

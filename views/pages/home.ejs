@@ -1,0 +1,238 @@
+<% if (ticker.length) { %>
+<div class="ticker">
+  <div class="container" style="padding-inline:0;">
+    <div class="ticker-inner">
+      <% ticker.forEach(function (t) { %>
+      <span class="tick">
+        <span class="tick-label"><%= t.name || t.symbol %></span>
+        <span class="tick-val"><%= fa(num(t.price)) %></span>
+        <% if (t.change_pct != null) { %>
+        <span class="tick-chg <%= t.change_pct > 0 ? 'up' : (t.change_pct < 0 ? 'down' : '') %>"><%= pct(t.change_pct) %></span>
+        <% } %>
+      </span>
+      <% }); %>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<main id="main" class="page">
+  <div class="container">
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">نمای کلی</h1>
+        <p class="page-sub">خلاصه‌ی هشت بخش در یک صفحه · آخرین بروزرسانی <%= updatedAt %></p>
+      </div>
+      <div class="row wrap" style="gap:6px;">
+        <span class="tag"><%= fa(newsStats.today || 0) %> خبر امروز</span>
+        <span class="tag"><%= fa(newsStats.channels || 0) %> منبع</span>
+        <span class="tag"><%= fa(carCount) %> مدل خودرو</span>
+        <span class="tag"><%= fa(ticker.length) %> نماد مالی</span>
+      </div>
+    </div>
+
+    <blockquote class="desc">
+      سیگنال هوش، با ابزارهایی پیشرفته داده‌های عمومی ایران را به‌صورت شبانه‌روزی رصد، تحلیل و
+      نمایش می‌دهد تا تغییرات مهم را زودتر از همه شناسایی کنید، روندها را بهتر ببینید و برای
+      تصمیم‌گیری، تصویری دقیق‌تر و به‌روزتر از بازار و جامعه‌ی ایران داشته باشید.
+      این سرویس شامل چندین بخش متفاوت می‌باشد.
+    </blockquote>
+
+    <!-- ردیف ۱ -->
+    <div class="grid g3 mb3">
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9h4M18 14h-8M15 18h-5M10 6h8v4h-8V6z"/></svg>
+            ترند اخبار ایران
+          </h2>
+          <a class="panel-link" href="/news">مشاهده همه ←</a>
+        </div>
+        <div class="panel-body-flush">
+          <% news.forEach(function (n) { %>
+            <%- include('../partials/news-row', { n: n, fa: fa, timeAgo: timeAgo, mediaOf: mediaOf, excerpt: excerpt }) %>
+          <% }); %>
+        </div>
+        <div class="panel-foot"><%= fa(newsStats.channels || 0) %> کانال تلگرام رصد می‌شود · منابع غیرفارسی خودکار ترجمه می‌شوند</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            ترند سرچ ایران
+          </h2>
+          <a class="panel-link" href="/trends">مشاهده همه ←</a>
+        </div>
+        <div class="panel-bar">
+          <span class="badge badge-warn">۴ ساعت اخیر</span>
+          <span class="dim" style="font-size:var(--fs-xs);">مهم‌ترین کلیدواژه‌های گوگل ایران</span>
+        </div>
+        <div class="panel-body">
+          <% trends.forEach(function (t, i) { %>
+          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= t.keyword %></span></div>
+            <div class="drow-val">
+              <% if (t.vol) { %><span><%= fa(t.vol) %></span><% } %>
+              <% if (t.growth) { %><span class="badge badge-up"><%= fa(t.growth) %></span><% } %>
+            </div>
+          </a>
+          <% }); %>
+          <% if (!trends.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">منبع: Google Trends · با کلیک، جستجو در گوگل باز می‌شود</div>
+      </section>
+
+    </div>
+
+    <!-- ردیف ۲ -->
+    <div class="grid g3 mb3">
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7h-5v5"/></svg>
+            ترند بازارهای مالی
+          </h2>
+          <a class="panel-link" href="/finance">مشاهده همه ←</a>
+        </div>
+        <div class="panel-body">
+          <% finance.forEach(function (f) { %>
+          <a class="drow" href="/finance">
+            <div class="drow-main"><span class="drow-name"><%= f.name || f.symbol %></span></div>
+            <div class="drow-val">
+              <span><%= fa(num(f.price)) %></span>
+              <% if (f.change_pct != null) { %>
+              <span class="badge <%= f.change_pct > 0 ? 'badge-up' : (f.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(f.change_pct) %></span>
+              <% } %>
+            </div>
+          </a>
+          <% }); %>
+          <% if (!finance.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">دو منبع: سایت‌های معتبر + کانال‌های کف بازار</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 11-4 0 2 2 0 014 0zm14 0a2 2 0 104 0 2 2 0 00-4 0z"/><path d="M3 17v-4l2-5h14l2 5v4"/></svg>
+            ترند خودرو ایران
+          </h2>
+          <a class="panel-link" href="/cars">مشاهده همه ←</a>
+        </div>
+        <div class="panel-body">
+          <% cars.forEach(function (c) { %>
+          <a class="drow" href="/cars">
+            <div class="drow-main"><span class="drow-name"><%= c.name_fa || c.slug %></span></div>
+            <div class="drow-val">
+              <span><%= fa(toman(c.median_price || c.avg_price)) %></span>
+              <% if (c.change_pct != null) { %>
+              <span class="badge <%= c.change_pct > 0 ? 'badge-up' : (c.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.change_pct) %></span>
+              <% } %>
+            </div>
+          </a>
+          <% }); %>
+          <% if (!cars.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">بروزرسانی هر ۱۲ ساعت · واحد: تومان</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            ترند کالای ایران
+          </h2>
+          <a class="panel-link" href="/market">مشاهده همه ←</a>
+        </div>
+        <div class="panel-body">
+          <% market.forEach(function (p, i) { %>
+          <a class="drow" href="<%= p.url || 'https://www.digikala.com/' %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= p.name %></span></div>
+            <div class="drow-val"><% if (p.price) { %><span><%= fa(toman(p.price)) %></span><% } %></div>
+          </a>
+          <% }); %>
+          <% if (!market.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">پرفروش‌های دیجی‌کالا · با کلیک به صفحه‌ی محصول می‌روید</div>
+      </section>
+
+    </div>
+
+    <!-- ردیف ۳ -->
+    <div class="grid g3">
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+            مارکت کار ایران
+          </h2>
+          <a class="panel-link" href="/jobs">مشاهده همه ←</a>
+        </div>
+        <% if (jobs && jobs.ehi != null) { %>
+        <div style="padding:var(--pad-panel);border-bottom:1px solid var(--border);">
+          <div class="kpi-label">شاخص سلامت اشتغال (EHI)</div>
+          <div class="kpi-val"><%= fa(Math.round(jobs.ehi * 10) / 10) %></div>
+          <div class="kpi-note">نسبت آگهی امروز به میانگین ۳۰ روز × ۱۰۰</div>
+        </div>
+        <% } %>
+        <div class="panel-body">
+          <% (jobs && jobs.rows ? jobs.rows : []).forEach(function (j) { %>
+          <a class="drow" href="/jobs">
+            <div class="drow-main"><span class="drow-name"><%= j.label %></span></div>
+            <div class="drow-val"><span><%= fa(j.count) %></span></div>
+          </a>
+          <% }); %>
+          <% if (!jobs || !jobs.rows || !jobs.rows.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">جابینجا + جاب‌ویژن · بروزرسانی روزانه</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            ترند های پلی مارکت
+          </h2>
+          <a class="panel-link" href="/polymarket">مشاهده همه ←</a>
+        </div>
+        <div class="panel-body">
+          <% poly.forEach(function (p) { %>
+          <a class="drow" href="<%= p.url || 'https://polymarket.com/' %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-name"><%= p.title_fa || p.title %></span></div>
+            <div class="drow-val"><% if (p.price != null) { %><span class="accent"><%= fa(Math.round(p.price * 100)) %>٪</span><% } %></div>
+          </a>
+          <% }); %>
+          <% if (!poly.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">فقط بازارهای مرتبط با ایران · ترجمه‌ی خودکار</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            ترند آینده
+          </h2>
+          <a class="panel-link" href="/future">مشاهده همه ←</a>
+        </div>
+        <div class="panel-body">
+          <% future.forEach(function (p) { %>
+          <a class="drow" href="/future">
+            <div class="drow-main"><span class="drow-name"><%= p.label %></span></div>
+            <div class="drow-val"><span class="badge badge-acc"><%= p.horizon %></span></div>
+          </a>
+          <% }); %>
+          <% if (!future.length) { %><div class="drow"><span class="dim">در حال جمع‌آوری داده</span></div><% } %>
+        </div>
+        <div class="panel-foot">زنجیره‌های علّی کشف‌شده از داده · آزمایشی</div>
+      </section>
+
+    </div>
+
+  </div>
+</main>

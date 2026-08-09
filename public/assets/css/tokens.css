@@ -1,0 +1,164 @@
+/* ============================================================
+   سیگنال هوش — دیزاین سیستم
+   پایه: توکن‌های worldmonitor + تطبیق کامل فارسی (ایران‌سنس)
+   دو تم: تیره (پیش‌فرض) و روشن
+   ============================================================ */
+
+/* ── فونت ایران‌سنس ──
+   نکته‌ی استقرار: در نسخه‌ی نهایی این فایل‌ها را روی سرور خودتان
+   میزبانی کنید (سریع‌تر + بدون وابستگی به CDN خارجی). */
+
+@font-face {
+  font-family: 'IRANSans';
+  src: url('https://unpkg.com/iransans@1.0.0/woff2/IRANSansWeb_UltraLight.woff2') format('woff2');
+  font-weight: 200; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IRANSans';
+  src: url('https://unpkg.com/iransans@1.0.0/woff2/IRANSansWeb_Light.woff2') format('woff2');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IRANSans';
+  src: url('https://unpkg.com/iransans@1.0.0/woff2/IRANSansWeb.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IRANSans';
+  src: url('https://unpkg.com/iransans@1.0.0/woff2/IRANSansWeb_Medium.woff2') format('woff2');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IRANSans';
+  src: url('https://unpkg.com/iransans@1.0.0/woff2/IRANSansWeb_Bold.woff2') format('woff2');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+/* ══════════════════ تم تیره (پیش‌فرض) ══════════════════ */
+
+:root {
+  --bg:          #050505;
+  --card:        #111111;
+  --card-hover:  #17171c;
+  --inset:       #0b0b0d;
+  --border:      #222222;
+  --border-soft: #1a1a1a;
+  --border-strong: #2e2e2e;
+
+  --text:        #f3f4f6;
+  --muted:       #9ca3af;
+  --dim:         #6b7280;
+  --faint:       #4b5563;
+
+  --up:          #4ade80;
+  --down:        #f87171;
+  --flat:        #9ca3af;
+  --accent:      #60a5fa;
+  --warn:        #fbbf24;
+  --hot:         #fb923c;
+
+  --up-bg:       rgba(74, 222, 128, 0.11);
+  --down-bg:     rgba(248, 113, 113, 0.11);
+  --flat-bg:     rgba(156, 163, 175, 0.10);
+  --accent-bg:   rgba(96, 165, 250, 0.11);
+  --warn-bg:     rgba(251, 191, 36, 0.11);
+
+  --shadow: none;
+
+  /* برند — بدون تغییر در هر دو تم */
+  --brand-1:     #4f83f7;
+  --brand-2:     #9b7cfc;
+
+  color-scheme: dark;
+}
+
+/* ══════════════════ تم روشن ══════════════════ */
+
+:root[data-theme="light"] {
+  --bg:          #f6f7f9;
+  --card:        #ffffff;
+  --card-hover:  #f1f3f6;
+  --inset:       #eef0f4;
+  --border:      #e2e5ea;
+  --border-soft: #eceef2;
+  --border-strong: #cbd0d8;
+
+  --text:        #12151b;
+  --muted:       #5a6270;
+  --dim:         #79808d;
+  --faint:       #9aa1ac;
+
+  --up:          #0f9d63;
+  --down:        #d93a45;
+  --flat:        #79808d;
+  --accent:      #2563eb;
+  --warn:        #b7791f;
+  --hot:         #d9700f;
+
+  --up-bg:       rgba(15, 157, 99, 0.10);
+  --down-bg:     rgba(217, 58, 69, 0.09);
+  --flat-bg:     rgba(121, 128, 141, 0.10);
+  --accent-bg:   rgba(37, 99, 235, 0.09);
+  --warn-bg:     rgba(183, 121, 31, 0.11);
+
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+  color-scheme: light;
+}
+
+/* ══════════════════ توکن‌های مشترک ══════════════════ */
+
+:root {
+  /* فونت — ایران‌سنس با فالبک */
+  --font: 'IRANSans', 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+
+  /* مقیاس متن */
+  --fs-xs:   11px;
+  --fs-sm:   12px;
+  --fs-md:   13px;
+  --fs-base: 14px;
+  --fs-lg:   16px;
+  --fs-xl:   19px;
+  --fs-2xl:  24px;
+  --fs-3xl:  30px;
+
+  --fw-light:  300;
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-bold:   700;
+
+  /* فاصله — شبکه‌ی ۴ پیکسلی */
+  --s1:  4px;   --s2:  8px;   --s3: 12px;  --s4: 16px;
+  --s5: 20px;   --s6: 28px;   --s7: 40px;  --s8: 56px;
+
+  /* پدینگ استاندارد — یک منبع حقیقت برای همه‌ی کامپوننت‌ها */
+  --pad-panel:  14px;   /* داخل پنل‌ها */
+  --pad-row:    9px;    /* ردیف‌های داده */
+  --pad-cell:   10px;   /* سلول جدول */
+  --pad-page:   20px;   /* حاشیه‌ی افقی صفحه */
+
+  --r-sm: 4px;  --r: 6px;  --r-lg: 8px;  --r-pill: 999px;
+
+  --topbar-h: 54px;
+  --tabbar-h: 44px;
+  --container: 1560px;
+
+  --dur: 0.14s;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --pad-page: 14px;
+    --pad-panel: 12px;
+    --fs-base: 13.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

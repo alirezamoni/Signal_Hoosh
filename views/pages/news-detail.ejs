@@ -1,0 +1,101 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/news">ترند اخبار ایران</a> <span>/</span>
+      <span><%= n.channel_title || n.channel_username || 'خبر' %></span>
+    </nav>
+
+    <div class="grid g3">
+
+      <article class="span2">
+        <h1 class="article-title"><%= headline %></h1>
+
+        <div class="article-meta">
+          <span class="row">
+            <% if (n.channel_photo) { %>
+            <img class="avatar avatar-lg" src="<%= n.channel_photo %>" alt="<%= n.channel_title %>" width="28" height="28">
+            <% } else { %><span class="avatar avatar-lg"></span><% } %>
+            <%= n.channel_title || n.channel_username || 'نامشخص' %>
+          </span>
+          <time datetime="<%= n.published_at %>"><%= faDate(n.published_at) %></time>
+          <% if (n.lang && n.lang !== 'fa' && n.text_fa) { %><span class="badge badge-acc">ترجمه‌ی خودکار</span><% } %>
+        </div>
+
+        <% if (media.list.length === 1) { %>
+        <img class="article-img mt4" src="<%= media.list[0] %>" alt="<%= excerpt(headline, 80) %>" loading="eager">
+        <% } else if (media.list.length > 1) { %>
+        <div class="gallery mt4">
+          <% media.list.forEach(function (u, i) { %>
+          <img src="<%= u %>" alt="<%= excerpt(headline, 60) %> — تصویر <%= fa(i + 1) %>" loading="<%= i < 2 ? 'eager' : 'lazy' %>">
+          <% }); %>
+        </div>
+        <% } %>
+
+        <div class="article-body mt4">
+          <% bodyParas.forEach(function (p) { %><p><%= p %></p><% }); %>
+        </div>
+
+        <div class="srcbox mt4">
+          <div>
+            <div class="dim" style="font-size:var(--fs-xs);margin-bottom:3px;">منبع اصلی</div>
+            <div style="font-size:var(--fs-md);">کانال تلگرام <%= n.channel_title || n.channel_username || '' %></div>
+          </div>
+          <% if (n.tg_link) { %>
+          <a class="btn" href="<%= n.tg_link %>" rel="nofollow noopener" target="_blank">
+            مشاهده در تلگرام
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+          </a>
+          <% } %>
+        </div>
+
+        <aside class="notice mt4">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div>
+            این مطلب به‌صورت خودکار از یک کانال عمومی تلگرام بازنشر شده است. سیگنال هوش نویسنده،
+            ناشر یا تأییدکننده‌ی آن نیست و صحتش را راستی‌آزمایی نکرده است.
+            اگر صاحب این محتوا هستید و خواهان حذف آن‌اید، <a href="/contact">تماس بگیرید</a>.
+          </div>
+        </aside>
+      </article>
+
+      <div class="stack" style="gap:var(--s3);">
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">اخبار مرتبط</h2><a class="panel-link" href="/news">همه ←</a></div>
+          <div class="panel-body-flush">
+            <% related.forEach(function (r) { %>
+            <a class="nrow" href="/news/<%= r.id %>">
+              <div class="nrow-body">
+                <div class="nrow-text"><%= excerpt(r.text_fa || r.text, 110) %></div>
+                <div class="nrow-meta"><span class="nrow-src"><%= r.channel_title || r.channel_username || '' %></span><span class="dot-sep">·</span><%= timeAgo(r.published_at) %></div>
+              </div>
+            </a>
+            <% }); %>
+          </div>
+        </section>
+
+        <% if (fin && fin.length) { %>
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">بازار در این لحظه</h2><a class="panel-link" href="/finance">همه ←</a></div>
+          <div class="panel-body">
+            <% fin.forEach(function (f) { %>
+            <a class="drow" href="/finance">
+              <div class="drow-main"><span class="drow-name"><%= f.name || f.symbol %></span></div>
+              <div class="drow-val">
+                <span><%= fa(num(f.price)) %></span>
+                <% if (f.change_pct != null) { %>
+                <span class="badge <%= f.change_pct > 0 ? 'badge-up' : (f.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(f.change_pct) %></span>
+                <% } %>
+              </div>
+            </a>
+            <% }); %>
+          </div>
+        </section>
+        <% } %>
+      </div>
+
+    </div>
+
+  </div>
+</main>
