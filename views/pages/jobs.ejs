@@ -1,0 +1,84 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>مارکت کار ایران</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">مارکت کار ایران</h1>
+      <p class="page-sub">جابینجا و جاب‌ویژن · بروزرسانی روزانه · تاریخ داده: <%= fa(summary.date || '—') %></p>
+    </div>
+
+    <blockquote class="desc">
+      پایش وضعیت بازار کار ایران با استفاده از داده‌های جابینجا و جاب‌ویژن. این بخش روند تعداد
+      آگهی‌های استخدامی فعال را در بازه‌های زمانی مختلف تحلیل کرده و شاخص سلامت اشتغال (EHI) را
+      بر اساس نسبت آگهی‌های امروز به میانگین ۳۰ روز اخیر محاسبه می‌کند. افزایش یا کاهش فرصت‌های
+      شغلی معمولاً بازتابی از تغییرات تقاضای نیروی کار، اعتماد بنگاه‌های اقتصادی و شرایط اقتصاد
+      واقعی است و می‌تواند سیگنال‌های اولیه‌ای از رونق یا رکود فعالیت‌های اقتصادی ارائه دهد.
+    </blockquote>
+
+    <div class="grid g4 mb4">
+      <% sources.forEach(function (s) { %>
+      <div class="kpi">
+        <div class="kpi-label"><%= s.label %></div>
+        <div class="kpi-val"><%= fa(num(s.count)) %></div>
+        <div class="kpi-note">
+          <% if (s.vs_yesterday != null) { %><span class="<%= s.vs_yesterday > 0 ? 'up' : (s.vs_yesterday < 0 ? 'down' : '') %>"><%= (s.vs_yesterday > 0 ? '▲ ' : s.vs_yesterday < 0 ? '▼ ' : '— ') + fa(Math.abs(s.vs_yesterday)) %>٪ روز</span><% } else { %>—<% } %>
+        </div>
+      </div>
+      <% }); %>
+      <div class="kpi" style="border-color:rgba(74,222,128,.25);">
+        <div class="kpi-label">مجموع بازار کار</div>
+        <div class="kpi-val up"><%= fa(num(total)) %></div>
+        <div class="kpi-note">آگهی فعال در هر دو منبع</div>
+      </div>
+      <% if (summary.ehi != null) { %>
+      <div class="kpi">
+        <div class="kpi-label">شاخص سلامت اشتغال (EHI)</div>
+        <div class="kpi-val"><%= fa(Math.round(summary.ehi * 10) / 10) %></div>
+        <div class="kpi-note">نسبت آگهی امروز به میانگین ۳۰ روز × ۱۰۰ — بالاتر از ۱۰۰ یعنی افزایش</div>
+      </div>
+      <% } %>
+    </div>
+
+    <div class="page-head"><h2 class="sec-title">دسته‌های شغلی</h2></div>
+    <blockquote class="desc desc-sm">
+      روی هر دسته کلیک کنید تا جزئیات سهم و روند آن باز شود.
+    </blockquote>
+
+    <div class="tbl-wrap">
+      <table>
+        <caption class="sr-only">جدول آگهی‌های استخدام به تفکیک دسته</caption>
+        <thead><tr><th class="rank-cell">#</th><th>دسته‌ی شغلی</th><th class="ta-l">تعداد آگهی</th><th class="ta-l">سهم</th><th class="ta-l">هفته</th><th class="ta-l">ماه</th><th class="ta-l"></th></tr></thead>
+        <tbody>
+          <% cats.forEach(function (c, i) { %>
+          <tr class="row-toggle" tabindex="0" aria-expanded="false">
+            <td class="rank-cell"><%= fa(i + 1) %></td>
+            <td class="td-name"><%= c.label %></td>
+            <td class="ta-l"><%= fa(num(c.count)) %></td>
+            <td class="ta-l"><%= fa(c.share != null ? c.share : 0) %>٪</td>
+            <td class="ta-l"><% if (c.vs_week != null) { %><span class="badge <%= c.vs_week > 0 ? 'badge-up' : (c.vs_week < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.vs_week) %></span><% } else { %><span class="dim">—</span><% } %></td>
+            <td class="ta-l"><% if (c.vs_month != null) { %><span class="badge <%= c.vs_month > 0 ? 'badge-up' : (c.vs_month < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.vs_month) %></span><% } else { %><span class="dim">—</span><% } %></td>
+            <td class="ta-l"><span class="chev">›</span></td>
+          </tr>
+          <tr class="row-detail" style="display:none;">
+            <td colspan="7">
+              <div class="row-detail-inner">
+                <div class="grid g4">
+                  <div><div class="kpi-label">تعداد آگهی</div><div class="kpi-val" style="font-size:var(--fs-lg);"><%= fa(num(c.count)) %></div></div>
+                  <div><div class="kpi-label">سهم از کل بازار</div><div class="kpi-val" style="font-size:var(--fs-lg);"><%= fa(c.share != null ? c.share : 0) %>٪</div></div>
+                  <div><div class="kpi-label">تغییر هفتگی</div><div class="kpi-val" style="font-size:var(--fs-lg);"><%= c.vs_week != null ? pct(c.vs_week) : '—' %></div></div>
+                  <div><div class="kpi-label">تغییر ماهانه</div><div class="kpi-val" style="font-size:var(--fs-lg);"><%= c.vs_month != null ? pct(c.vs_month) : '—' %></div></div>
+                </div>
+                <p class="dim mt3" style="font-size:var(--fs-xs);">
+                  شناسه‌ی دسته: <span class="ltr"><%= c.key %></span> ·
+                  داده از جاب‌ویژن جمع‌آوری می‌شود و هر ۲۴ ساعت به‌روز می‌گردد.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</main>

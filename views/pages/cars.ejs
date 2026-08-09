@@ -1,0 +1,108 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند خودرو ایران</span></nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">ترند خودرو ایران</h1>
+        <p class="page-sub">داده هر ۱۲ ساعت ثبت می‌شود · واحد: تومان</p>
+      </div>
+      <div class="row wrap" style="gap:6px;">
+        <span class="tag"><%= fa(stats.models || 0) %> مدل</span>
+        <span class="tag"><%= fa(stats.snapshots || 0) %> اسنپ‌شات</span>
+        <span class="tag"><%= fa(stats.days || 0) %> روز داده</span>
+      </div>
+    </div>
+
+    <blockquote class="desc">
+      تحلیل روند بازار خودرو ایران بر پایه داده‌های خرید و فروش. این بخش تغییرات قیمت، حجم آگهی‌ها،
+      خودروهای داغ بازار و روند عرضه و تقاضا را نمایش می‌دهد. با توجه به اینکه خودرو در سال‌های اخیر
+      علاوه بر یک کالای مصرفی، به یکی از دارایی‌های سرمایه‌ای (Investment Asset) در ایران تبدیل شده
+      است، رصد این شاخص‌ها می‌تواند تصویری از انتظارات تورمی، رفتار سرمایه‌گذاران و جهت حرکت
+      نقدینگی در اقتصاد ارائه دهد.
+    </blockquote>
+
+    <div class="grid g6 mb6">
+      <div class="kpi"><div class="kpi-label">مدل‌های رصد شده</div><div class="kpi-val"><%= fa(stats.models || 0) %></div><div class="kpi-note"><%= fa(totalListings) %> آگهی نمونه</div></div>
+      <div class="kpi"><div class="kpi-label">بیشترین رشد قیمت</div><div class="kpi-val fa"><%= topGain ? topGain.name_fa : '—' %></div><div class="kpi-note up"><%= topGain ? '▲ ' + fa(Math.abs(topGain.pct_per_day).toFixed(2)) + '٪ در روز' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">بیشترین افت قیمت</div><div class="kpi-val fa"><%= topLoss ? topLoss.name_fa : '—' %></div><div class="kpi-note down"><%= topLoss ? '▼ ' + fa(Math.abs(topLoss.pct_per_day).toFixed(2)) + '٪ در روز' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">گران‌ترین برند</div><div class="kpi-val fa"><%= priciest ? priciest.name_fa : '—' %></div><div class="kpi-note"><%= priciest ? fa(toman(priciest.median_price)) + ' تومان' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">ارزان‌ترین برند</div><div class="kpi-val fa"><%= cheapest ? cheapest.name_fa : '—' %></div><div class="kpi-note"><%= cheapest ? fa(toman(cheapest.median_price)) + ' تومان' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">آخرین بروزرسانی</div><div class="kpi-val fa"><%= fa(stats.last_day || '—') %></div><div class="kpi-note">هر ۱۲ ساعت</div></div>
+    </div>
+
+    <div class="page-head"><h2 class="sec-title">وضعیت فعلی بازار</h2></div>
+
+    <div class="car-grid mb6">
+      <% cars.forEach(function (c) { %>
+      <a class="car-card" href="<%= c.url || '#' %>" target="_blank" rel="noopener">
+        <% if (c.image_url) { %>
+        <img class="car-img" src="<%= c.image_url %>" alt="<%= c.name_fa %>" loading="lazy">
+        <% } %>
+        <div class="car-name"><%= c.name_fa %></div>
+        <div class="car-price"><%= fa(toman(c.median_price)) %></div>
+        <div class="row wrap mt3" style="gap:5px;">
+          <% if (c.change_day_pct != null) { %>
+          <span class="badge <%= c.change_day_pct > 0 ? 'badge-up' : (c.change_day_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.change_day_pct) %> روز</span>
+          <% } %>
+          <span class="tag"><%= c.tier === 'high' ? 'لوکس' : (c.tier === 'mid' ? 'میان‌رده' : 'اقتصادی') %></span>
+        </div>
+        <div class="car-meta">
+          <span>کارکرد <%= fa(num(c.avg_mileage)) %></span>
+          <span><%= fa(num(c.listing_count)) %> آگهی</span>
+        </div>
+      </a>
+      <% }); %>
+      <% if (!cars.length) { %><div class="panel"><div class="panel-body-pad dim">داده‌ای موجود نیست</div></div><% } %>
+    </div>
+
+    <% if (submodels.length) { %>
+    <div class="page-head"><h2 class="sec-title">تنوع مدل‌ها و زیرمدل‌ها</h2></div>
+    <blockquote class="desc">
+      میانگین قیمت و کارکرد هر تریم/نسخه مستقیماً از آمار دیوار روی کل آگهی‌های آن برند می‌آید،
+      نه فقط نمونه‌ی محدود ما — تصویر کامل‌تری از تنوع بازار هر برند می‌دهد.
+    </blockquote>
+    <div class="car-grid mb6">
+      <% submodels.slice(0, 8).forEach(function (sm) { %>
+      <div class="car-card">
+        <% if (sm.image_url) { %><img class="car-img" src="<%= sm.image_url %>" alt="<%= sm.name_fa %>" loading="lazy"><% } %>
+        <div class="car-name"><%= sm.name_fa %></div>
+        <div class="car-price"><%= fa(toman(sm.avg_price)) %></div>
+        <div class="car-meta"><span><%= sm.model_name || '' %></span><span>کارکرد <%= fa(num(sm.avg_mileage)) %></span></div>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <div class="page-head"><h2 class="sec-title">سرعت رشد و صرفه اقتصادی</h2></div>
+    <blockquote class="desc">
+      «سرعت رشد» یعنی به‌طور میانگین قیمت هر روز چند درصد تغییر کرده (شتاب بازار، نه فقط جهتش).
+      «صرفه نسبت به رده» یعنی قیمت‌بر‌کارکرد این مدل چقدر از میانگین هم‌رده‌اش کمتر یا بیشتر است —
+      منفی یعنی به‌صرفه‌تر از رقبای هم‌رده.
+    </blockquote>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="rank-cell">#</th><th>خودرو</th><th class="ta-l">رده</th><th class="ta-l">میانه قیمت</th><th class="ta-l">قیمت بر کارکرد</th><th class="ta-l">سرعت رشد (٪ در روز)</th><th class="ta-l">صرفه نسبت به رده</th></tr></thead>
+        <tbody>
+          <% metrics.forEach(function (m, i) { %>
+          <tr>
+            <td class="rank-cell"><%= fa(i + 1) %></td>
+            <td class="td-name"><span class="row"><% if (m.image_url) { %><img class="thumb-sm" src="<%= m.image_url %>" alt="<%= m.name_fa %>" loading="lazy"><% } %><%= m.name_fa %></span></td>
+            <td class="ta-l"><span class="tag"><%= m.tier === 'high' ? 'لوکس' : (m.tier === 'mid' ? 'میان‌رده' : 'اقتصادی') %></span></td>
+            <td class="ta-l"><%= fa(num(m.median_price)) %></td>
+            <td class="ta-l"><%= fa(num(m.price_per_km)) %></td>
+            <td class="ta-l"><% if (m.pct_per_day != null) { %><span class="badge <%= m.pct_per_day > 0 ? 'badge-up' : (m.pct_per_day < 0 ? 'badge-down' : 'badge-flat') %>"><%= (m.pct_per_day > 0 ? '+' : m.pct_per_day < 0 ? '−' : '') + fa(Math.abs(m.pct_per_day).toFixed(2)) %></span><% } else { %>—<% } %></td>
+            <td class="ta-l"><% if (m.value_vs_tier_pct != null) { %><span class="badge <%= m.value_vs_tier_pct < 0 ? 'badge-up' : 'badge-down' %>"><%= pct(m.value_vs_tier_pct) %></span><% } else { %>—<% } %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="dim mt3" style="font-size:var(--fs-xs);">
+      قیمت‌ها میانه‌ی آگهی‌های ثبت‌شده است و قیمت قطعی معامله محسوب نمی‌شود.
+    </p>
+
+  </div>
+</main>

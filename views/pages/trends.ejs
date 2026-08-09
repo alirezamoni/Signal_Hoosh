@@ -1,0 +1,140 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند سرچ ایران</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">ترند سرچ ایران</h1>
+      <p class="page-sub">پرجستجوترین کلیدواژه‌های گوگل در ایران · بروزرسانی هر ۵ دقیقه</p>
+    </div>
+
+    <blockquote class="desc">
+      این بخش، ترندهای جستجوی گوگل در ایران را در بازه‌های زمانی ۴ ساعته و ۲۴ ساعته نمایش می‌دهد.
+      رفتار جستجوی کاربران معمولاً یکی از سریع‌ترین شاخص‌های تغییرات اجتماعی، اقتصادی و خبری است؛
+      به همین دلیل این داده‌ها می‌توانند به‌عنوان یک Leading Indicator (شاخص پیش‌نگر) برای شناسایی
+      فرصت‌ها، ریسک‌ها و روندهای آینده مورد استفاده قرار گیرند.
+    </blockquote>
+
+    <div class="grid g5 mb4">
+      <div class="kpi"><div class="kpi-label">ترندهای ۴ ساعت</div><div class="kpi-val"><%= fa(h4.length) %></div><div class="kpi-note">کلیدواژه فعال</div></div>
+      <div class="kpi"><div class="kpi-label">ترندهای ۲۴ ساعت</div><div class="kpi-val"><%= fa(h24.length) %></div><div class="kpi-note">کلیدواژه فعال</div></div>
+      <div class="kpi"><div class="kpi-label">کلیدواژه‌های بایگانی</div><div class="kpi-val"><%= fa(stats.keywords || 0) %></div><div class="kpi-note">از <%= fa(stats.first_day || '—') %></div></div>
+      <div class="kpi"><div class="kpi-label">اسنپ‌شات‌ها</div><div class="kpi-val"><%= fa(stats.snapshots || 0) %></div><div class="kpi-note">در <%= fa(stats.days || 0) %> روز</div></div>
+      <div class="kpi"><div class="kpi-label">بیشترین رشد</div><div class="kpi-val fa"><%= h4[0] ? h4[0].keyword : '—' %></div><div class="kpi-note up"><%= h4[0] && h4[0].growth ? '▲ ' + fa(h4[0].growth) + '٪' : '' %></div></div>
+    </div>
+
+    <div class="page-head between wrap">
+      <h2 class="sec-title">ترندهای داغ — ۴ ساعت اخیر</h2>
+      <span class="badge badge-down">زنده</span>
+    </div>
+
+    <div class="hot-grid mb4">
+      <% h4.slice(0, 8).forEach(function (t, i) { %>
+      <a class="hot-card" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
+        <div class="hot-rank"><%= fa(String(i + 1).padStart(2, '0')) %></div>
+        <div class="hot-kw"><%= t.keyword %></div>
+        <div class="hot-meta">
+          <span class="hot-vol"><%= fa(t.vol || 0) %><%= t.unit || '' %></span>
+          <% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } %>
+        </div>
+      </a>
+      <% }); %>
+    </div>
+
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr><th class="rank-cell">#</th><th>کلیدواژه</th><th class="ta-l">حجم جستجو</th><th class="ta-l">رشد</th><th class="ta-l">وضعیت</th><th class="ta-l">دسته</th><th class="ta-l">جستجو</th></tr></thead>
+        <tbody>
+          <% h4.forEach(function (t, i) { %>
+          <tr>
+            <td class="rank-cell"><%= fa(i + 1) %></td>
+            <td class="td-name"><%= t.keyword %></td>
+            <td class="ta-l"><%= fa(t.vol || 0) %><%= t.unit || '' %></td>
+            <td class="ta-l"><% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } else { %><span class="badge badge-flat">—</span><% } %></td>
+            <td class="ta-l"><span class="badge <%= t.active ? 'badge-up' : 'badge-flat' %>"><%= t.active ? 'فعال' : 'پایان‌یافته' %></span></td>
+            <td class="ta-l"><% if (t.cat) { %><span class="tag"><%= t.cat %></span><% } %></td>
+            <td class="ta-l"><a class="btn btn-sm" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">گوگل ↗</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-head between wrap">
+      <h2 class="sec-title">ترندهای ۲۴ ساعت اخیر</h2>
+      <span class="tag"><%= fa(h24.length) %> کلیدواژه</span>
+    </div>
+
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr><th class="rank-cell">#</th><th>کلیدواژه</th><th class="ta-l">حجم جستجو</th><th class="ta-l">رشد</th><th class="ta-l">وضعیت</th><th class="ta-l">جستجو</th></tr></thead>
+        <tbody>
+          <% h24.slice(0, 25).forEach(function (t, i) { %>
+          <tr>
+            <td class="rank-cell"><%= fa(i + 1) %></td>
+            <td class="td-name"><%= t.keyword %></td>
+            <td class="ta-l"><%= fa(t.vol || 0) %><%= t.unit || '' %></td>
+            <td class="ta-l"><% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } else { %><span class="badge badge-flat">—</span><% } %></td>
+            <td class="ta-l"><span class="badge <%= t.active ? 'badge-up' : 'badge-flat' %>"><%= t.active ? 'فعال' : 'پایان‌یافته' %></span></td>
+            <td class="ta-l"><a class="btn btn-sm" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">گوگل ↗</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-head"><h2 class="sec-title">تاریخچه ترند — از روز اول تا امروز</h2></div>
+    <blockquote class="desc">
+      تا پیش از این فقط ترندهای «همین الان» نگه داشته می‌شد و هر بار جای قبلی را می‌گرفت.
+      حالا هر بار جمع‌آوری بایگانی می‌شود، پس می‌توان پرسید کدام کلیدواژه در کل دوره بیشترین
+      جستجو را داشته، کدام‌ها روزها ماندگار بوده‌اند و کدام‌ها فقط یک روز مثل شهاب آمده‌اند و رفته‌اند.
+    </blockquote>
+
+    <div class="grid g3">
+      <section class="panel">
+        <div class="panel-head"><h3 class="panel-title">پرحجم‌ترین‌ها (کل دوره)</h3></div>
+        <div class="panel-body">
+          <% hall.forEach(function (r, i) { %>
+          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(r.keyword) %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.keyword %></span></div>
+            <div class="drow-val"><span><%= fa(r.peak_vol || 0) %></span></div>
+          </a>
+          <% }); %>
+          <% if (!hall.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div><h3 class="panel-title">ماندگارترین‌ها</h3>
+          <div class="dim" style="font-size:var(--fs-xs);margin-top:2px;">بیشترین تعداد روزِ حضور</div></div>
+        </div>
+        <div class="panel-body">
+          <% persistent.forEach(function (r, i) { %>
+          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(r.keyword) %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.keyword %></span></div>
+            <div class="drow-val"><span><%= fa(r.days_seen || 0) %></span><span class="drow-sub">روز</span></div>
+          </a>
+          <% }); %>
+          <% if (!persistent.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div><h3 class="panel-title">شهاب‌سنگ‌ها</h3>
+          <div class="dim" style="font-size:var(--fs-xs);margin-top:2px;">یک روز، با رشد انفجاری</div></div>
+        </div>
+        <div class="panel-body">
+          <% meteors.forEach(function (r, i) { %>
+          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(r.keyword) %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.keyword %></span></div>
+            <div class="drow-val"><span class="badge badge-up">+<%= fa(r.peak_growth || 0) %>٪</span></div>
+          </a>
+          <% }); %>
+          <% if (!meteors.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+      </section>
+    </div>
+
+  </div>
+</main>

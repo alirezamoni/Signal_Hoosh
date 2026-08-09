@@ -1,0 +1,114 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ارتباط با ما</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">ارتباط با ما</h1>
+      <p class="page-sub">برای درخواست حذف داده، گزارش خطا یا هر پرسش دیگری</p>
+    </div>
+
+    <div class="grid g3">
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            ارسال پیام
+          </h2>
+          <span class="panel-link">پاسخ ظرف ۲ تا ۳ روز کاری</span>
+        </div>
+        <div class="panel-body-pad">
+          <div class="alert-ok<%= sent ? ' show' : '' %>" id="formOk">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            پیام شما ثبت شد. در اولین فرصت بررسی و پاسخ داده می‌شود.
+          </div>
+          <% if (error) { %>
+          <div class="notice mb3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div><%= error %></div></div>
+          <% } %>
+
+          <form id="contactForm" method="POST" action="/contact">
+            <div class="grid g2" style="gap:var(--s3);">
+              <div class="field">
+                <label class="label" for="mName">نام شما</label>
+                <input class="input" id="mName" name="name" required maxlength="80" placeholder="نام و نام خانوادگی">
+              </div>
+              <div class="field">
+                <label class="label" for="mMail">ایمیل</label>
+                <input class="input" id="mMail" name="email" type="email" required maxlength="120" placeholder="example@mail.com" style="direction:ltr;text-align:right;">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="mTopic">موضوع</label>
+              <select class="select" id="mTopic" name="topic">
+                <option>درخواست حذف داده</option>
+                <option>گزارش خطا در داده‌ها</option>
+                <option>پیشنهاد منبع داده‌ی جدید</option>
+                <option>همکاری</option>
+                <option>سایر</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="mUrl">نشانی صفحه (اختیاری)</label>
+              <input class="input" id="mUrl" name="url" maxlength="300" placeholder="https://signalhoosh.site/news/…" style="direction:ltr;text-align:right;">
+              <div class="hint">اگر درباره‌ی محتوای مشخصی است، نشانی آن صفحه را بگذارید.</div>
+            </div>
+            <div class="field">
+              <label class="label" for="mText">متن پیام</label>
+              <textarea class="textarea" id="mText" name="message" required maxlength="4000" placeholder="توضیح خود را بنویسید…"></textarea>
+            </div>
+            <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;" aria-hidden="true">
+            <div class="row wrap" style="gap:var(--s3);">
+              <button class="btn btn-acc" type="submit">ارسال پیام</button>
+              <span class="hint" style="margin:0;">پیام‌ها مستقیم در پنل مدیریت دیده می‌شوند.</span>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <div class="stack" style="gap:var(--s3);">
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">راه‌های ارتباطی</h2></div>
+          <div class="panel-body-pad center">
+            <div class="logo-mark" style="margin:0 auto var(--s3);width:38px;height:38px;border-radius:10px;font-size:16px;">S</div>
+            <div class="kpi-label">ایمیل پشتیبانی</div>
+            <a href="mailto:info@signalhoosh.site" style="display:inline-block;font-size:var(--fs-lg);color:var(--accent);direction:ltr;word-break:break-all;margin:6px 0 var(--s3);">info@signalhoosh.site</a>
+            <a class="btn btn-block" href="https://t.me/signalhoosh" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              کانال تلگرام @signalhoosh
+            </a>
+            <p class="dim mt3" style="font-size:var(--fs-sm);">معمولاً ظرف ۲ تا ۳ روز کاری پاسخ داده می‌شود.</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">پیوندهای مرتبط</h2></div>
+          <div class="panel-body">
+            <a class="drow" href="/disclaimer"><div class="drow-main"><span class="drow-name">سلب مسئولیت کامل</span></div><span class="dim">←</span></a>
+            <a class="drow" href="/disclaimer#sources"><div class="drow-main"><span class="drow-name">فهرست منابع داده</span></div><span class="dim">←</span></a>
+            <a class="drow" href="/"><div class="drow-main"><span class="drow-name">بازگشت به داشبورد</span></div><span class="dim">←</span></a>
+          </div>
+        </section>
+      </div>
+
+    </div>
+
+    <section class="panel mt4">
+      <div class="panel-body-pad">
+        <div class="prose" style="max-width:none;">
+          <h2 id="removal">درخواست حذف داده</h2>
+          <p>اگر محتوایی در این سایت متعلق به شماست و مایل به حذف آن هستید، درخواست شما با <strong>اولویت</strong> بررسی و در صورت تأیید، محتوا حذف خواهد شد. لطفاً در پیام خود این موارد را ذکر کنید:</p>
+          <ul>
+            <li>نشانی کامل صفحه‌ای که محتوای موردنظر در آن قرار دارد</li>
+            <li>توضیح کوتاه درباره‌ی اینکه چرا این محتوا باید حذف شود</li>
+            <li>در صورت امکان، مدرکی که نشان دهد شما صاحب یا نماینده‌ی صاحب محتوا هستید</li>
+          </ul>
+          <h2>گزارش خطا در داده‌ها</h2>
+          <p>داده‌های این سایت به‌صورت خودکار جمع‌آوری می‌شوند و ممکن است گاهی نادرست یا ناقص باشند. اگر خطایی مشاهده کردید، با ذکر نشانی صفحه و توضیح مشکل به ما اطلاع دهید.</p>
+          <h2>همکاری و پیشنهاد</h2>
+          <p>اگر پیشنهادی برای افزودن منبع داده‌ی جدید یا بهبود بخشی از سایت دارید، خوشحال می‌شویم که بشنویم.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>

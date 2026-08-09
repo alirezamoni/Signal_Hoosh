@@ -1,0 +1,90 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند های پلی مارکت</span></nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">ترند های پلی مارکت</h1>
+        <p class="page-sub">فقط بازارهای مرتبط با ایران · آخرین کرال <%= timeAgo(lastFetched) %></p>
+      </div>
+      <span class="tag"><%= fa(trending.length + volume.length) %> بازار</span>
+    </div>
+
+    <blockquote class="desc">
+      پایش بازارهای پیش‌بینی ایران در پلی‌مارکت به‌عنوان یک شاخص آینده‌نگر از انتظارات جمعی و
+      ریسک‌های احتمالی. این بخش فقط بازارهای مرتبط با ایران را رصد می‌کند و تغییرات احتمال، حجم
+      معاملات و میزان توجه معامله‌گران به هر رویداد را تحلیل می‌کند. در بسیاری از رویدادهای مهم،
+      پیش از انتشار اخبار رسمی، تغییرات قابل‌توجهی در بازارهای پیش‌بینی رخ می‌دهد. این داده‌ها
+      می‌توانند یک سیگنال زودهنگام برای سنجش تغییر فضای انتظارات باشند.
+    </blockquote>
+
+    <section class="panel mb4">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">ترندترین شرط‌بندی‌های مربوط به ایران</h2>
+          <div class="dim" style="font-size:var(--fs-xs);margin-top:2px;">مرتب‌شده بر اساس رتبه‌ی ترند · با کلیک به پلی‌مارکت می‌روید</div>
+        </div>
+        <span class="panel-link"><%= fa(trending.length) %> مورد</span>
+      </div>
+      <div class="panel-body-flush">
+        <% trending.forEach(function (p) { %>
+        <a class="poly-item" href="<%= p.link %>" target="_blank" rel="noopener">
+          <% if (p.icon || p.image) { %>
+          <img class="poly-ico" src="<%= p.icon || p.image %>" alt="" width="34" height="34" loading="lazy">
+          <% } else { %><span class="poly-ico"></span><% } %>
+          <div style="flex:1;min-width:0;">
+            <div class="poly-q"><%= p.title_fa || p.title %></div>
+            <div class="poly-meta">
+              <span>حجم: <%= fa(usd(p.volume)) %></span>
+              <span>۲۴ ساعت: <%= fa(usd(p.volume24hr)) %></span>
+              <% if (p.comment_count) { %><span><%= fa(num(p.comment_count)) %> نظر</span><% } %>
+              <% if (p.category_fa || p.category) { %><span class="tag"><%= p.category_fa || p.category %></span><% } %>
+            </div>
+            <div class="prob-bar"><div class="prob-fill" style="width:<%= Math.round((p.price || 0) * 100) %>%;"></div></div>
+          </div>
+          <div class="poly-prob">
+            <div class="poly-prob-val"><%= fa(Math.round((p.price || 0) * 100)) %>٪</div>
+            <% if (p.delta != null && p.delta !== 0) { %>
+            <span class="badge <%= p.delta > 0 ? 'badge-up' : 'badge-down' %>"><%= (p.delta > 0 ? '+' : '−') + fa(Math.abs(p.delta)) %></span>
+            <% } %>
+          </div>
+        </a>
+        <% }); %>
+        <% if (!trending.length) { %><div class="sentinel"><div class="sentinel-txt">داده‌ای موجود نیست.</div></div><% } %>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">حجیم‌ترین شرط‌بندی‌های مربوط به ایران</h2>
+          <div class="dim" style="font-size:var(--fs-xs);margin-top:2px;">مرتب‌شده بر اساس حجم کل معاملات</div>
+        </div>
+        <span class="panel-link"><%= fa(volume.length) %> مورد</span>
+      </div>
+      <div class="panel-body-flush">
+        <% volume.forEach(function (p) { %>
+        <a class="poly-item" href="<%= p.link %>" target="_blank" rel="noopener">
+          <% if (p.icon || p.image) { %>
+          <img class="poly-ico" src="<%= p.icon || p.image %>" alt="" width="34" height="34" loading="lazy">
+          <% } else { %><span class="poly-ico"></span><% } %>
+          <div style="flex:1;min-width:0;">
+            <div class="poly-q"><%= p.title_fa || p.title %></div>
+            <div class="poly-meta">
+              <span>حجم کل: <%= fa(usd(p.volume)) %></span>
+              <% if (p.liquidity) { %><span>نقدینگی: <%= fa(usd(p.liquidity)) %></span><% } %>
+              <% if (p.category_fa || p.category) { %><span class="tag"><%= p.category_fa || p.category %></span><% } %>
+            </div>
+            <div class="prob-bar"><div class="prob-fill" style="width:<%= Math.round((p.price || 0) * 100) %>%;"></div></div>
+          </div>
+          <div class="poly-prob">
+            <div class="poly-prob-val"><%= fa(Math.round((p.price || 0) * 100)) %>٪</div>
+          </div>
+        </a>
+        <% }); %>
+        <% if (!volume.length) { %><div class="sentinel"><div class="sentinel-txt">داده‌ای موجود نیست.</div></div><% } %>
+      </div>
+    </section>
+
+  </div>
+</main>

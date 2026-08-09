@@ -19,6 +19,8 @@ const carDB     = require('./car-db');
 const marketDB  = require('./market-db');
 const jobDB     = require('./job-db');
 const polyDB    = require('./polymarket-db');
+const trendDB   = require('./trend-db');
+const txt       = require('./lib/clean-text');
 
 const app  = express();
 const PORT = process.env.WEB_PORT || 3002;
@@ -26,6 +28,28 @@ const SITE = 'https://signalhoosh.site';
 
 // ── دسترسی مستقیم فقط-خواندنی برای پرس‌وجوهایی که در ماژول‌ها نیست ──
 const newsRO = new Database(path.join(__dirname, 'data', 'news.db'), { readonly: true });
+
+let timelineRO = { prepare: () => ({ all: () => [], get: () => null }) };
+try { timelineRO = new Database(path.join(__dirname, 'data', 'timeline.db'), { readonly: true }); }
+catch (e) { console.warn('[web] timeline.db در دسترس نیست — تب آینده خالی نمایش داده می‌شود'); }
+
+// ── پیام‌های فرم تماس ──
+const msgDB = new Database(path.join(__dirname, 'data', 'messages.db'));
+msgDB.pragma('journal_mode = WAL');
+msgDB.exec(`
+  CREATE TABLE IF NOT EXISTS messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    topic      TEXT,
+    url        TEXT,
+    message    TEXT NOT NULL,
+    ip         TEXT,
+    read       INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_msg_read ON messages(read, created_at DESC);
+`);
 
 // ════════════ کمک‌تابع‌ها ════════════
 
@@ -107,10 +131,29 @@ const TABS = [
   { href: '/future',     label: 'ترند آینده' }
 ];
 
+function usd(n) {
+  if (n == null || isNaN(n)) return '—';
+  const v = Number(n);
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + Math.round(v / 1e3) + 'K';
+  return '$' + Math.round(v);
+}
+
+// بج تغییر رتبه — رتبه‌ی کمتر یعنی بهتر، پس علامت برعکس است
+function rankBadge(now, before) {
+  if (before == null || now == null) return '<span class="badge badge-flat">تازه</span>';
+  const d = before - now;
+  if (d === 0) return '<span class="badge badge-flat">—</span>';
+  const cls = d > 0 ? 'badge-up' : 'badge-down';
+  const arrow = d > 0 ? '▲' : '▼';
+  return '<span class="badge ' + cls + '">' + arrow + ' ' + fa(Math.abs(d)) + '</span>';
+}
+
 // رندر صفحه داخل layout
 function page(res, tpl, active, seo, data, jsonld) {
   const locals = Object.assign({
-    fa, num, toman, pct, excerpt, timeAgo, faDate, mediaOf, SITE, TABS, active
+    fa, num, toman, pct, usd, excerpt, timeAgo, faDate, mediaOf,
+    clean: txt.clean, rankBadge, SITE, TABS, active
   }, data);
   res.render('pages/' + tpl, locals, (err, body) => {
     if (err) { console.error('[render]', tpl, err.message); return res.status(500).send('خطا در رندر صفحه'); }
@@ -138,6 +181,17 @@ app.use(rateLimit({
   legacyHeaders: false,
   message: 'درخواست بیش از حد. کمی بعد دوباره تلاش کنید.'
 }));
+
+// محدودیت سخت‌گیرانه‌تر برای فرم تماس — جلوگیری از اسپم
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'تعداد پیام‌های ارسالی زیاد است. کمی بعد دوباره تلاش کنید.'
+});
+
+app.use(express.urlencoded({ extended: false, limit: '64kb' }));
 
 // index:false تا public/index.html (اپ قدیمی) روی روت "/" را نگیرد
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', index: false }));
@@ -174,7 +228,7 @@ function getNewsById(id) {
   try {
     return newsRO.prepare(`
       SELECT n.*, c.title channel_title, c.username channel_username, c.photo_url channel_photo
-      FROM news n LEFT JOIN channels c ON c.id=n.channel_id WHERE n.id=? AND COALESCE(n.blocked,0)=0`).get(id);
+      FROM news n LEFT JOIN channels c ON c.id=n.channel_id WHERE n.id=?`).get(id);
   } catch (e) { return null; }
 }
 
@@ -209,10 +263,19 @@ function trendRows(limit = 10) {
 function rialToToman(p) { return p == null ? null : Number(p) / 10; }
 
 const JOB_LABELS = {
-  jobinja: 'جابینجا', jobvision: 'جاب‌ویژن',
-  'human-resources': 'منابع انسانی', accounting: 'مالی و حسابداری',
-  'software-web-development': 'برنامه‌نویسی و IT', 'sales-marketing': 'فروش و بازاریابی',
-  'civil-engineering': 'مهندسی عمران', 'graphic-design': 'گرافیک و طراحی',
+  jobinja: 'جابینجا',
+  jobvision: 'جاب‌ویژن',
+  'human-resources': 'منابع انسانی',
+  accounting: 'مالی و حسابداری',
+  developer: 'برنامه‌نویسی و توسعه',
+  'data-science': 'علم داده و تحلیل',
+  'digital-marketing': 'بازاریابی دیجیتال',
+  driver: 'رانندگی و حمل‌ونقل',
+  civil: 'مهندسی عمران',
+  'software-web-development': 'برنامه‌نویسی و IT',
+  'sales-marketing': 'فروش و بازاریابی',
+  'civil-engineering': 'مهندسی عمران',
+  'graphic-design': 'گرافیک و طراحی',
   'customer-support': 'پشتیبانی مشتری'
 };
 
@@ -309,8 +372,8 @@ app.get('/news/:id', (req, res, next) => {
   if (!n) return next();
 
   const text = (n.text_fa || n.text || '').trim();
-  const paras = text.split(/\n{2,}|\n/).map(s => s.trim()).filter(Boolean);
-  const headline = excerpt(paras[0] || 'خبر', 120);
+  const paras = txt.paragraphs(text);
+  const headline = txt.headline(text);
   const media = mediaOf(n.media_url);
 
   let related = [];
@@ -318,14 +381,14 @@ app.get('/news/:id', (req, res, next) => {
     related = newsRO.prepare(`
       SELECT n.id, n.text, n.text_fa, n.published_at, c.title channel_title, c.username channel_username
       FROM news n LEFT JOIN channels c ON c.id=n.channel_id
-      WHERE n.id != ? AND COALESCE(n.blocked,0)=0 ORDER BY n.published_at DESC LIMIT 4`).all(id);
+      WHERE n.id != ? ORDER BY n.published_at DESC LIMIT 4`).all(id);
   } catch (e) {}
   let fin = [];
   try { fin = (financeDB.getLatest() || []).slice(0, 4); } catch (e) {}
 
   page(res, 'news-detail', '/news', {
     title: headline + ' | سیگنال هوش',
-    desc: excerpt(text, 155),
+    desc: txt.description(text),
     path: '/news/' + id,
     ogType: 'article',
     image: media.first || null
@@ -339,6 +402,196 @@ app.get('/news/:id', (req, res, next) => {
     mainEntityOfPage: { '@type': 'WebPage', '@id': SITE + '/news/' + id },
     publisher: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE }
   });
+});
+
+// ════════════ بقیه‌ی تب‌ها ════════════
+
+app.get('/trends', (req, res) => {
+  const j4  = readJson('h4.json', {});
+  const j24 = readJson('h24.json', {});
+  const h4  = Array.isArray(j4.trends) ? j4.trends : [];
+  const h24 = Array.isArray(j24.trends) ? j24.trends : [];
+  let stats = {}, hall = [], persistent = [], meteors = [];
+  try { stats      = trendDB.getStats() || {}; } catch (e) {}
+  try { hall       = trendDB.getHallOfFame(6) || []; } catch (e) {}
+  try { persistent = trendDB.getMostPersistent(6) || []; } catch (e) {}
+  try { meteors    = trendDB.getMeteors(6) || []; } catch (e) {}
+
+  page(res, 'trends', '/trends', {
+    title: 'ترند سرچ ایران | پرجستجوترین کلیدواژه‌های گوگل — سیگنال هوش',
+    desc: 'پرجستجوترین کلیدواژه‌های گوگل در ایران در بازه‌های ۴ و ۲۴ ساعته، همراه با حجم جستجو، رشد و تاریخچه‌ی کامل ترندها.',
+    path: '/trends'
+  }, { h4, h24, stats, hall, persistent, meteors });
+});
+
+app.get('/finance', (req, res) => {
+  let rows = [], messages = [], channels = [];
+  try { rows = (financeDB.getLatest() || []).map(f => Object.assign({}, f, {
+    price: rialToToman(f.price), change: rialToToman(f.change),
+    low: rialToToman(f.low), high: rialToToman(f.high), bubble: rialToToman(f.bubble)
+  })); } catch (e) { console.warn('[finance]', e.message); }
+  try { messages = (financeDB.getLatestFinanceMessages(12) || []); } catch (e) {}
+  try { channels = (financeDB.getFinanceChannels() || []); } catch (e) {}
+
+  page(res, 'finance', '/finance', {
+    title: 'ترند بازارهای مالی | قیمت لحظه‌ای دلار، طلا، سکه و انس — سیگنال هوش',
+    desc: 'رصد لحظه‌ای بازارهای موازی ایران: دلار آزاد، طلای ۱۸ عیار، سکه امامی و انس جهانی طلا، همراه با جریان اخبار مالی کانال‌های تلگرام.',
+    path: '/finance'
+  }, { rows, kpi: rows.slice(0, 4), messages, channels });
+});
+
+app.get('/cars', (req, res) => {
+  let raw = [], stats = {}, momentum = [], value = [], submodels = [];
+  try { raw       = carDB.getLatest() || []; } catch (e) { console.warn('[cars]', e.message); }
+  try { stats     = carDB.getStats() || {}; } catch (e) {}
+  try { momentum  = carDB.getMomentum(7) || []; } catch (e) {}
+  try { value     = carDB.getValueScores() || []; } catch (e) {}
+  try { submodels = carDB.getLatestSubmodels() || []; } catch (e) {}
+
+  const cars = raw.map(c => ({
+    slug: c.slug, name_fa: c.name_fa, tier: c.tier, url: c.url, image_url: c.image_url,
+    median_price: c.snapshot ? (c.snapshot.median_price || c.snapshot.avg_price) : null,
+    avg_mileage:  c.snapshot ? c.snapshot.avg_mileage : null,
+    price_per_km: c.snapshot ? c.snapshot.price_per_km : null,
+    listing_count:c.snapshot ? c.snapshot.listing_count : null,
+    change_day_pct: c.change_day_pct
+  }));
+
+  const byMomentum = momentum.slice().sort((a, b) => (b.pct_per_day || 0) - (a.pct_per_day || 0));
+  const priced = cars.filter(c => c.median_price).sort((a, b) => b.median_price - a.median_price);
+  const vMap = {}; value.forEach(v => { vMap[v.slug] = v; });
+  const mMap = {}; momentum.forEach(m => { mMap[m.slug] = m; });
+
+  const metrics = cars.map(c => Object.assign({}, c, {
+    pct_per_day: mMap[c.slug] ? mMap[c.slug].pct_per_day : null,
+    value_vs_tier_pct: vMap[c.slug] ? vMap[c.slug].value_vs_tier_pct : null
+  })).sort((a, b) => (b.median_price || 0) - (a.median_price || 0));
+
+  page(res, 'cars', '/cars', {
+    title: 'ترند خودرو ایران | قیمت روز خودرو بر پایه آگهی‌های واقعی — سیگنال هوش',
+    desc: 'روند بازار خودرو ایران: میانه قیمت، کارکرد، سرعت رشد و صرفه اقتصادی خودروها بر پایه‌ی آگهی‌های واقعی بازار، با بروزرسانی هر ۱۲ ساعت.',
+    path: '/cars'
+  }, {
+    cars, stats, submodels, metrics,
+    totalListings: cars.reduce((s, c) => s + (c.listing_count || 0), 0),
+    topGain:  byMomentum[0] || null,
+    topLoss:  byMomentum[byMomentum.length - 1] || null,
+    priciest: priced[0] || null,
+    cheapest: priced[priced.length - 1] || null
+  });
+});
+
+app.get('/market', (req, res) => {
+  const src = 'week';
+  let list = [], summary = {}, hot = [], cold = [], newcomers = [], legends = [];
+  try { list      = marketDB.getLatestList(src, 50) || []; } catch (e) { console.warn('[market]', e.message); }
+  try { summary   = marketDB.getSummaryCards(src) || {}; } catch (e) {}
+  try { hot       = (marketDB.getHotProducts(src) || []).slice(0, 5); } catch (e) {}
+  try { cold      = (marketDB.getColdProducts(src) || []).slice(0, 5); } catch (e) {}
+  try { newcomers = (marketDB.getNewEntrants(src) || []).slice(0, 5); } catch (e) {}
+  try { legends   = (marketDB.getLegends(src) || []).slice(0, 5); } catch (e) {}
+
+  page(res, 'market', '/market', {
+    title: 'ترند کالای ایران | پرفروش‌ترین کالاها و روند قیمت — سیگنال هوش',
+    desc: 'تحلیل قیمت و روند فروش کالاهای پرمصرف ایران: کالاهای ترند هفته، بیشترین رشد و افت فروش، تازه‌واردها و پرفروش‌های ماندگار.',
+    path: '/market'
+  }, { list, summary, hot, cold, newcomers, legends });
+});
+
+app.get('/jobs', (req, res) => {
+  let summary = {};
+  try { summary = jobDB.getSummary() || {}; } catch (e) { console.warn('[jobs]', e.message); }
+
+  const sources = Object.entries(summary.sources || {}).map(([k, v]) =>
+    Object.assign({ key: k, label: JOB_LABELS[k] || k }, v));
+  const total = sources.reduce((s, x) => s + (x.count || 0), 0);
+  const cats = Object.entries(summary.categories || {})
+    .map(([k, v]) => Object.assign({ key: k, label: JOB_LABELS[k] || k }, v))
+    .sort((a, b) => (b.count || 0) - (a.count || 0));
+
+  page(res, 'jobs', '/jobs', {
+    title: 'مارکت کار ایران | آمار آگهی‌های استخدام و شاخص سلامت اشتغال — سیگنال هوش',
+    desc: 'پایش بازار کار ایران با داده‌های جابینجا و جاب‌ویژن: تعداد آگهی‌های استخدام به تفکیک حوزه‌ی شغلی و شاخص سلامت اشتغال (EHI).',
+    path: '/jobs'
+  }, { summary, sources, cats, total });
+});
+
+app.get('/polymarket', (req, res) => {
+  const link = p => p.url || (p.slug ? 'https://polymarket.com/event/' + p.slug : 'https://polymarket.com/');
+  const withDelta = p => Object.assign({}, p, {
+    link: link(p),
+    delta: (p.prev_rank_6h != null && p.rank != null) ? (p.prev_rank_6h - p.rank) : null
+  });
+  let trending = [], volume = [], status = {};
+  try { trending = (polyDB.getSortedList('trending', 25) || []).map(withDelta); } catch (e) { console.warn('[poly]', e.message); }
+  try { volume   = (polyDB.getSortedList('volume', 25) || []).map(withDelta); } catch (e) {}
+  try { status   = polyDB.getStatus() || {}; } catch (e) {}
+
+  page(res, 'polymarket', '/polymarket', {
+    title: 'ترند های پلی مارکت | بازارهای پیش‌بینی مرتبط با ایران — سیگنال هوش',
+    desc: 'پایش بازارهای پیش‌بینی پلی‌مارکت مرتبط با ایران: احتمال وقوع رویدادها، حجم معاملات و تغییرات توجه معامله‌گران، با ترجمه‌ی فارسی.',
+    path: '/polymarket'
+  }, { trending, volume, lastFetched: (status.trending && status.trending.last_fetched) || null });
+});
+
+app.get('/future', (req, res) => {
+  const tl = (sql, args) => {
+    try { return timelineRO.prepare(sql).all(...(args || [])); } catch (e) { return []; }
+  };
+  const predictions = tl("SELECT * FROM predictions WHERE status='open' ORDER BY created_at DESC LIMIT 8");
+  const chains      = tl("SELECT * FROM signal_chains ORDER BY created_at DESC LIMIT 6");
+  const patterns    = tl("SELECT * FROM pattern_library ORDER BY reliability DESC LIMIT 12");
+  let acc = { dir: null, n: 0 }, confidence = null;
+  try {
+    const r = timelineRO.prepare("SELECT COUNT(*) n, AVG(CASE WHEN direction_correct=1 THEN 1.0 ELSE 0 END) d FROM prediction_validations").get();
+    if (r && r.n) { acc = { dir: r.d * 100, n: r.n }; confidence = r.d * 100; }
+  } catch (e) {}
+
+  page(res, 'future', '/future', {
+    title: 'ترند آینده | زنجیره‌های علّی و پیش‌بینی بازار ایران — سیگنال هوش',
+    desc: 'موتور کشف زنجیره‌های علّی: چه خبری چه بازاری را با چه تأخیری حرکت می‌دهد. پیش‌بینی دلار، سکه و طلا با سنجش شفاف دقت.',
+    path: '/future'
+  }, { predictions, chains, patterns, acc, confidence });
+});
+
+// ── ارتباط با ما ──
+app.get('/contact', (req, res) => {
+  page(res, 'contact', '/contact', {
+    title: 'ارتباط با ما | سیگنال هوش',
+    desc: 'راه ارتباطی با تیم سیگنال هوش — برای درخواست حذف داده، گزارش خطا یا هر پرسش دیگری.',
+    path: '/contact'
+  }, { sent: req.query.sent === '1', error: null });
+});
+
+app.post('/contact', contactLimiter, (req, res) => {
+  const b = req.body || {};
+  if (b.website) return res.redirect('/contact?sent=1');   // تله‌ی ربات
+  const name = String(b.name || '').trim().slice(0, 80);
+  const email = String(b.email || '').trim().slice(0, 120);
+  const message = String(b.message || '').trim().slice(0, 4000);
+
+  if (!name || !email || !message || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return page(res, 'contact', '/contact', {
+      title: 'ارتباط با ما | سیگنال هوش', desc: 'ارتباط با تیم سیگنال هوش.', path: '/contact', noindex: true
+    }, { sent: false, error: 'لطفاً نام، ایمیل معتبر و متن پیام را کامل وارد کنید.' });
+  }
+
+  try {
+    msgDB.prepare(
+      'INSERT INTO messages (name, email, topic, url, message, ip) VALUES (?,?,?,?,?,?)'
+    ).run(name, email, String(b.topic || '').slice(0, 60), String(b.url || '').slice(0, 300),
+          message, (req.headers['x-forwarded-for'] || req.ip || '').toString().slice(0, 45));
+  } catch (e) { console.error('[contact]', e.message); }
+
+  res.redirect('/contact?sent=1');
+});
+
+app.get('/disclaimer', (req, res) => {
+  page(res, 'disclaimer', '', {
+    title: 'سلب مسئولیت و منابع داده | سیگنال هوش',
+    desc: 'سیگنال هوش داده‌های عمومی اینترنت را خودکار جمع‌آوری می‌کند و ناشر یا مالک این محتوا نیست. متن کامل سلب مسئولیت، فهرست منابع و روند درخواست حذف داده.',
+    path: '/disclaimer'
+  }, {});
 });
 
 // ── robots و sitemap ──
@@ -370,7 +623,7 @@ app.get('/sitemap.xml', (req, res) => {
   ];
   let items = '';
   try {
-    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 ORDER BY published_at DESC LIMIT 2000').all()) {
+    for (const r of newsRO.prepare('SELECT id, published_at FROM news ORDER BY published_at DESC LIMIT 2000').all()) {
       items += `<url><loc>${SITE}/news/${r.id}</loc><lastmod>${new Date(r.published_at).toISOString()}</lastmod><changefreq>never</changefreq><priority>0.6</priority></url>`;
     }
   } catch (e) {}

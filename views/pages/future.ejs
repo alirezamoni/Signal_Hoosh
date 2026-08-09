@@ -1,0 +1,123 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند آینده</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">ترند آینده <span class="badge badge-warn">آزمایشی</span></h1>
+      <p class="page-sub">کشف خودکار زنجیره‌های علّی میان خبر، جستجو و بازار</p>
+    </div>
+
+    <% if (confidence != null) { %>
+    <div class="ribbon">
+      <span class="ribbon-label">اطمینان کلی سیستم</span>
+      <div class="ribbon-bar"><div class="ribbon-fill" style="width:<%= Math.round(confidence) %>%;"></div></div>
+      <span class="ribbon-val"><%= fa(Math.round(confidence)) %>٪</span>
+    </div>
+    <% } %>
+
+    <blockquote class="desc">
+      این بخش زنجیره‌ی رویدادهایی را که همین الان در حال رخ دادن‌اند نشان می‌دهد: ریشه‌ی خبر،
+      واکنش مردم (اسپایک جستجو) و واکنش بازار. روابط دستی تعریف نشده‌اند — سیستم آن‌ها را از
+      داده کشف کرده است. پیش‌بینی‌ها <strong>تضمینی نیستند</strong> و مشاوره‌ی سرمایه‌گذاری
+      محسوب نمی‌شوند؛ نرخ دقت واقعی در همین صفحه شفاف اعلام شده است.
+    </blockquote>
+
+    <div class="grid g4 mb4">
+      <div class="kpi"><div class="kpi-label">دقت جهت</div><div class="kpi-val <%= acc.dir != null ? 'up' : '' %>"><%= acc.dir != null ? fa(Math.round(acc.dir)) + '٪' : '—' %></div><div class="kpi-note">از <%= fa(acc.n || 0) %> پیش‌بینی اعتبارسنجی‌شده</div></div>
+      <div class="kpi"><div class="kpi-label">زنجیره‌های فعال</div><div class="kpi-val"><%= fa(chains.length) %></div><div class="kpi-note">در حال پیگیری</div></div>
+      <div class="kpi"><div class="kpi-label">پیش‌بینی‌های باز</div><div class="kpi-val"><%= fa(predictions.length) %></div><div class="kpi-note">هنوز نتیجه‌شان مشخص نشده</div></div>
+      <div class="kpi"><div class="kpi-label">الگوهای آموخته‌شده</div><div class="kpi-val"><%= fa(patterns.length) %></div><div class="kpi-note">حافظه‌ی بلندمدت سیستم</div></div>
+    </div>
+
+    <% if (predictions.length) { %>
+    <div class="page-head"><h2 class="sec-title">پیش‌بینی‌های پیش‌رو</h2></div>
+    <div class="pred-grid mb6">
+      <% predictions.forEach(function (p) { %>
+      <div class="pred-card">
+        <div class="pred-head">
+          <span class="pred-sym"><%= p.symbol || p.target || '—' %></span>
+          <% if (p.horizon_hours) { %><span class="badge badge-acc"><%= fa(p.horizon_hours) %> ساعت</span><% } %>
+        </div>
+        <div class="pred-range <%= p.direction === 'up' ? 'up' : (p.direction === 'down' ? 'down' : '') %>">
+          <%= p.direction === 'up' ? '▲' : (p.direction === 'down' ? '▼' : '—') %>
+          <%= p.pct_min != null && p.pct_max != null ? fa(Math.abs(p.pct_min).toFixed(1)) + '٪ تا ' + fa(Math.abs(p.pct_max).toFixed(1)) + '٪' : '' %>
+        </div>
+        <% if (p.confidence != null) { %>
+        <div class="dim" style="font-size:var(--fs-xs);">اطمینان: <%= fa(Math.round(p.confidence * (p.confidence <= 1 ? 100 : 1))) %>٪</div>
+        <div class="pred-conf-bar"><div class="pred-conf-fill" style="width:<%= Math.round(p.confidence * (p.confidence <= 1 ? 100 : 1)) %>%;"></div></div>
+        <% } %>
+        <div class="pred-reasons">
+          <% if (p.trigger) { %>محرک: <%= excerpt(clean(p.trigger), 70) %><br><% } %>
+          <% if (p.created_at) { %>ایجاد: <%= timeAgo(p.created_at) %><% } %>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (chains.length) { %>
+    <div class="page-head"><h2 class="sec-title">زنجیره‌های فعال</h2></div>
+    <div class="grid g2 mb6">
+      <% chains.forEach(function (c) { %>
+      <div class="chain">
+        <div class="chain-step">
+          <span class="chain-node n-news"></span>
+          <div><div class="chain-txt"><%= excerpt(clean(c.title || c.root_label || 'زنجیره'), 110) %></div>
+          <div class="chain-time"><%= c.created_at ? timeAgo(c.created_at) : '' %><%= c.status ? ' · ' + c.status : '' %></div></div>
+        </div>
+        <% if (c.node_count) { %>
+        <div class="chain-step">
+          <span class="chain-node"></span>
+          <div><div class="chain-txt"><%= fa(c.node_count) %> گره در این زنجیره</div></div>
+        </div>
+        <% } %>
+        <% if (c.strength != null) { %>
+        <div class="chain-step">
+          <span class="chain-node n-market"></span>
+          <div><div class="chain-txt">قدرت رابطه: <%= fa((c.strength <= 1 ? c.strength * 100 : c.strength).toFixed(0)) %>٪</div></div>
+        </div>
+        <% } %>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (patterns.length) { %>
+    <div class="page-head"><h2 class="sec-title">الگوهای آموخته‌شده</h2></div>
+    <blockquote class="desc desc-sm">
+      هر ردیف یک الگوی علّی کشف‌شده است: محرک، نماد هدف، افق زمانی، جهت و قابلیت اعتماد بر
+      پایه‌ی تعداد نمونه‌ی تاریخی.
+    </blockquote>
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr><th>محرک</th><th class="ta-l">نماد</th><th class="ta-l">افق</th><th class="ta-l">جهت</th><th class="ta-l">میانگین</th><th class="ta-l">قابلیت اعتماد</th><th class="ta-l">نمونه</th></tr></thead>
+        <tbody>
+          <% patterns.forEach(function (p) { %>
+          <tr>
+            <td class="td-name"><%= excerpt(clean(p.trigger || p.trigger_type || '—'), 46) %></td>
+            <td class="ta-l"><%= p.symbol || '—' %></td>
+            <td class="ta-l"><%= p.horizon_hours ? fa(p.horizon_hours) + ' ساعت' : '—' %></td>
+            <td class="ta-l"><span class="badge <%= p.direction === 'up' ? 'badge-up' : (p.direction === 'down' ? 'badge-down' : 'badge-flat') %>"><%= p.direction === 'up' ? 'صعودی' : (p.direction === 'down' ? 'نزولی' : 'خنثی') %></span></td>
+            <td class="ta-l"><%= p.avg_pct != null ? pct(p.avg_pct) : '—' %></td>
+            <td class="ta-l"><% if (p.reliability != null) { %><span class="badge <%= p.reliability >= 0.7 ? 'badge-up' : (p.reliability >= 0.5 ? 'badge-warn' : 'badge-down') %>"><%= fa(Math.round(p.reliability * (p.reliability <= 1 ? 100 : 1))) %>٪</span><% } else { %>—<% } %></td>
+            <td class="ta-l"><%= fa(p.sample_size || p.samples || 0) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
+    <% if (!predictions.length && !chains.length && !patterns.length) { %>
+    <section class="panel">
+      <div class="panel-body-pad center">
+        <p class="dim">موتور پیش‌بینی هنوز در حال جمع‌آوری داده‌ی کافی است.</p>
+        <p class="dim" style="font-size:var(--fs-sm);margin-top:var(--s2);">
+          این بخش برای کشف الگو به چند هفته داده‌ی پیوسته نیاز دارد.
+        </p>
+      </div>
+    </section>
+    <% } %>
+
+  </div>
+</main>

@@ -1,0 +1,104 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند کالای ایران</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">ترند کالای ایران</h1>
+      <p class="page-sub">پرفروش‌های دیجی‌کالا · بروزرسانی روزانه · واحد: تومان</p>
+    </div>
+
+    <blockquote class="desc">
+      تحلیل قیمت و روند فروش کالاهای پرمصرف ایران بر پایه داده‌های دیجی‌کالا. این بخش شامل
+      کالاهای ترند هفته، بیشترین رشد و افت فروش، محصولات تازه‌وارد و کالاهای با فروش پایدار است.
+      پایش این شاخص‌ها، تغییرات الگوی مصرف و قدرت خرید خانوارها را آشکار می‌کند و می‌تواند
+      سیگنال‌های اولیه‌ای از تغییرات تقاضا، انتظارات تورمی و روندهای اقتصادی ارائه دهد.
+    </blockquote>
+
+    <div class="grid g5 mb4">
+      <div class="kpi"><div class="kpi-label">محصولات رصد شده</div><div class="kpi-val"><%= fa(summary.totalProducts || 0) %></div><div class="kpi-note">در جدول پرفروش‌ها</div></div>
+      <div class="kpi"><div class="kpi-label">داغ‌ترین هفته</div><div class="kpi-val fa"><%= summary.hotProduct ? excerpt(summary.hotProduct.name, 26) : '—' %></div><div class="kpi-note up"><%= summary.hotProduct ? '▲ ' + fa(Math.abs(summary.hotProduct.diff)) + ' پله' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">بیشترین افت</div><div class="kpi-val fa"><%= summary.coldProduct ? excerpt(summary.coldProduct.name, 26) : '—' %></div><div class="kpi-note down"><%= summary.coldProduct ? '▼ ' + fa(Math.abs(summary.coldProduct.diff)) + ' پله' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">بیشترین گرانی</div><div class="kpi-val fa"><%= summary.priceUp ? excerpt(summary.priceUp.name, 26) : '—' %></div><div class="kpi-note down"><%= summary.priceUp && summary.priceUp.pct != null ? '▲ ' + fa(Math.abs(summary.priceUp.pct).toFixed(0)) + '٪' : '' %></div></div>
+      <div class="kpi"><div class="kpi-label">بیشترین ارزانی</div><div class="kpi-val fa"><%= summary.priceDown ? excerpt(summary.priceDown.name, 26) : '—' %></div><div class="kpi-note up"><%= summary.priceDown && summary.priceDown.pct != null ? '▼ ' + fa(Math.abs(summary.priceDown.pct).toFixed(0)) + '٪' : '' %></div></div>
+    </div>
+
+    <div class="tbl-wrap mb6">
+      <table>
+        <caption class="sr-only">جدول پرفروش‌ترین کالاها</caption>
+        <thead><tr><th class="rank-cell">رتبه</th><th style="width:52px;"></th><th>محصول</th><th class="ta-l">قیمت</th><th class="ta-l">دیروز</th><th class="ta-l">هفته</th><th class="ta-l">ماه</th></tr></thead>
+        <tbody>
+          <% list.forEach(function (p) { %>
+          <tr>
+            <td class="rank-cell"><%= fa(p.rank) %></td>
+            <td><% if (p.image_url) { %><img class="thumb-sm" src="<%= p.image_url %>" alt="<%= excerpt(p.name, 40) %>" loading="lazy"><% } %></td>
+            <td class="td-name"><a href="<%= p.url || 'https://www.digikala.com/' %>" target="_blank" rel="noopener"><%= p.name %> <svg class="ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3"/></svg></a></td>
+            <td class="ta-l"><%= p.price ? fa(num(p.price)) : '—' %></td>
+            <td class="ta-l"><%- rankBadge(p.rank, p.prev_rank) %></td>
+            <td class="ta-l"><%- rankBadge(p.rank, p.rank_7d) %></td>
+            <td class="ta-l"><%- rankBadge(p.rank, p.rank_30d) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid g4">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">محصولات داغ هفته</h2></div>
+        <div class="panel-body">
+          <% hot.forEach(function (p, i) { %>
+          <a class="drow" href="<%= p.url || 'https://www.digikala.com/' %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= excerpt(p.name, 32) %></span></div>
+            <div class="drow-val"><span class="badge badge-up">▲ <%= fa(Math.abs(p.gain || 0)) %></span></div>
+          </a>
+          <% }); %>
+          <% if (!hot.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">بیشترین صعود رتبه</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">بیشترین افت فروش</h2></div>
+        <div class="panel-body">
+          <% cold.forEach(function (p, i) { %>
+          <a class="drow" href="<%= p.url || 'https://www.digikala.com/' %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= excerpt(p.name, 32) %></span></div>
+            <div class="drow-val"><span class="badge badge-down">▼ <%= fa(Math.abs(p.gain || 0)) %></span></div>
+          </a>
+          <% }); %>
+          <% if (!cold.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">بیشترین نزول رتبه</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">تازه‌واردهای Top ۵۰</h2></div>
+        <div class="panel-body">
+          <% newcomers.forEach(function (p) { %>
+          <a class="drow" href="<%= p.url || 'https://www.digikala.com/' %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-name"><%= excerpt(p.name, 32) %></span></div>
+            <div class="drow-val"><span><%= fa(p.rank) %></span></div>
+          </a>
+          <% }); %>
+          <% if (!newcomers.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">اولین ورود به جدول</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">پرفروش‌های ماندگار</h2></div>
+        <div class="panel-body">
+          <% legends.forEach(function (p) { %>
+          <a class="drow" href="<%= p.url || 'https://www.digikala.com/' %>" target="_blank" rel="noopener">
+            <div class="drow-main"><span class="drow-name"><%= excerpt(p.name, 32) %></span></div>
+            <div class="drow-val"><span><%= fa(p.days || p.appearances || 0) %></span><span class="drow-sub">روز</span></div>
+          </a>
+          <% }); %>
+          <% if (!legends.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">بیشترین روز حضور</div>
+      </section>
+    </div>
+
+  </div>
+</main>
