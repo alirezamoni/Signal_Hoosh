@@ -17,3 +17,9 @@ data/
 public/channel-photos/*.jpg
 test-server.js
 timeline-demo-seed.js
+
+# مدیا و خروجی‌های محلی — هرگز نباید کامیت شوند
+public/news-media/
+public/finance-media/
+backups/
+__pycache__/

@@ -248,15 +248,60 @@ function updateMediaUrl(id, media_url) {
 }
 
 // ── Cleanup ──────────────────────────────────────────────
+const MEDIA_DIR = path.join(__dirname, 'public', 'news-media');
+
+// نام فایل‌های مدیای یک ردیف را درمی‌آورد (تک‌مسیر یا آرایه JSON)
+function mediaFilesOf(media_url) {
+  if (!media_url) return [];
+  const v = String(media_url).trim();
+  let list;
+  if (v.startsWith('[')) { try { list = JSON.parse(v); } catch (e) { list = [v]; } }
+  else list = [v];
+  const out = [];
+  for (const u of list) {
+    if (typeof u !== 'string') continue;
+    const m = u.match(/\/news-media\/([^\/?"]+)$/);
+    if (m) out.push(m[1]);
+  }
+  return out;
+}
+
+// فایل مدیا را فقط وقتی پاک می‌کند که هیچ ردیف دیگری به آن ارجاع نداشته باشد
+function removeMediaFiles(names) {
+  let removed = 0;
+  const stmt = db.prepare('SELECT 1 FROM news WHERE media_url LIKE ? LIMIT 1');
+  for (const name of names) {
+    if (stmt.get('%' + name + '%')) continue;
+    try { fs.unlinkSync(path.join(MEDIA_DIR, name)); removed++; }
+    catch (e) { if (e.code !== 'ENOENT') console.warn('[news-db] unlink failed:', name, e.message); }
+  }
+  return removed;
+}
+
 function cleanup() {
-  // فقط ۳۰ روز نگه دار
+  // فقط ۳۰ روز نگه دار — اول نام فایل‌های ردیف‌های در شرف حذف را جمع کن
+  const doomed = db.prepare(
+    `SELECT media_url FROM news WHERE published_at < datetime('now','-30 days') AND media_url IS NOT NULL`
+  ).all();
+  const files = [];
+  for (const row of doomed) files.push(...mediaFilesOf(row.media_url));
+
   const r = db.prepare(`DELETE FROM news WHERE published_at < datetime('now','-30 days')`).run();
   if (r.changes) console.log(`[news-db] cleanup: ${r.changes} old news removed`);
+
+  // حالا که ردیف‌ها حذف شده‌اند، فایل‌های بی‌ارجاع را از دیسک پاک کن
+  if (files.length) {
+    const removed = removeMediaFiles([...new Set(files)]);
+    console.log(`[news-db] cleanup: ${removed} media files removed from disk`);
+  }
+
   db.prepare(`DELETE FROM news_digest WHERE created_at < datetime('now','-7 days')`).run();
 }
 
 function deleteNews(id) {
+  const row = db.prepare('SELECT media_url FROM news WHERE id=?').get(id);
   db.prepare('DELETE FROM news WHERE id=?').run(id);
+  if (row && row.media_url) removeMediaFiles([...new Set(mediaFilesOf(row.media_url))]);
 }
 
-module.exports = { upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup, getNewsIdsWithBase64Media, getNewsMediaUrl, updateMediaUrl };
+module.exports = { mediaFilesOf, removeMediaFiles, upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup, getNewsIdsWithBase64Media, getNewsMediaUrl, updateMediaUrl };
