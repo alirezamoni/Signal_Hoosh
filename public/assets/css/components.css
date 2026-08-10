@@ -88,7 +88,7 @@
 }
 .tab:hover { color: var(--text); background: var(--card-hover); }
 
-/* تب فعال — پُر و بدون ابهام: پس‌زمینه‌ی رنگی، متن سفید، نشانگر پایین */
+/* تب فعال — پس‌زمینه‌ی رنگی + خط زیرین ضخیم روی لبه‌ی نوار تب */
 .tab[aria-current="page"] {
   color: #fff;
   background: var(--accent);
@@ -96,13 +96,14 @@
   position: relative;
 }
 .tab[aria-current="page"]:hover { color: #fff; background: var(--accent); }
-/* مثلث کوچک زیر تب فعال */
+
 .tab[aria-current="page"]::after {
   content: '';
-  position: absolute; bottom: -7px; left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: var(--accent);
+  position: absolute;
+  right: 0; left: 0; bottom: -5px;      /* روی خط پایین نوار تب می‌نشیند */
+  height: 3px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
 }
 
 /* ══════════════ تیکر ══════════════ */
@@ -340,21 +341,6 @@ tbody tr:hover { background: var(--card-hover); }
 }
 .nrow:last-child { border-bottom: none; }
 .nrow:hover { background: var(--card-hover); }
-
-/* نوار «خبر تازه رسید» بالای فید */
-.newbar {
-  display: flex; align-items: center; justify-content: center; gap: var(--s2);
-  width: 100%;
-  padding: 10px var(--pad-panel);
-  background: var(--accent);
-  color: #fff;
-  font-size: var(--fs-md);
-  border: none;
-  cursor: pointer;
-  transition: filter var(--dur) var(--ease);
-}
-.newbar:hover { filter: brightness(1.08); }
-.newbar .live-dot { background: #fff; }
 
 /* خبر تازه‌رسیده — حلقه‌ی قرمز فقط لحظه‌ی ورود، بعد محو می‌شود.
    فقط اخبار افزوده‌شده با پولینگ این کلاس را می‌گیرند؛ رندر اولیه هرگز. */

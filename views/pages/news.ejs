@@ -57,14 +57,8 @@
             فید زنده
             <span class="live" style="font-size:var(--fs-xs);"><span class="live-dot"></span></span>
           </h2>
-          <span class="panel-link">خبر تازه خودکار اضافه می‌شود</span>
+          <span class="panel-link">خبر تازه خودکار به فهرست اضافه می‌شود</span>
         </div>
-
-        <!-- نوار خبر جدید — با کلیک به بالا اسکرول می‌کند -->
-        <button class="newbar" id="newsNewBar" hidden>
-          <span class="live-dot"></span>
-          <span id="newsNewCount">۰</span> خبر تازه رسید — نمایش
-        </button>
 
         <div class="panel-body-flush" id="newsFeed"
              data-latest="<%= news.length ? news[0].id : 0 %>"
