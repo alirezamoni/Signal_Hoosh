@@ -26,6 +26,7 @@ const auth      = require('./auth');
 const db        = require('./db');
 const settingsDB = require('./settings-db');
 const aiClient   = require('./lib/ai-client');
+const orModels   = require('./lib/openrouter-models');
 const cookieParser = require('cookie-parser');
 
 const app  = express();
@@ -1191,7 +1192,19 @@ function adminPage(req, res, extra) {
     modules: AI_MODULES.map(m => Object.assign({}, m, { value: setAll[m.key] || '' })),
   };
 
-  const models = aiClient.FALLBACK_MODELS.slice();
+  // فهرست کامل OpenRouter (از کش، بدون انتظار شبکه). اگر هنوز واکشی
+  // نشده باشد، دست‌کم مدل‌های پشتیبانِ خودِ برنامه نشان داده می‌شوند.
+  const orCache = orModels.list();
+  const models = orCache.models.length
+    ? orCache.models
+    : aiClient.FALLBACK_MODELS.map(id => ({ id, name: id, free: true, inM: 0, outM: 0, ctx: null }));
+  const modelsMeta = {
+    fetchedAt: orCache.fetchedAt,
+    total: models.length,
+    free: models.filter(m => m.free).length,
+    cached: !!orCache.models.length,
+  };
+  const freeModels = models.filter(m => m.free);
   const dbs = dbFiles();
   const sec = ADMIN_SECS.indexOf(String((req.query && req.query.sec) || '')) !== -1
     ? String(req.query.sec) : 'overview';
@@ -1199,7 +1212,7 @@ function adminPage(req, res, extra) {
   page(res, 'admin', '', {
     title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
   }, Object.assign({
-    rules, messages, blocked, users, chNews, chFin, ai, models, dbs, sec,
+    rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec,
     sys: systemInfo(dbs),
     stats: {
       news, blocked: blockedN, visible: news - blockedN,
@@ -1388,15 +1401,32 @@ app.post('/admin/channels/:id/delete', adminGuard, (req, res) => {
 app.post('/admin/ai/save', adminGuard, (req, res) => {
   const b = req.body || {};
   try {
-    if (b.ai_model) settingsDB.set('ai_model', String(b.ai_model));
+    // شناسه‌ی ناموجود را نپذیر — وگرنه آن بخش تا اصلاح دستی روی مدل پشتیبان می‌ماند
+    const bad = [];
+    const wanted = {};
+    const gen = String(b.ai_model || '').trim();
+    if (gen) { if (orModels.isKnown(gen)) wanted.ai_model = gen; else bad.push(gen); }
+    for (const m of AI_MODULES) {
+      const v = String(b[m.key] || '').trim();
+      if (!v) { wanted[m.key] = ''; continue; }
+      if (orModels.isKnown(v)) wanted[m.key] = v; else bad.push(v);
+    }
+    if (bad.length) return backFrom(req, res, null, 'این شناسه‌ها در فهرست OpenRouter نیستند: ' + bad.join('، '));
+    for (const k in wanted) settingsDB.set(k, wanted[k]);
 
     const lim = parseInt(String(b.ai_daily_limit || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
     if (!isNaN(lim) && lim >= 0 && lim <= 10000) settingsDB.set('ai_daily_limit', lim);
 
-    for (const m of AI_MODULES) settingsDB.set(m.key, String(b[m.key] || ''));
-
     backFrom(req, res, 'تنظیمات هوش مصنوعی ذخیره شد و بلافاصله اعمال می‌شود.');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/ai/refresh-models', adminGuard, async (req, res) => {
+  try {
+    const d = await orModels.refresh();
+    backFrom(req, res, 'فهرست مدل‌ها تازه شد — ' + d.models.length + ' مدل، ' +
+      d.models.filter(m => m.free).length + ' مورد رایگان.');
+  } catch (e) { backFrom(req, res, null, 'واکشی فهرست ناموفق بود: ' + e.message); }
 });
 
 app.post('/admin/ai/reset-budget', adminGuard, (req, res) => {

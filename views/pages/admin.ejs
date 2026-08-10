@@ -275,20 +275,34 @@
               <div class="kpi-note"><%= ai.used >= ai.limit ? 'تا صفر شدن سهمیه' : 'در حال پاسخ‌دهی' %></div></div>
           </div>
 
+          <%
+            // برچسب هر گزینه: رایگان یا قیمت هر یک میلیون توکن.
+            // یک datalist مشترک برای هر شش ورودی — پنج نسخه‌ی جدا از
+            // ۴۰۰ گزینه یعنی دو هزار تگ در هر بار باز کردن پنل.
+            function modelHint(m) {
+              var t = m.free ? 'رایگان' : ('ورودی $' + m.inM + ' · خروجی $' + m.outM + ' هر یک میلیون توکن');
+              if (m.ctx) t += ' · ' + m.ctx.toLocaleString('en-US') + ' توکن حافظه';
+              return t;
+            }
+          %>
+          <datalist id="orModelsList">
+            <% models.forEach(function (m) { %>
+            <option value="<%= m.id %>"><%= modelHint(m) %></option>
+            <% }); %>
+          </datalist>
+
           <form method="POST" action="/admin/ai/save">
             <section class="panel mb4">
               <div class="panel-head"><h3 class="panel-title">مدل پیش‌فرض و سهمیه</h3></div>
               <div class="panel-body-pad">
                 <div class="grid g2">
                   <div class="field"><label class="label" for="aiGeneral">مدل پیش‌فرض همه‌ی بخش‌ها</label>
-                    <select class="select" id="aiGeneral" name="ai_model">
-                      <% models.forEach(function (m) { %>
-                      <option value="<%= m %>" <%= ai.general === m ? 'selected' : '' %>><%= m %></option>
-                      <% }); %>
-                      <% if (ai.general && models.indexOf(ai.general) === -1) { %>
-                      <option value="<%= ai.general %>" selected><%= ai.general %> (سفارشی)</option>
-                      <% } %>
-                    </select></div>
+                    <input class="input" id="aiGeneral" name="ai_model" list="orModelsList"
+                           value="<%= ai.general %>" style="direction:ltr;text-align:left;" autocomplete="off">
+                    <div class="hint">
+                      کلیک کنید تا فهرست باز شود، یا بخشی از نام مدل را تایپ کنید تا فیلتر شود.
+                      <%= fa(modelsMeta.free) %> مدل رایگان از مجموع <%= fa(modelsMeta.total) %> مدل OpenRouter.
+                    </div></div>
                   <div class="field"><label class="label" for="aiLimit">سقف فراخوانی روزانه</label>
                     <input class="input" id="aiLimit" name="ai_daily_limit" type="number" min="0" max="10000" value="<%= ai.limit %>" style="direction:ltr;text-align:left;">
                     <div class="hint">مجموع فراخوانی همه‌ی بخش‌ها در یک شبانه‌روز. عدد بالاتر یعنی هزینه/مصرف بیشتر.</div></div>
@@ -308,15 +322,9 @@
                     <div class="drow-name"><%= m.label %></div>
                     <div class="hint" style="margin-top:2px;direction:ltr;text-align:right;"><%= m.file %> · tag: <%= m.tag %></div>
                   </div>
-                  <select class="select" name="<%= m.key %>" style="max-width:340px;">
-                    <option value="">— استفاده از مدل پیش‌فرض —</option>
-                    <% models.forEach(function (x) { %>
-                    <option value="<%= x %>" <%= m.value === x ? 'selected' : '' %>><%= x %></option>
-                    <% }); %>
-                    <% if (m.value && models.indexOf(m.value) === -1) { %>
-                    <option value="<%= m.value %>" selected><%= m.value %> (سفارشی)</option>
-                    <% } %>
-                  </select>
+                  <input class="input ai-mod-input" name="<%= m.key %>" list="orModelsList"
+                         value="<%= m.value %>" placeholder="خالی = همان مدل پیش‌فرض"
+                         style="direction:ltr;text-align:left;" autocomplete="off">
                 </div>
                 <% }); %>
               </div>
@@ -325,10 +333,43 @@
 
             <div class="row wrap" style="gap:var(--s2);">
               <button class="btn btn-acc" type="submit">ذخیره‌ی تنظیمات</button>
+              <button class="btn" type="submit" formaction="/admin/ai/refresh-models">تازه‌سازی فهرست مدل‌ها</button>
               <button class="btn" type="submit" formaction="/admin/ai/reset-budget"
                       onclick="return confirm('شمارنده‌ی مصرف امروز صفر شود؟')">صفر کردن مصرف امروز</button>
             </div>
           </form>
+
+          <section class="panel mt4">
+            <div class="panel-head">
+              <h3 class="panel-title">مدل‌های رایگان</h3>
+              <span class="panel-link">
+                <%= fa(modelsMeta.free) %> از <%= fa(modelsMeta.total) %> مدل
+                <% if (modelsMeta.fetchedAt) { %> · بروزرسانی <%= timeAgo(modelsMeta.fetchedAt) %><% } %>
+              </span>
+            </div>
+            <blockquote class="desc desc-sm" style="margin:var(--s3) var(--pad-panel) 0;">
+              این‌ها بدون هزینه‌اند ولی سهمیه‌ی سخت‌گیرانه‌تر و صف طولانی‌تری دارند.
+              مدل‌های پولی هم در همان فهرست بالا هستند و قیمتشان کنار نامشان نوشته شده؛
+              اگر یکی را انتخاب کنید از اعتبار حساب OpenRouter شما کم می‌شود.
+            </blockquote>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>مدل</th><th class="ta-l">شناسه</th><th class="ta-l">حافظه</th></tr></thead>
+                <tbody>
+                  <% freeModels.forEach(function (m) { %>
+                  <tr>
+                    <td class="td-name"><%= m.name %></td>
+                    <td class="ta-l dim" style="direction:ltr;text-align:left;font-size:var(--fs-xs);"><%= m.id %></td>
+                    <td class="ta-l"><%= m.ctx ? fa(m.ctx.toLocaleString('en-US')) + ' توکن' : '—' %></td>
+                  </tr>
+                  <% }); %>
+                  <% if (!freeModels.length) { %>
+                  <tr><td colspan="3" class="dim">فهرست هنوز واکشی نشده — دکمه‌ی «تازه‌سازی فهرست مدل‌ها» را بزنید.</td></tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <!-- ══════════ پیام‌ها ══════════ -->

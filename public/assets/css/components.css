@@ -854,8 +854,12 @@ tbody tr:hover { background: var(--card-hover); }
   border-bottom: 1px solid var(--border-soft);
 }
 .ai-mod-row:last-child { border-bottom: none; }
-.ai-mod-row .select { flex: 0 1 340px; font-size: var(--fs-sm); padding: 7px var(--s3); }
-@media (max-width: 700px) { .ai-mod-row .select { flex: 1 1 100%; } }
+.ai-mod-row .select,
+.ai-mod-row .ai-mod-input { flex: 0 1 340px; font-size: var(--fs-sm); padding: 7px var(--s3); width: auto; }
+@media (max-width: 700px) {
+  .ai-mod-row .select,
+  .ai-mod-row .ai-mod-input { flex: 1 1 100%; }
+}
 
 .msg-row { display: flex; gap: var(--s3); padding: var(--pad-panel); border-bottom: 1px solid var(--border-soft); }
 .msg-row:last-child { border-bottom: none; }

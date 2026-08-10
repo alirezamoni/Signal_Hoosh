@@ -23,3 +23,4 @@ public/news-media/
 public/finance-media/
 backups/
 __pycache__/
+data/openrouter-models.json
