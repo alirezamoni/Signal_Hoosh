@@ -23,13 +23,30 @@
       <div class="kpi"><div class="kpi-label">پرکارترین منبع</div><div class="kpi-val fa"><%= stats.topChannel || '—' %></div><div class="kpi-note"><%= fa(stats.topChannelCount || 0) %> خبر</div></div>
     </div>
 
-    <div class="filters" data-filters>
+    <div class="filters">
+      <span class="filters-label">دسته‌بندی:</span>
+      <a class="filt<%= (!curCat && !current) ? ' on' : '' %>" href="/news">همه</a>
+      <% cats.forEach(function (c) { %>
+      <a class="filt<%= curCat === c.category ? ' on' : '' %>" href="/news?cat=<%= encodeURIComponent(c.category) %>"><%= c.category %> <span class="dim">(<%= fa(c.cnt) %>)</span></a>
+      <% }); %>
+    </div>
+
+    <div class="filters">
       <span class="filters-label">کانال:</span>
-      <a class="filt<%= !current ? ' on' : '' %>" href="/news">همه</a>
-      <% channels.slice(0, 10).forEach(function (c) { %>
+      <a class="filt<%= !current ? ' on' : '' %>" href="/news<%= curCat ? '?cat=' + encodeURIComponent(curCat) : '' %>">همه</a>
+      <% channels.slice(0, 14).forEach(function (c) { %>
       <a class="filt<%= String(current) === String(c.id) ? ' on' : '' %>" href="/news?channel=<%= c.id %>"><%= c.title || c.username %></a>
       <% }); %>
     </div>
+
+    <% if (current || curCat) { %>
+    <p class="dim mb3" style="font-size:var(--fs-sm);">
+      فیلتر فعال:
+      <% if (curCat) { %><span class="tag"><%= curCat %></span><% } %>
+      <% if (current) { var ch = channels.find(function(x){return String(x.id)===String(current)}); %><span class="tag"><%= ch ? (ch.title || ch.username) : 'کانال' %></span><% } %>
+      · <a href="/news" class="accent">حذف فیلتر</a>
+    </p>
+    <% } %>
 
     <div class="grid g3">
 
@@ -38,11 +55,21 @@
           <h2 class="panel-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9h4M18 14h-8M15 18h-5M10 6h8v4h-8V6z"/></svg>
             فید زنده
+            <span class="live" style="font-size:var(--fs-xs);"><span class="live-dot"></span></span>
           </h2>
-          <span class="panel-link">با اسکرول، اخبار بیشتری بارگذاری می‌شود</span>
+          <span class="panel-link">خبر تازه خودکار اضافه می‌شود</span>
         </div>
 
-        <div class="panel-body-flush" id="newsFeed">
+        <!-- نوار خبر جدید — با کلیک به بالا اسکرول می‌کند -->
+        <button class="newbar" id="newsNewBar" hidden>
+          <span class="live-dot"></span>
+          <span id="newsNewCount">۰</span> خبر تازه رسید — نمایش
+        </button>
+
+        <div class="panel-body-flush" id="newsFeed"
+             data-latest="<%= news.length ? news[0].id : 0 %>"
+             data-channel="<%= current || '' %>"
+             data-cat="<%= curCat || '' %>">
           <% if (!news.length) { %>
             <div class="sentinel"><div class="sentinel-txt">خبری برای نمایش نیست.</div></div>
           <% } %>

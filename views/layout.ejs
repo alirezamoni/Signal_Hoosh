@@ -27,9 +27,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/assets/css/tokens.css">
-<link rel="stylesheet" href="/assets/css/base.css">
-<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="<%= ASSETS.tokens %>">
+<link rel="stylesheet" href="<%= ASSETS.base %>">
+<link rel="stylesheet" href="<%= ASSETS.components %>">
 
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%234f83f7'/><stop offset='1' stop-color='%239b7cfc'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-size='17' font-weight='700' fill='white' font-family='system-ui'>S</text></svg>">
 </head>
@@ -127,6 +127,17 @@
   </div>
 </footer>
 
-<script src="/assets/js/app.js"></script>
+<script src="<%= ASSETS.app %>"></script>
+
+<% if (!seo.noindex) { %>
+<!-- Google Analytics — فقط روی صفحات عمومی، نه پنل مدیریت -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DWN8J1WHYH"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-DWN8J1WHYH');
+</script>
+<% } %>
 </body>
 </html>

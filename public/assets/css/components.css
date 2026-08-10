@@ -79,13 +79,31 @@
 .tab {
   display: inline-flex; align-items: center;
   padding-inline: var(--s3);
+  margin-block: 5px;
+  border-radius: var(--r-sm);
   font-size: var(--fs-md); color: var(--muted);
   white-space: nowrap;
   border-bottom: 2px solid transparent;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: all var(--dur) var(--ease);
 }
-.tab:hover { color: var(--text); }
-.tab[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover { color: var(--text); background: var(--card-hover); }
+
+/* تب فعال — پُر و بدون ابهام: پس‌زمینه‌ی رنگی، متن سفید، نشانگر پایین */
+.tab[aria-current="page"] {
+  color: #fff;
+  background: var(--accent);
+  font-weight: var(--fw-medium);
+  position: relative;
+}
+.tab[aria-current="page"]:hover { color: #fff; background: var(--accent); }
+/* مثلث کوچک زیر تب فعال */
+.tab[aria-current="page"]::after {
+  content: '';
+  position: absolute; bottom: -7px; left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--accent);
+}
 
 /* ══════════════ تیکر ══════════════ */
 
@@ -323,29 +341,65 @@ tbody tr:hover { background: var(--card-hover); }
 .nrow:last-child { border-bottom: none; }
 .nrow:hover { background: var(--card-hover); }
 
-/* خبر داغ/ترند — حلقه‌ی قرمز */
-.nrow-hot { box-shadow: inset 3px 0 0 var(--down); }
-.nrow-hot .nrow-thumb { outline: 2px solid var(--down); outline-offset: 1px; }
-
-/* خبر تازه‌رسیده */
-.nrow-new { animation: flashIn 1.6s var(--ease); }
-@keyframes flashIn { from { background: var(--accent-bg); } to { background: transparent; } }
-
-.nrow-media { position: relative; flex-shrink: 0; }
-.nrow-thumb {
-  width: 84px; height: 60px;
-  border-radius: var(--r-sm); object-fit: cover;
-  background: var(--inset); border: 1px solid var(--border);
+/* نوار «خبر تازه رسید» بالای فید */
+.newbar {
+  display: flex; align-items: center; justify-content: center; gap: var(--s2);
+  width: 100%;
+  padding: 10px var(--pad-panel);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-md);
+  border: none;
+  cursor: pointer;
+  transition: filter var(--dur) var(--ease);
 }
-/* نشانگر گالری چندعکسه / ویدیو */
+.newbar:hover { filter: brightness(1.08); }
+.newbar .live-dot { background: #fff; }
+
+/* خبر تازه‌رسیده — حلقه‌ی قرمز دور کل کارت */
+.nrow-new {
+  box-shadow: inset 0 0 0 2px var(--down);
+  border-radius: var(--r);
+  background: var(--down-bg);
+}
+.nrow-new .nrow-media { border-color: var(--down); }
+
+/* خبر داغ — چند کانال هم‌زمان پوشش داده‌اند */
+.nrow-hot { box-shadow: inset 3px 0 0 var(--hot); }
+.nrow-new.nrow-hot { box-shadow: inset 0 0 0 2px var(--down), inset 3px 0 0 var(--hot); }
+
+.nrow-media {
+  position: relative;
+  flex-shrink: 0;
+  width: 150px; height: 104px;
+  border-radius: var(--r);
+  overflow: hidden;              /* بج هرگز از کادر بیرون نمی‌زند */
+  background: var(--inset);
+  border: 1px solid var(--border);
+}
+.nrow-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* نشانگر گالری چندعکسه / ویدیو — داخل کادر عکس */
 .media-badge {
-  position: absolute; bottom: 3px; left: 3px;
+  position: absolute; bottom: 4px; left: 4px;
   display: inline-flex; align-items: center; gap: 3px;
-  padding: 1px 5px; border-radius: 3px;
-  background: rgba(0,0,0,.72); color: #fff;
-  font-size: 10px; line-height: 1.6;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(0, 0, 0, .78);
+  color: #fff;
+  font-size: 10px; line-height: 1.5;
+  max-width: calc(100% - 8px);
+  overflow: hidden; white-space: nowrap;
+  backdrop-filter: blur(2px);
 }
-.media-badge svg { width: 9px; height: 9px; }
+.media-badge svg { width: 10px; height: 10px; flex-shrink: 0; }
+
+/* پوشش پخش برای خبر ویدیویی */
+.play-overlay {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(0, 0, 0, .35);
+}
+.play-overlay svg { width: 26px; height: 26px; color: #fff; opacity: .95; }
 
 .nrow-body { min-width: 0; flex: 1; }
 .nrow-text {
@@ -359,16 +413,30 @@ tbody tr:hover { background: var(--card-hover); }
 .nrow-src { color: var(--muted); }
 .dot-sep { color: var(--faint); }
 
-/* عکس کانال */
+/* عکس کانال — بزرگ‌تر و قابل تشخیص */
 .avatar {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: var(--inset); border: 1px solid var(--border);
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--inset); border: 1px solid var(--border-strong);
   flex-shrink: 0; object-fit: cover;
 }
-.avatar-lg { width: 28px; height: 28px; }
+.avatar-lg { width: 48px; height: 48px; }
+.avatar-sm { width: 24px; height: 24px; }
 
+/* حرف اول نام کانال وقتی عکس ندارد — به‌جای دایره‌ی خالی */
+.avatar-ph {
+  display: inline-grid; place-items: center;
+  font-size: 15px; font-weight: var(--fw-medium);
+  color: var(--muted);
+  background: var(--inset);
+}
+
+@media (max-width: 900px) {
+  .nrow-media { width: 120px; height: 84px; }
+}
 @media (max-width: 520px) {
-  .nrow-thumb { width: 64px; height: 48px; }
+  .nrow-media { width: 96px; height: 70px; }
+  .avatar { width: 30px; height: 30px; }
+  .avatar-ph { font-size: 13px; }
 }
 
 /* ══════════════ صفحه‌ی تک‌خبر ══════════════ */
@@ -485,6 +553,19 @@ tbody tr:hover { background: var(--card-hover); }
 .poly-item:last-child { border-bottom: none; }
 .poly-item:hover { background: var(--card-hover); }
 .poly-ico { width: 34px; height: 34px; border-radius: var(--r-sm); background: var(--inset); border: 1px solid var(--border); flex-shrink: 0; }
+
+/* شماره‌ی رتبه در فهرست پلی‌مارکت */
+.poly-rank {
+  flex-shrink: 0;
+  min-width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--inset);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
 .poly-q { font-size: var(--fs-md); line-height: 1.7; margin-bottom: 6px; color: var(--text); }
 .poly-meta { display: flex; flex-wrap: wrap; gap: var(--s3); font-size: var(--fs-xs); color: var(--faint); }
 .poly-prob { text-align: left; flex-shrink: 0; }

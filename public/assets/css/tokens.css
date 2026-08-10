@@ -37,18 +37,20 @@
 /* ══════════════════ تم تیره (پیش‌فرض) ══════════════════ */
 
 :root {
-  --bg:          #050505;
-  --card:        #111111;
-  --card-hover:  #17171c;
-  --inset:       #0b0b0d;
-  --border:      #222222;
-  --border-soft: #1a1a1a;
-  --border-strong: #2e2e2e;
+  /* تیره ولی نه سیاهِ مطلق — چشم در مطالعه‌ی طولانی کمتر خسته می‌شود
+     و کنتراست متن روی آن ملایم‌تر است */
+  --bg:          #0e1116;
+  --card:        #161a21;
+  --card-hover:  #1c212a;
+  --inset:       #12161c;
+  --border:      #262c36;
+  --border-soft: #1e242c;
+  --border-strong: #38404d;
 
-  --text:        #f3f4f6;
-  --muted:       #9ca3af;
-  --dim:         #6b7280;
-  --faint:       #4b5563;
+  --text:        #e8ecf2;
+  --muted:       #a3adbb;
+  --dim:         #7c8794;
+  --faint:       #5b6573;
 
   --up:          #4ade80;
   --down:        #f87171;
@@ -63,7 +65,7 @@
   --accent-bg:   rgba(96, 165, 250, 0.11);
   --warn-bg:     rgba(251, 191, 36, 0.11);
 
-  --shadow: none;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 
   /* برند — بدون تغییر در هر دو تم */
   --brand-1:     #4f83f7;

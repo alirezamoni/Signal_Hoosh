@@ -17,8 +17,13 @@
     </blockquote>
 
     <div class="grid g4 mb4">
-      <% kpi.forEach(function (f) { %>
-      <div class="kpi">
+      <% kpi.forEach(function (f) {
+           var p = sparkPath(f.hist, 200, 42, 4);
+           var a = sparkArea(f.hist, 200, 42, 4);
+           var up = trendDir(f.hist) >= 0;
+           var col = up ? 'var(--up)' : 'var(--down)';
+      %>
+      <div class="kpi <%= p ? 'kpi-spark' : '' %>">
         <div class="kpi-head"><span class="kpi-name"><%= f.name || f.symbol %></span></div>
         <div class="kpi-val"><%= fa(num(f.price)) %></div>
         <div class="kpi-note <%= f.change_pct > 0 ? 'up' : (f.change_pct < 0 ? 'down' : '') %>">
@@ -26,6 +31,12 @@
         </div>
         <div class="kpi-note">کمترین <%= fa(num(f.low)) %> · بیشترین <%= fa(num(f.high)) %></div>
         <% if (f.bubble) { %><div class="kpi-note">حباب: <span class="<%= f.bubble > 0 ? 'up' : 'down' %>"><%= fa(num(f.bubble)) %></span></div><% } %>
+        <% if (p) { %>
+        <svg class="spark-bg" viewBox="0 0 200 42" preserveAspectRatio="none" aria-hidden="true">
+          <path d="<%= a %>" fill="<%= col %>" opacity=".16"/>
+          <path d="<%= p %>" fill="none" stroke="<%= col %>" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+        <% } %>
       </div>
       <% }); %>
     </div>
@@ -33,9 +44,12 @@
     <div class="tbl-wrap mb4">
       <table>
         <caption class="sr-only">جدول قیمت لحظه‌ای نمادهای مالی</caption>
-        <thead><tr><th>نماد</th><th class="ta-l">قیمت آخر</th><th class="ta-l">تغییر</th><th class="ta-l">درصد</th><th class="ta-l">کمترین</th><th class="ta-l">بیشترین</th><th class="ta-l">بروزرسانی</th></tr></thead>
+        <thead><tr><th>نماد</th><th class="ta-l">قیمت آخر</th><th class="ta-l">تغییر</th><th class="ta-l">درصد</th><th class="ta-l">کمترین</th><th class="ta-l">بیشترین</th><th class="ta-l">روند ۲۴ ساعت</th><th class="ta-l">بروزرسانی</th></tr></thead>
         <tbody>
-          <% rows.forEach(function (f) { %>
+          <% rows.forEach(function (f) {
+               var sp = sparkPath(f.hist, 64, 20, 3);
+               var up = trendDir(f.hist) >= 0;
+          %>
           <tr>
             <td class="td-name"><%= f.name || f.symbol %></td>
             <td class="ta-l"><%= fa(num(f.price)) %></td>
@@ -43,6 +57,11 @@
             <td class="ta-l"><span class="badge <%= f.change_pct > 0 ? 'badge-up' : (f.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(f.change_pct) %></span></td>
             <td class="ta-l"><%= fa(num(f.low)) %></td>
             <td class="ta-l"><%= fa(num(f.high)) %></td>
+            <td class="ta-l">
+              <% if (sp) { %>
+              <svg class="spark" viewBox="0 0 64 20"><path d="<%= sp %>" fill="none" stroke="<%= up ? '#4ade80' : '#f87171' %>" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              <% } else { %><span class="dim">—</span><% } %>
+            </td>
             <td class="ta-l"><%= timeAgo(f.timestamp) %></td>
           </tr>
           <% }); %>

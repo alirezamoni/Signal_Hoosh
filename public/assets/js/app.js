@@ -131,6 +131,63 @@
     });
   }
 
+  /* ── پولینگ خبر تازه ──
+     هر ۲۵ ثانیه از سرور می‌پرسد «خبری تازه‌تر از این شناسه هست؟».
+     اگر کاربر بالای صفحه باشد مستقیم اضافه می‌شود؛ اگر پایین‌تر باشد
+     یک نوار می‌آید تا جای خواندنش پرش نکند. */
+  var feedEl = document.getElementById('newsFeed');
+  var newBar = document.getElementById('newsNewBar');
+
+  if (feedEl && newBar) {
+    var latest = parseInt(feedEl.dataset.latest, 10) || 0;
+    var chParam = feedEl.dataset.channel ? '&channel=' + feedEl.dataset.channel : '';
+    var catParam = feedEl.dataset.cat ? '&cat=' + encodeURIComponent(feedEl.dataset.cat) : '';
+    var buffer = document.createDocumentFragment();
+    var buffered = 0;
+    var polling = false;
+
+    var showBuffered = function () {
+      if (!buffered) return;
+      feedEl.insertBefore(buffer, feedEl.firstChild);
+      buffer = document.createDocumentFragment();
+      buffered = 0;
+      newBar.hidden = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    newBar.addEventListener('click', showBuffered);
+
+    var poll = function () {
+      if (polling || document.hidden) return;
+      polling = true;
+      fetch('/news/live/' + latest + '?_=' + Date.now() + chParam + catParam, { headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          polling = false;
+          if (!d || !d.count) return;
+          latest = d.maxId;
+
+          var tmp = document.createElement('div');
+          tmp.innerHTML = d.html;
+          var nodes = Array.prototype.slice.call(tmp.children);
+
+          // نزدیک بالای صفحه: مستقیم اضافه کن. پایین‌تر: در نوار خبر بده.
+          if (window.scrollY < 200) {
+            for (var i = nodes.length - 1; i >= 0; i--) feedEl.insertBefore(nodes[i], feedEl.firstChild);
+          } else {
+            for (var j = nodes.length - 1; j >= 0; j--) buffer.insertBefore(nodes[j], buffer.firstChild);
+            buffered += d.count;
+            document.getElementById('newsNewCount').textContent =
+              String(buffered).replace(/[0-9]/g, function (x) { return faDigits[+x]; });
+            newBar.hidden = false;
+          }
+        })
+        .catch(function () { polling = false; });
+    };
+
+    setInterval(poll, 25000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+  }
+
   /* ── لیزی‌لود فید اخبار ── */
   var feed = document.getElementById('newsFeed');
   var sentinel = document.getElementById('newsSentinel');

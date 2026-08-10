@@ -146,6 +146,34 @@ function usd(n) {
   return '$' + Math.round(v);
 }
 
+/**
+ * مسیر SVG برای اسپارک‌لاین — آرایه‌ی عدد را به path تبدیل می‌کند.
+ * اگر داده کمتر از دو نقطه باشد، رشته‌ی خالی برمی‌گرداند تا نمودار خالی رندر نشود.
+ */
+function sparkPath(values, w, h, pad) {
+  const v = (values || []).filter(x => x != null && !isNaN(x)).map(Number);
+  if (v.length < 2) return '';
+  w = w || 100; h = h || 30; pad = pad == null ? 2 : pad;
+  const min = Math.min(...v), max = Math.max(...v);
+  const span = (max - min) || 1;
+  const step = w / (v.length - 1);
+  return v.map((y, i) => {
+    const x = (i * step).toFixed(1);
+    const yy = (pad + (h - pad * 2) * (1 - (y - min) / span)).toFixed(1);
+    return (i ? 'L' : 'M') + x + ',' + yy;
+  }).join(' ');
+}
+function sparkArea(values, w, h, pad) {
+  const p = sparkPath(values, w, h, pad);
+  if (!p) return '';
+  return p + ' L' + (w || 100) + ',' + (h || 30) + ' L0,' + (h || 30) + ' Z';
+}
+function trendDir(values) {
+  const v = (values || []).filter(x => x != null && !isNaN(x)).map(Number);
+  if (v.length < 2) return 0;
+  return v[v.length - 1] - v[0];
+}
+
 // بج تغییر رتبه — رتبه‌ی کمتر یعنی بهتر، پس علامت برعکس است
 function rankBadge(now, before) {
   if (before == null || now == null) return '<span class="badge badge-flat">تازه</span>';
@@ -160,7 +188,8 @@ function rankBadge(now, before) {
 function page(res, tpl, active, seo, data, jsonld) {
   const locals = Object.assign({
     fa, num, toman, pct, usd, excerpt, timeAgo, faDate, mediaOf,
-    clean: txt.clean, rankBadge, SITE, TABS, active
+    clean: txt.clean, rankBadge, sparkPath, sparkArea, trendDir,
+    SITE, TABS, active, ASSETS
   }, data);
   res.render('pages/' + tpl, locals, (err, body) => {
     if (err) { console.error('[render]', tpl, err.message); return res.status(500).send('خطا در رندر صفحه'); }
@@ -175,6 +204,29 @@ function page(res, tpl, active, seo, data, jsonld) {
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+// پشت nginx هستیم — بدون این، rate-limit همه‌ی کاربران را یک IP می‌بیند
+app.set('trust proxy', 1);
+
+/**
+ * نسخه‌گذاری فایل‌های استاتیک.
+ *
+ * چرا لازم است: nginx فایل‌های /assets/ را ۷ روز کش می‌کند. بدون تغییر نشانی،
+ * به‌روزرسانی CSS تا یک هفته به کاربر نمی‌رسد — دقیقاً همان چیزی که باعث شد
+ * اصلاحات ظاهری «انجام‌نشده» به نظر برسند. با افزودن ?v=<زمان تغییر فایل>
+ * هر بار که فایل عوض شود نشانی هم عوض می‌شود و کش دور زده می‌شود.
+ */
+function assetVersion(rel) {
+  try {
+    return String(Math.floor(fs.statSync(path.join(__dirname, 'public', rel)).mtimeMs));
+  } catch (e) { return String(Date.now()); }
+}
+const ASSETS = {
+  tokens:     '/assets/css/tokens.css?v='     + assetVersion('assets/css/tokens.css'),
+  base:       '/assets/css/base.css?v='       + assetVersion('assets/css/base.css'),
+  components: '/assets/css/components.css?v=' + assetVersion('assets/css/components.css'),
+  app:        '/assets/js/app.js?v='          + assetVersion('assets/js/app.js')
+};
 
 app.use(helmet({
   contentSecurityPolicy: false,          // استایل/اسکریپت درون‌خطی داریم
@@ -249,14 +301,79 @@ function getNewsById(id) {
   } catch (e) { return null; }
 }
 
-// خبرهایی که در بازه‌ی کوتاه تکرار زیادی داشته‌اند = داغ
-function markHot(rows) {
-  const cutoff = Date.now() - 90 * 60 * 1000;
+// واژه‌های پرتکرار که سیگنال موضوعی ندارند
+const STOP = new Set(('و در به از که با این را برای های ها می بر تا یک هم آن است شد بود کرد کند شده ' +
+  'خود اما یا اگر چه نیز باید دارد دارند داشت گفت اعلام کرد کردند طبق درباره روی پس دیگر همه بین ' +
+  'وی او آنها ما شما بیش کمتر بیشتر حال طور نیست هستند بوده خواهد گزارش اساس منابع').split(/\s+/));
+
+/**
+ * تشخیص «خبر داغ» — بر پایه‌ی پوشش هم‌زمان چند کانال، نه حدس.
+ *
+ * منطق: واژه‌های معنادار سه ساعت اخیر را می‌شماریم. اگر یک واژه در
+ * ۳ کانال مستقل یا بیشتر آمده باشد، آن موضوع در حال داغ شدن است.
+ * خبری که حداقل دو تا از این واژه‌ها را دارد، داغ علامت می‌خورد.
+ * این‌طور «انفجار» در یک کانال داغ نیست، ولی خبری که ۵ کانال هم‌زمان
+ * پوشش داده‌اند داغ است.
+ */
+function tokenize(s) {
+  return String(s || '')
+    .replace(/[^؀-ۿ\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !STOP.has(w));
+}
+
+function markNews(rows) {
+  const NEW_MS = 15 * 60 * 1000;
+  const now = Date.now();
+
+  // شمارش کانال‌های مستقل برای هر واژه در ۳ ساعت اخیر
+  let recent = [];
+  try {
+    recent = newsRO.prepare(`
+      SELECT id, channel_id, COALESCE(text_fa, text) t FROM news
+      WHERE COALESCE(blocked,0)=0 AND published_at >= datetime('now','-3 hours')
+      LIMIT 400`).all();
+  } catch (e) {}
+
+  const wordChannels = new Map();
+  for (const r of recent) {
+    const seen = new Set(tokenize(r.t));
+    for (const w of seen) {
+      if (!wordChannels.has(w)) wordChannels.set(w, new Set());
+      wordChannels.get(w).add(r.channel_id);
+    }
+  }
+
   return rows.map(n => {
-    const t = new Date(n.published_at).getTime();
-    n.hot = !isNaN(t) && t > cutoff && !!n.media_url;
+    const ts = new Date(n.published_at).getTime();
+    n.isNew = !isNaN(ts) && (now - ts) < NEW_MS;
+
+    let best = 0, strong = 0;
+    for (const w of new Set(tokenize(n.text_fa || n.text))) {
+      const c = wordChannels.has(w) ? wordChannels.get(w).size : 0;
+      if (c >= 3) { strong++; if (c > best) best = c; }
+    }
+    n.hot = strong >= 2;
+    n.hotChannels = best;
     return n;
   });
+}
+
+// واکشی اخبار همراه با دسته‌بندی کانال
+function fetchNews(limit, channelId, offset, category) {
+  const where = ['COALESCE(n.blocked,0)=0'];
+  const params = [];
+  if (channelId) { where.push('n.channel_id=?'); params.push(channelId); }
+  if (category)  { where.push('c.category=?');   params.push(category); }
+  params.push(limit, offset || 0);
+  try {
+    return newsRO.prepare(`
+      SELECT n.*, c.title channel_title, c.username channel_username,
+             c.photo_url channel_photo, c.category channel_category
+      FROM news n JOIN channels c ON c.id=n.channel_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY n.published_at DESC LIMIT ? OFFSET ?`).all(...params);
+  } catch (e) { console.warn('[fetchNews]', e.message); return []; }
 }
 
 function readJson(f, d) {
@@ -332,7 +449,7 @@ app.get('/', (req, res) => {
     jobs = { ehi: s.ehi != null ? s.ehi : null, rows: rows.slice(0, 5) };
   } catch (e) { console.warn('[home] jobs:', e.message); }
 
-  const news = markHot(newsDB.getLatestNews(6, null, 0, 0) || []);
+  const news = markNews(fetchNews(6, null, 0, null));
 
   page(res, 'home', '/', {
     title: 'سیگنال هوش | مانیتور هوشمند ایران — قیمت دلار، طلا، خودرو و ترند اخبار',
@@ -352,24 +469,78 @@ app.get('/', (req, res) => {
 
 app.get('/news', (req, res) => {
   const channel = req.query.channel ? parseInt(req.query.channel, 10) : null;
-  const news = markHot(newsDB.getLatestNews(20, channel, 0, 0) || []);
+  const category = req.query.cat ? String(req.query.cat) : null;
+  const news = markNews(fetchNews(20, channel, 0, category));
   let digest = null;
   try { digest = newsDB.getLatestDigest(); } catch (e) {}
-  let channels = [];
-  try { channels = newsDB.getChannels() || []; } catch (e) {}
+
+  // کانال‌ها به‌همراه شمار خبر، و فهرست دسته‌بندی‌ها
+  let channels = [], cats = [];
+  try {
+    channels = newsRO.prepare(`
+      SELECT c.id, c.title, c.username, c.category, c.photo_url, COUNT(n.id) cnt
+      FROM channels c LEFT JOIN news n ON n.channel_id=c.id AND COALESCE(n.blocked,0)=0
+      WHERE c.active=1 GROUP BY c.id ORDER BY cnt DESC`).all();
+    cats = newsRO.prepare(`
+      SELECT category, COUNT(*) cnt FROM channels
+      WHERE active=1 AND category IS NOT NULL AND category != ''
+      GROUP BY category ORDER BY cnt DESC`).all();
+  } catch (e) { console.warn('[news] channels:', e.message); }
 
   page(res, 'news', '/news', {
     title: 'ترند اخبار ایران | اخبار لحظه‌ای کانال‌های تلگرام — سیگنال هوش',
     desc: 'تحلیل هوشمند جریان خبری ایران: اخبار لحظه‌ای از کانال‌های عمومی تلگرام با ترجمه‌ی خودکار منابع غیرفارسی و گزارش هوش مصنوعی.',
     path: '/news'
-  }, { news, digest, channels, current: channel, stats: newsStats(), topChannels: topChannels() });
+  }, { news, digest, channels, cats, current: channel, curCat: category, stats: newsStats(), topChannels: topChannels() });
+});
+
+/**
+ * اخبار تازه‌تر از یک شناسه — برای افزوده شدن زنده بدون رفرش.
+ * خروجی JSON با قطعه‌ی HTML آماده تا مرورگر فقط prepend کند.
+ */
+app.get('/news/live/:since', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const since = parseInt(req.params.since, 10) || 0;
+  const channel = req.query.channel ? parseInt(req.query.channel, 10) : null;
+  const category = req.query.cat ? String(req.query.cat) : null;
+
+  const where = ['COALESCE(n.blocked,0)=0', 'n.id > ?'];
+  const params = [since];
+  if (channel)  { where.push('n.channel_id=?'); params.push(channel); }
+  if (category) { where.push('c.category=?');   params.push(category); }
+
+  let rows = [];
+  try {
+    rows = newsRO.prepare(`
+      SELECT n.*, c.title channel_title, c.username channel_username,
+             c.photo_url channel_photo, c.category channel_category
+      FROM news n JOIN channels c ON c.id=n.channel_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY n.published_at DESC LIMIT 10`).all(...params);
+  } catch (e) { return res.json({ maxId: since, count: 0, html: '' }); }
+
+  if (!rows.length) return res.json({ maxId: since, count: 0, html: '' });
+
+  rows = markNews(rows);
+  rows.forEach(r => { r.isNew = true; });      // تازه‌رسیده‌ها همیشه حلقه‌ی قرمز بگیرند
+  const maxId = rows.reduce((m, r) => Math.max(m, r.id), since);
+
+  let pending = rows.length;
+  const parts = new Array(rows.length);
+  rows.forEach((r, i) => {
+    res.app.render('partials/news-row', { n: r, fa, timeAgo, mediaOf, excerpt, clean: txt.clean }, (e, out) => {
+      parts[i] = e ? '' : out;
+      if (--pending === 0) res.json({ maxId, count: rows.length, html: parts.join('') });
+    });
+  });
 });
 
 // صفحه‌بندی برای لیزی‌لود (قطعه‌ی HTML برمی‌گرداند)
 app.get('/news/page/:n', (req, res) => {
   const n = Math.max(1, Math.min(50, parseInt(req.params.n, 10) || 1));
   const channel = req.query.channel ? parseInt(req.query.channel, 10) : null;
-  const rows = markHot(newsDB.getLatestNews(20, channel, (n - 1) * 20, 0) || []);
+  const category = req.query.cat ? String(req.query.cat) : null;
+  const rows = markNews(fetchNews(20, channel, (n - 1) * 20, category));
   let html = '';
   let pending = rows.length;
   if (!pending) return res.send('');
@@ -443,10 +614,22 @@ app.get('/trends', (req, res) => {
 
 app.get('/finance', (req, res) => {
   let rows = [], messages = [], channels = [];
-  try { rows = (financeDB.getLatest() || []).map(f => Object.assign({}, f, {
-    price: rialToToman(f.price), change: rialToToman(f.change),
-    low: rialToToman(f.low), high: rialToToman(f.high), bubble: rialToToman(f.bubble)
-  })); } catch (e) { console.warn('[finance]', e.message); }
+  try { rows = (financeDB.getLatest() || []).map(f => {
+    // تاریخچه‌ی ۲۴ ساعته برای اسپارک‌لاین
+    let hist = [];
+    try {
+      const h = financeDB.getSparkline ? financeDB.getSparkline(f.symbol) : null;
+      hist = Array.isArray(h) ? h.map(x => (typeof x === 'object' ? (x.price || x.value) : x)) : [];
+      if (!hist.length && financeDB.getHistory) {
+        hist = (financeDB.getHistory(f.symbol, 24) || []).map(x => x.price);
+      }
+    } catch (e) {}
+    return Object.assign({}, f, {
+      price: rialToToman(f.price), change: rialToToman(f.change),
+      low: rialToToman(f.low), high: rialToToman(f.high), bubble: rialToToman(f.bubble),
+      hist: hist.filter(x => x != null)
+    });
+  }); } catch (e) { console.warn('[finance]', e.message); }
   try { messages = (financeDB.getLatestFinanceMessages(12) || []); } catch (e) {}
   try { channels = (financeDB.getFinanceChannels() || []); } catch (e) {}
 
@@ -516,21 +699,43 @@ app.get('/market', (req, res) => {
 });
 
 app.get('/jobs', (req, res) => {
-  let summary = {};
+  let summary = {}, totalHist = [], srcHist = {};
   try { summary = jobDB.getSummary() || {}; } catch (e) { console.warn('[jobs]', e.message); }
+  try {
+    const th = jobDB.getTotalHistory ? (jobDB.getTotalHistory(30) || []) : [];
+    totalHist = th.map(r => r.count != null ? r.count : r.total).filter(x => x != null);
+  } catch (e) {}
 
-  const sources = Object.entries(summary.sources || {}).map(([k, v]) =>
-    Object.assign({ key: k, label: JOB_LABELS[k] || k }, v));
+  const sources = Object.entries(summary.sources || {}).map(([k, v]) => {
+    let hist = [];
+    try {
+      const h = jobDB.getHistory ? (jobDB.getHistory(k, 30) || []) : [];
+      hist = h.map(r => r.count).filter(x => x != null);
+    } catch (e) {}
+    return Object.assign({ key: k, label: JOB_LABELS[k] || k, hist }, v);
+  });
   const total = sources.reduce((s, x) => s + (x.count || 0), 0);
   const cats = Object.entries(summary.categories || {})
-    .map(([k, v]) => Object.assign({ key: k, label: JOB_LABELS[k] || k }, v))
+    .map(([k, v]) => {
+      let hist = [];
+      try {
+        const h = jobDB.getCategoryHistory ? (jobDB.getCategoryHistory(k, 30) || []) : [];
+        hist = h.map(r => r.count).filter(x => x != null);
+      } catch (e) {}
+      return Object.assign({ key: k, label: JOB_LABELS[k] || k, hist }, v);
+    })
     .sort((a, b) => (b.count || 0) - (a.count || 0));
 
   page(res, 'jobs', '/jobs', {
     title: 'مارکت کار ایران | آمار آگهی‌های استخدام و شاخص سلامت اشتغال — سیگنال هوش',
     desc: 'پایش بازار کار ایران با داده‌های جابینجا و جاب‌ویژن: تعداد آگهی‌های استخدام به تفکیک حوزه‌ی شغلی و شاخص سلامت اشتغال (EHI).',
     path: '/jobs'
-  }, { summary, sources, cats, total });
+  }, { summary, sources, cats, total, totalHist });
+});
+
+// فایل تأییدیه‌ی Google Search Console
+app.get('/google7d8cf733453e41c3.html', (req, res) => {
+  res.type('text/html').send('google-site-verification: google7d8cf733453e41c3.html');
 });
 
 app.get('/polymarket', (req, res) => {
@@ -551,24 +756,71 @@ app.get('/polymarket', (req, res) => {
   }, { trending, volume, lastFetched: (status.trending && status.trending.last_fetched) || null });
 });
 
+// برچسب فارسی نمادها و گره‌های سیگنال
+const SYM = {
+  usd: 'دلار آزاد', gold18: 'طلای ۱۸ عیار', coin: 'سکه امامی', mesghal: 'مثقال طلا',
+  ounce: 'انس جهانی', eur: 'یورو', tether: 'تتر', btc: 'بیت‌کوین', eth: 'اتریوم',
+  oil: 'نفت', bourse: 'بورس تهران', nim: 'نیم سکه', rob: 'ربع سکه'
+};
+const NODE = { trend: 'ترند جستجو', news: 'خبر', poly: 'پلی‌مارکت', market: 'بازار', telegram: 'تلگرام' };
+const REGIME = { war: 'پرتنش', normal: 'عادی', calm: 'آرام', volatile: 'پرنوسان' };
+const symLabel = s => SYM[s] || s || '—';
+
 app.get('/future', (req, res) => {
   const tl = (sql, args) => {
     try { return timelineRO.prepare(sql).all(...(args || [])); } catch (e) { return []; }
   };
-  const predictions = tl("SELECT * FROM predictions WHERE status='open' ORDER BY created_at DESC LIMIT 8");
-  const chains      = tl("SELECT * FROM signal_chains ORDER BY created_at DESC LIMIT 6");
-  const patterns    = tl("SELECT * FROM pattern_library ORDER BY reliability DESC LIMIT 12");
+
+  const predictions = tl(`SELECT * FROM predictions WHERE status='open' ORDER BY created_at DESC LIMIT 12`)
+    .map(p => {
+      let attr = null;
+      try { attr = p.attribution_json ? JSON.parse(p.attribution_json) : null; } catch (e) {}
+      return Object.assign({}, p, {
+        symLabel: symLabel(p.target),
+        regimeLabel: REGIME[p.regime] || p.regime,
+        conf: p.calibrated_confidence != null ? p.calibrated_confidence : p.confidence,
+        attr
+      });
+    });
+
+  const chains = tl(`SELECT * FROM signal_chains WHERE status='active' ORDER BY peak_severity DESC, created_at DESC LIMIT 8`)
+    .map(c => Object.assign({}, c, { rootLabel: NODE[c.root_node] || c.root_node, regimeLabel: REGIME[c.regime] || c.regime }));
+
+  const patterns = tl(`SELECT * FROM pattern_library WHERE sample_count >= 2 ORDER BY reliability DESC, sample_count DESC LIMIT 15`)
+    .map(p => Object.assign({}, p, { symLabel: symLabel(p.target), nodeLabel: NODE[p.trigger_node] || p.trigger_node }));
+
+  const accuracy = tl(`SELECT * FROM accuracy_metrics WHERE scope='target' ORDER BY total DESC LIMIT 10`)
+    .map(a => Object.assign({}, a, {
+      symLabel: symLabel(a.scope_key),
+      dirPct: a.total ? (a.correct_dir / a.total) * 100 : null
+    }));
+
+  const indicators = tl(`SELECT indicator, target, MAX(accuracy) accuracy, MAX(sample_count) sample_count,
+                                MIN(lead_time_min) lead_time_min, MAX(correlation) correlation
+                         FROM leading_indicators WHERE sample_count >= 10
+                         GROUP BY indicator, target ORDER BY accuracy DESC LIMIT 12`)
+    .map(i => Object.assign({}, i, { indLabel: NODE[i.indicator] || i.indicator, symLabel: symLabel(i.target) }));
+
+  const archive = tl(`SELECT p.target, p.time_horizon, p.direction, p.predicted_pct, v.*
+                      FROM prediction_validations v JOIN predictions p ON p.id = v.prediction_id
+                      ORDER BY v.rowid DESC LIMIT 12`)
+    .map(a => Object.assign({}, a, { symLabel: symLabel(a.target) }));
+
+  // دقت کلی از جدول accuracy_metrics (اسکوپ کلی اگر بود، وگرنه میانگین وزنی)
   let acc = { dir: null, n: 0 }, confidence = null;
   try {
-    const r = timelineRO.prepare("SELECT COUNT(*) n, AVG(CASE WHEN direction_correct=1 THEN 1.0 ELSE 0 END) d FROM prediction_validations").get();
-    if (r && r.n) { acc = { dir: r.d * 100, n: r.n }; confidence = r.d * 100; }
+    const g = timelineRO.prepare(`SELECT SUM(total) t, SUM(correct_dir) c FROM accuracy_metrics WHERE scope='target'`).get();
+    if (g && g.t) { acc = { dir: (g.c / g.t) * 100, n: g.t }; confidence = (g.c / g.t) * 100; }
   } catch (e) {}
+
+  let regime = null;
+  try { regime = timelineRO.prepare(`SELECT * FROM market_regimes ORDER BY rowid DESC LIMIT 1`).get(); } catch (e) {}
 
   page(res, 'future', '/future', {
     title: 'ترند آینده | زنجیره‌های علّی و پیش‌بینی بازار ایران — سیگنال هوش',
     desc: 'موتور کشف زنجیره‌های علّی: چه خبری چه بازاری را با چه تأخیری حرکت می‌دهد. پیش‌بینی دلار، سکه و طلا با سنجش شفاف دقت.',
     path: '/future'
-  }, { predictions, chains, patterns, acc, confidence });
+  }, { predictions, chains, patterns, accuracy, indicators, archive, acc, confidence, regime, REGIME });
 });
 
 // ── ارتباط با ما ──
@@ -671,9 +923,9 @@ app.post('/admin/login', loginLimiter, (req, res) => {
     title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
   }, { error: msg });
 
-  const user = db.findByMobile(mobile);
-  if (!user || user.active === false) return fail('شماره موبایل یا رمز عبور نادرست است.');
-  if (!db.verifyPassword(user, password)) return fail('شماره موبایل یا رمز عبور نادرست است.');
+  // ⚠️ verifyPassword شماره‌ی موبایل می‌گیرد، نه شیء کاربر
+  const user = db.verifyPassword(mobile, password);
+  if (!user) return fail('شماره موبایل یا رمز عبور نادرست است.');
 
   res.cookie('token', auth.signToken(user), {
     httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000,

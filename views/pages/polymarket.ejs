@@ -29,6 +29,7 @@
       <div class="panel-body-flush">
         <% trending.forEach(function (p) { %>
         <a class="poly-item" href="<%= p.link %>" target="_blank" rel="noopener">
+          <div class="poly-rank"><%= p.rank ? fa(p.rank) : '—' %></div>
           <% if (p.icon || p.image) { %>
           <img class="poly-ico" src="<%= p.icon || p.image %>" alt="" width="34" height="34" loading="lazy">
           <% } else { %><span class="poly-ico"></span><% } %>
@@ -65,6 +66,7 @@
       <div class="panel-body-flush">
         <% volume.forEach(function (p) { %>
         <a class="poly-item" href="<%= p.link %>" target="_blank" rel="noopener">
+          <div class="poly-rank"><%= p.rank ? fa(p.rank) : '—' %></div>
           <% if (p.icon || p.image) { %>
           <img class="poly-ico" src="<%= p.icon || p.image %>" alt="" width="34" height="34" loading="lazy">
           <% } else { %><span class="poly-ico"></span><% } %>

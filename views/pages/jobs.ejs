@@ -16,13 +16,22 @@
     </blockquote>
 
     <div class="grid g4 mb4">
-      <% sources.forEach(function (s) { %>
-      <div class="kpi">
+      <% sources.forEach(function (s) {
+           var p = sparkPath(s.hist, 200, 42, 4), a = sparkArea(s.hist, 200, 42, 4);
+           var up = trendDir(s.hist) >= 0, col = up ? 'var(--up)' : 'var(--down)';
+      %>
+      <div class="kpi <%= p ? 'kpi-spark' : '' %>">
         <div class="kpi-label"><%= s.label %></div>
         <div class="kpi-val"><%= fa(num(s.count)) %></div>
         <div class="kpi-note">
           <% if (s.vs_yesterday != null) { %><span class="<%= s.vs_yesterday > 0 ? 'up' : (s.vs_yesterday < 0 ? 'down' : '') %>"><%= (s.vs_yesterday > 0 ? '▲ ' : s.vs_yesterday < 0 ? '▼ ' : '— ') + fa(Math.abs(s.vs_yesterday)) %>٪ روز</span><% } else { %>—<% } %>
         </div>
+        <% if (p) { %>
+        <svg class="spark-bg" viewBox="0 0 200 42" preserveAspectRatio="none" aria-hidden="true">
+          <path d="<%= a %>" fill="<%= col %>" opacity=".16"/>
+          <path d="<%= p %>" fill="none" stroke="<%= col %>" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+        <% } %>
       </div>
       <% }); %>
       <div class="kpi" style="border-color:rgba(74,222,128,.25);">
@@ -39,6 +48,29 @@
       <% } %>
     </div>
 
+    <% var tp = sparkPath(totalHist, 820, 180, 8), ta = sparkArea(totalHist, 820, 180, 8); %>
+    <% if (tp) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">روند کل بازار کار</h2>
+        <span class="panel-link"><%= fa(totalHist.length) %> روز اخیر</span>
+      </div>
+      <div class="panel-body-pad">
+        <svg class="chart" viewBox="0 0 820 180" preserveAspectRatio="none" role="img" aria-label="نمودار روند کل آگهی‌های استخدام">
+          <g stroke="var(--border-soft)" stroke-width="1">
+            <line x1="0" y1="45" x2="820" y2="45"/><line x1="0" y1="90" x2="820" y2="90"/><line x1="0" y1="135" x2="820" y2="135"/>
+          </g>
+          <path d="<%= ta %>" fill="var(--accent)" opacity=".14"/>
+          <path d="<%= tp %>" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <div class="chart-legend">
+          <span class="row"><span class="swatch" style="background:var(--accent);"></span> مجموع آگهی‌های فعال</span>
+          <span class="dim">کمترین <%= fa(num(Math.min.apply(null, totalHist))) %> · بیشترین <%= fa(num(Math.max.apply(null, totalHist))) %></span>
+        </div>
+      </div>
+    </section>
+    <% } %>
+
     <div class="page-head"><h2 class="sec-title">دسته‌های شغلی</h2></div>
     <blockquote class="desc desc-sm">
       روی هر دسته کلیک کنید تا جزئیات سهم و روند آن باز شود.
@@ -47,9 +79,11 @@
     <div class="tbl-wrap">
       <table>
         <caption class="sr-only">جدول آگهی‌های استخدام به تفکیک دسته</caption>
-        <thead><tr><th class="rank-cell">#</th><th>دسته‌ی شغلی</th><th class="ta-l">تعداد آگهی</th><th class="ta-l">سهم</th><th class="ta-l">هفته</th><th class="ta-l">ماه</th><th class="ta-l"></th></tr></thead>
+        <thead><tr><th class="rank-cell">#</th><th>دسته‌ی شغلی</th><th class="ta-l">تعداد آگهی</th><th class="ta-l">سهم</th><th class="ta-l">هفته</th><th class="ta-l">ماه</th><th class="ta-l">روند</th><th class="ta-l"></th></tr></thead>
         <tbody>
-          <% cats.forEach(function (c, i) { %>
+          <% cats.forEach(function (c, i) {
+               var sp = sparkPath(c.hist, 64, 20, 3), up = trendDir(c.hist) >= 0;
+          %>
           <tr class="row-toggle" tabindex="0" aria-expanded="false">
             <td class="rank-cell"><%= fa(i + 1) %></td>
             <td class="td-name"><%= c.label %></td>
@@ -57,6 +91,7 @@
             <td class="ta-l"><%= fa(c.share != null ? c.share : 0) %>٪</td>
             <td class="ta-l"><% if (c.vs_week != null) { %><span class="badge <%= c.vs_week > 0 ? 'badge-up' : (c.vs_week < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.vs_week) %></span><% } else { %><span class="dim">—</span><% } %></td>
             <td class="ta-l"><% if (c.vs_month != null) { %><span class="badge <%= c.vs_month > 0 ? 'badge-up' : (c.vs_month < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.vs_month) %></span><% } else { %><span class="dim">—</span><% } %></td>
+            <td class="ta-l"><% if (sp) { %><svg class="spark" viewBox="0 0 64 20"><path d="<%= sp %>" fill="none" stroke="<%= up ? '#4ade80' : '#f87171' %>" stroke-width="1.5"/></svg><% } else { %><span class="dim">—</span><% } %></td>
             <td class="ta-l"><span class="chev">›</span></td>
           </tr>
           <tr class="row-detail" style="display:none;">

@@ -1,32 +1,41 @@
 <%
   var m = mediaOf(n.media_url);
-  var isVideo = n.media_type === 'video' || n.media_type === 'gif';
-  var hot = n.hot === true;
+  var isVideo = (n.media_type === 'video' || n.media_type === 'gif');
+  var hasThumb = !!m.first;
+  var ch = n.channel_title || n.channel_username || 'نامشخص';
 %>
-<a class="nrow<%= hot ? ' nrow-hot' : '' %>" href="/news/<%= n.id %>">
-  <% if (m.first || isVideo) { %>
+<a class="nrow<%= n.isNew ? ' nrow-new' : '' %><%= n.hot ? ' nrow-hot' : '' %>" href="/news/<%= n.id %>">
+  <% if (hasThumb || isVideo) { %>
   <div class="nrow-media">
-    <% if (m.first) { %>
-    <img class="nrow-thumb" src="<%= m.first %>" alt="<%= excerpt(n.text_fa || n.text, 60) %>" width="84" height="60" loading="lazy">
-    <% } else { %>
-    <span class="nrow-thumb"></span>
+    <% if (hasThumb) { %>
+    <img class="nrow-thumb" src="<%= m.first %>" alt="<%= excerpt(clean(n.text_fa || n.text), 60) %>" loading="lazy">
     <% } %>
-    <% if (m.count > 1) { %>
-    <span class="media-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H4z" opacity=".6"/><path d="M8 8h16v12H8z"/></svg><%= fa(m.count) %></span>
-    <% } else if (isVideo) { %>
-    <span class="media-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5h16v14H4z" opacity=".5"/><path d="M10 8l6 4-6 4z"/></svg>ویدیو</span>
+    <% if (isVideo) { %>
+    <span class="play-overlay">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,.45)"/><path d="M10 8.2l6 3.8-6 3.8z" fill="#fff"/></svg>
+    </span>
+    <span class="media-badge">ویدیو</span>
+    <% } else if (m.count > 1) { %>
+    <span class="media-badge">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h14v12H3z" opacity=".55"/><path d="M7 9h14v12H7z"/></svg><%= fa(m.count) %>
+    </span>
     <% } %>
   </div>
   <% } %>
+
   <div class="nrow-body">
-    <div class="nrow-text"><%= excerpt(n.text_fa || n.text, 190) %></div>
+    <div class="nrow-text"><%= excerpt(clean(n.text_fa || n.text), 190) %></div>
     <div class="nrow-meta">
       <% if (n.channel_photo) { %>
-      <img class="avatar" src="<%= n.channel_photo %>" alt="<%= n.channel_title %>" width="20" height="20" loading="lazy">
-      <% } else { %><span class="avatar"></span><% } %>
-      <span class="nrow-src"><%= n.channel_title || n.channel_username || 'نامشخص' %></span>
+      <img class="avatar" src="<%= n.channel_photo %>" alt="<%= ch %>" loading="lazy">
+      <% } else { %>
+      <span class="avatar avatar-ph"><%= ch.trim().charAt(0) %></span>
+      <% } %>
+      <span class="nrow-src"><%= ch %></span>
+      <% if (n.channel_category) { %><span class="tag"><%= n.channel_category %></span><% } %>
       <% if (n.lang && n.lang !== 'fa' && n.text_fa) { %><span class="badge badge-acc">ترجمه</span><% } %>
-      <% if (hot) { %><span class="badge badge-down">داغ</span><% } %>
+      <% if (n.hot) { %><span class="badge badge-down" title="این خبر را چند کانال هم‌زمان پوشش داده‌اند">داغ · <%= fa(n.hotChannels) %> کانال</span><% } %>
+      <% if (n.isNew) { %><span class="badge badge-warn">تازه</span><% } %>
       <span class="dot-sep">·</span><%= timeAgo(n.published_at) %>
     </div>
   </div>
