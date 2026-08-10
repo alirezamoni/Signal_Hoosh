@@ -315,6 +315,10 @@ const STOP = new Set(('و در به از که با این را برای های �
  * این‌طور «انفجار» در یک کانال داغ نیست، ولی خبری که ۵ کانال هم‌زمان
  * پوشش داده‌اند داغ است.
  */
+const HOT_MIN_CHANNELS = 5;   // واژه باید در چند کانال مستقل آمده باشد
+const HOT_MIN_WORDS    = 3;   // خبر باید چند واژه‌ی این‌چنینی داشته باشد
+const HOT_MAX          = 3;   // حداکثر چند خبر در هر نما داغ علامت بخورند
+
 function tokenize(s) {
   return String(s || '')
     .replace(/[^؀-ۿ\s]/g, ' ')
@@ -323,9 +327,6 @@ function tokenize(s) {
 }
 
 function markNews(rows) {
-  const NEW_MS = 15 * 60 * 1000;
-  const now = Date.now();
-
   // شمارش کانال‌های مستقل برای هر واژه در ۳ ساعت اخیر
   let recent = [];
   try {
@@ -344,19 +345,34 @@ function markNews(rows) {
     }
   }
 
-  return rows.map(n => {
-    const ts = new Date(n.published_at).getTime();
-    n.isNew = !isNaN(ts) && (now - ts) < NEW_MS;
+  const scored = rows.map(n => {
+    // «تازه» یعنی خبری که جلوی چشم کاربر اضافه شود، نه خبری که موقع
+    // بازکردن صفحه اخیر بوده. با ۲ خبر در دقیقه، هر پنجره‌ی زمانی کل
+    // صفحه‌ی اول را «تازه» می‌کرد. پس در رندر اولیه هیچ‌کدام تازه نیستند؛
+    // فقط مسیر پولینگ این پرچم را روشن می‌کند.
+    n.isNew = false;
 
+    // امتیاز داغی = بیشترین تعداد کانال مستقلی که واژه‌های این خبر را پوشش داده‌اند
     let best = 0, strong = 0;
     for (const w of new Set(tokenize(n.text_fa || n.text))) {
       const c = wordChannels.has(w) ? wordChannels.get(w).size : 0;
-      if (c >= 3) { strong++; if (c > best) best = c; }
+      if (c >= HOT_MIN_CHANNELS) { strong++; if (c > best) best = c; }
     }
-    n.hot = strong >= 2;
+    n.hot = false;
     n.hotChannels = best;
+    n._score = strong >= HOT_MIN_WORDS ? best : 0;
     return n;
   });
+
+  // فقط چند خبرِ برتر داغ می‌شوند. اگر همه داغ باشند، «داغ» بی‌معنا است —
+  // با ۶۸ کانالِ هم‌پوشان، آستانه‌ی ثابت عملاً کل صفحه را علامت می‌زد.
+  scored.slice()
+    .filter(n => n._score > 0)
+    .sort((a, b) => b._score - a._score)
+    .slice(0, HOT_MAX)
+    .forEach(n => { n.hot = true; });
+
+  return scored;
 }
 
 // واکشی اخبار همراه با دسته‌بندی کانال

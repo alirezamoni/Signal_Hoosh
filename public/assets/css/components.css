@@ -356,17 +356,28 @@ tbody tr:hover { background: var(--card-hover); }
 .newbar:hover { filter: brightness(1.08); }
 .newbar .live-dot { background: #fff; }
 
-/* خبر تازه‌رسیده — حلقه‌ی قرمز دور کل کارت */
+/* خبر تازه‌رسیده — حلقه‌ی قرمز فقط لحظه‌ی ورود، بعد محو می‌شود.
+   فقط اخبار افزوده‌شده با پولینگ این کلاس را می‌گیرند؛ رندر اولیه هرگز. */
 .nrow-new {
-  box-shadow: inset 0 0 0 2px var(--down);
   border-radius: var(--r);
-  background: var(--down-bg);
+  animation: newArrival 9s var(--ease) forwards;
 }
-.nrow-new .nrow-media { border-color: var(--down); }
+@keyframes newArrival {
+  0%   { box-shadow: inset 0 0 0 2px var(--down); background: var(--down-bg); }
+  70%  { box-shadow: inset 0 0 0 2px var(--down); background: var(--down-bg); }
+  100% { box-shadow: inset 0 0 0 0 transparent; background: transparent; }
+}
 
-/* خبر داغ — چند کانال هم‌زمان پوشش داده‌اند */
+/* برچسب «تازه» هم‌زمان با حلقه محو و از چیدمان خارج می‌شود */
+.badge-new { animation: newBadge 9s var(--ease) forwards; }
+@keyframes newBadge {
+  0%, 70% { opacity: 1; }
+  99%     { opacity: 0; margin: 0; padding: 2px 7px; }
+  100%    { opacity: 0; display: none; width: 0; margin: 0; padding: 0; }
+}
+
+/* خبر داغ — چند کانال هم‌زمان پوشش داده‌اند (نوار نارنجی کنار، دائمی) */
 .nrow-hot { box-shadow: inset 3px 0 0 var(--hot); }
-.nrow-new.nrow-hot { box-shadow: inset 0 0 0 2px var(--down), inset 3px 0 0 var(--hot); }
 
 .nrow-media {
   position: relative;
