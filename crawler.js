@@ -207,7 +207,7 @@ ${keywords}
 
 دسته‌بندی‌های مجاز (فقط از این‌ها): ورزشی، اقتصادی، سیاسی، سرگرمی، اجتماعی، مذهبی، تکنولوژی، خودرو، سلامت، مالی، قیمت کالا، علم`;
 
-    const catMap = await aiClient.callJSON(prompt, { max_tokens: 2000, tag: 'trend-categorize' });
+    const catMap = await aiClient.callJSON(prompt, { max_tokens: 2000, tag: 'trend-categorize', models: aiClient.getModels('ai_model_categorize') });
     if (catMap) {
       const learned = [];
       missing.forEach((x, n) => {

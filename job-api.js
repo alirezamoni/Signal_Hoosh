@@ -49,7 +49,7 @@ router.get('/ai-analysis', async (req, res) => {
 دسته‌ها: ${cats}
 در ۳ جمله وضعیت بازار کار ایران را تحلیل کن. فقط بر اساس داده‌ها.`;
 
-  const text = await aiClient.callText(prompt, { max_tokens: 1000, tag: 'job-ai', validate: () => true });
+  const text = await aiClient.callText(prompt, { max_tokens: 1000, tag: 'job-ai', validate: () => true, models: aiClient.getModels('ai_model_jobs') });
   res.json({ analysis: text });
 });
 

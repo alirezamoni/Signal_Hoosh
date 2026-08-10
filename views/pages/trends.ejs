@@ -19,8 +19,40 @@
       <div class="kpi"><div class="kpi-label">ترندهای ۲۴ ساعت</div><div class="kpi-val"><%= fa(h24.length) %></div><div class="kpi-note">کلیدواژه فعال</div></div>
       <div class="kpi"><div class="kpi-label">کلیدواژه‌های بایگانی</div><div class="kpi-val"><%= fa(stats.keywords || 0) %></div><div class="kpi-note">از <%= fa(stats.first_day || '—') %></div></div>
       <div class="kpi"><div class="kpi-label">اسنپ‌شات‌ها</div><div class="kpi-val"><%= fa(stats.snapshots || 0) %></div><div class="kpi-note">در <%= fa(stats.days || 0) %> روز</div></div>
-      <div class="kpi"><div class="kpi-label">بیشترین رشد</div><div class="kpi-val fa"><%= h4[0] ? h4[0].keyword : '—' %></div><div class="kpi-note up"><%= h4[0] && h4[0].growth ? '▲ ' + fa(h4[0].growth) + '٪' : '' %></div></div>
+      <div class="kpi">
+        <div class="kpi-label">موضوعات غالب</div>
+        <div class="kpi-val fa" style="color:var(--brand-2)"><%= topCats.length ? topCats[0].name : '—' %></div>
+        <div class="kpi-note">
+          <% if (topCats.length) { %>
+            <%= fa(topCats[0].share) %>٪ حجم جستجو · در چهار ساعت گذشته
+          <% } else { %>در چهار ساعت گذشته<% } %>
+        </div>
+      </div>
     </div>
+
+    <% if (topCats.length) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+          سهم موضوعات از حجم جستجو
+        </h2>
+        <span class="panel-link">۴ ساعت اخیر · <%= fa(topCats.length) %> دسته</span>
+      </div>
+      <div class="panel-body">
+        <% topCats.forEach(function (c, i) { %>
+        <div class="drow" style="display:block;">
+          <div class="between" style="margin-bottom:5px;">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= c.name %></span></div>
+            <div class="drow-val"><span><%= fa(c.share) %>٪</span></div>
+          </div>
+          <div class="prob-bar"><div class="prob-fill" style="width:<%= c.share %>%;background:<%= i === 0 ? 'var(--accent)' : 'var(--dim)' %>;"></div></div>
+        </div>
+        <% }); %>
+      </div>
+      <div class="panel-foot">سهم بر پایه‌ی حجم جستجو محاسبه می‌شود، نه تعداد کلیدواژه</div>
+    </section>
+    <% } %>
 
     <div class="page-head between wrap">
       <h2 class="sec-title">ترندهای داغ — ۴ ساعت اخیر</h2>

@@ -24,6 +24,8 @@ const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
 const db        = require('./db');
+const settingsDB = require('./settings-db');
+const aiClient   = require('./lib/ai-client');
 const cookieParser = require('cookie-parser');
 
 const app  = express();
@@ -621,11 +623,24 @@ app.get('/trends', (req, res) => {
   try { persistent = trendDB.getMostPersistent(6) || []; } catch (e) {}
   try { meteors    = trendDB.getMeteors(6) || []; } catch (e) {}
 
+  // موضوعات غالب — دسته‌ها را بر اساس حجم جستجوی ترندهای ۴ ساعته وزن می‌دهیم،
+  // نه صرفاً تعدادشان؛ یک کلیدواژه‌ی ۵۰ هزارتایی مهم‌تر از سه تای ۲۰۰تایی است.
+  const catWeight = new Map();
+  for (const t of h4) {
+    const c = (t.cat || '').trim();
+    if (!c) continue;
+    catWeight.set(c, (catWeight.get(c) || 0) + (Number(t.vol) || 1));
+  }
+  const catTotal = Array.from(catWeight.values()).reduce((s, v) => s + v, 0);
+  const topCats = Array.from(catWeight.entries())
+    .map(([name, w]) => ({ name, weight: w, share: catTotal ? Math.round((w / catTotal) * 100) : 0 }))
+    .sort((a, b) => b.weight - a.weight);
+
   page(res, 'trends', '/trends', {
     title: 'ترند سرچ ایران | پرجستجوترین کلیدواژه‌های گوگل — سیگنال هوش',
     desc: 'پرجستجوترین کلیدواژه‌های گوگل در ایران در بازه‌های ۴ و ۲۴ ساعته، همراه با حجم جستجو، رشد و تاریخچه‌ی کامل ترندها.',
     path: '/trends'
-  }, { h4, h24, stats, hall, persistent, meteors });
+  }, { h4, h24, stats, hall, persistent, meteors, topCats, catTotal });
 });
 
 app.get('/finance', (req, res) => {
@@ -890,22 +905,112 @@ function adminGuard(req, res, next) {
   next();
 }
 
-function adminPage(res, extra) {
+// بخش‌هایی که مدل هوش مصنوعی اختصاصی می‌پذیرند.
+// کلید هر بخش در settings.json ذخیره می‌شود و lib/ai-client آن را می‌خواند؛
+// اگر خالی باشد از ai_model عمومی استفاده می‌شود.
+const AI_MODULES = [
+  { key: 'ai_model_trends',     label: 'خلاصه‌ی هوشمند ترند سرچ',      file: 'ai-digest.js',   tag: 'digest' },
+  { key: 'ai_model_categorize', label: 'دسته‌بندی خودکار کلیدواژه‌ها', file: 'crawler.js',     tag: 'trend-categorize' },
+  { key: 'ai_model_news',       label: 'گزارش خبری هوشمند',            file: 'news-bot.js',    tag: 'news-digest' },
+  { key: 'ai_model_jobs',       label: 'تحلیل بازار کار',              file: 'job-api.js',     tag: 'job-ai' },
+  { key: 'timeline_ai_model',   label: 'ترند آینده (تایم‌لاین)',        file: 'timeline-ai.js', tag: 'tl-ai' },
+];
+
+const DB_LABELS = {
+  'news.db': 'اخبار', 'trends.db': 'ترند سرچ', 'trend.db': 'ترند سرچ',
+  'finance.db': 'بازار مالی', 'cars.db': 'خودرو', 'car.db': 'خودرو',
+  'market.db': 'کالا', 'jobs.db': 'بازار کار', 'job.db': 'بازار کار',
+  'polymarket.db': 'پلی‌مارکت', 'timeline.db': 'ترند آینده',
+  'messages.db': 'پیام‌های تماس', 'users.db': 'کاربران',
+};
+
+// شمردن ۳۰هزار فایل رسانه در هر بار باز کردن پنل کند است — یک دقیقه کش می‌شود.
+let _mediaCache = { at: 0, count: 0, mb: 0 };
+function mediaStats() {
+  if (Date.now() - _mediaCache.at < 60000) return _mediaCache;
+  let count = 0, bytes = 0;
+  try {
+    const dir = path.join(__dirname, 'public', 'news-media');
+    for (const f of fs.readdirSync(dir)) {
+      try { bytes += fs.statSync(path.join(dir, f)).size; count++; } catch (e) {}
+    }
+  } catch (e) {}
+  _mediaCache = { at: Date.now(), count, mb: Math.round(bytes / 1048576) };
+  return _mediaCache;
+}
+
+function dbFiles() {
+  const out = [];
+  const seen = new Set();
+  for (const dir of [path.join(__dirname, 'data'), __dirname]) {
+    let files = [];
+    try { files = fs.readdirSync(dir); } catch (e) { continue; }
+    for (const f of files) {
+      if (!f.endsWith('.db') || seen.has(f)) continue;
+      seen.add(f);
+      try {
+        const st = fs.statSync(path.join(dir, f));
+        out.push({
+          file: f,
+          label: DB_LABELS[f] || f.replace(/\.db$/, ''),
+          sizeMB: Math.round(st.size / 1048576 * 10) / 10,
+          mtime: st.mtime.toISOString(),
+          // بیش از ۶ ساعت بدون نوشتن = احتمالاً جمع‌آورنده‌ی آن بخش خوابیده
+          stale: Date.now() - st.mtimeMs > 6 * 3600 * 1000,
+        });
+      } catch (e) {}
+    }
+  }
+  return out.sort((a, b) => b.sizeMB - a.sizeMB);
+}
+
+function systemInfo(dbs) {
+  let totalGB = 0, freeGB = 0, diskPct = 0;
+  try {
+    const s = fs.statfsSync('/');
+    const total = s.blocks * s.bsize, free = s.bavail * s.bsize;
+    totalGB = Math.round(total / 1073741824);
+    freeGB  = Math.round(free / 1073741824 * 10) / 10;
+    diskPct = total ? Math.round((1 - free / total) * 100) : 0;
+  } catch (e) {}
+
+  const up = process.uptime();
+  const d = Math.floor(up / 86400), h = Math.floor((up % 86400) / 3600), m = Math.floor((up % 3600) / 60);
+  const uptime = d ? d + ' روز و ' + h + ' ساعت' : (h ? h + ' ساعت و ' + m + ' دقیقه' : m + ' دقیقه');
+  const media = mediaStats();
+
+  return {
+    totalGB, freeGB, diskPct, uptime,
+    memMB: Math.round(process.memoryUsage().rss / 1048576),
+    node: process.version,
+    port: PORT,
+    mediaCount: media.count,
+    mediaMB: media.mb,
+    dbTotalMB: Math.round(dbs.reduce((a, x) => a + x.sizeMB, 0)),
+  };
+}
+
+const ADMIN_SECS = ['overview', 'users', 'channels', 'ai', 'messages', 'spam', 'blocked', 'system'];
+
+function adminPage(req, res, extra) {
   const q = (sql, d) => { try { return newsRO.prepare(sql).get(); } catch (e) { return d; } };
   const news    = q('SELECT COUNT(*) c FROM news', { c: 0 }).c;
   const blockedN= q('SELECT COUNT(*) c FROM news WHERE blocked=1', { c: 0 }).c;
+
   let rules = [], hard = 0, soft = 0;
   try {
     rules = spam.list();
     hard = rules.filter(r => (r.severity || 'hard') === 'hard').length;
     soft = rules.length - hard;
   } catch (e) {}
+
   let messages = [], unread = 0, total = 0;
   try {
     messages = msgDB.prepare('SELECT * FROM messages ORDER BY read ASC, created_at DESC LIMIT 30').all();
     unread   = msgDB.prepare('SELECT COUNT(*) c FROM messages WHERE read=0').get().c;
     total    = msgDB.prepare('SELECT COUNT(*) c FROM messages').get().c;
   } catch (e) {}
+
   let blocked = [];
   try {
     blocked = newsRO.prepare(`
@@ -914,17 +1019,61 @@ function adminPage(res, extra) {
       WHERE n.blocked=1 ORDER BY n.published_at DESC LIMIT 20`).all();
   } catch (e) {}
 
+  let users = [];
+  try { users = db.getAllUsers() || []; } catch (e) {}
+
+  let chNews = [], chFin = [];
+  try { chNews = newsDB.getChannels() || []; } catch (e) {}
+  try { chFin  = financeDB.getFinanceChannels() || []; } catch (e) {}
+
+  const setAll = (() => { try { return settingsDB.getAll() || {}; } catch (e) { return {}; } })();
+  const ai = {
+    general: setAll.ai_model || aiClient.DEFAULT_PREFERRED,
+    limit:   Number(setAll.ai_daily_limit || 150) || 150,
+    used:    Number(setAll.ai_calls_used || 0) || 0,
+    date:    setAll.ai_budget_date || '',
+    modules: AI_MODULES.map(m => Object.assign({}, m, { value: setAll[m.key] || '' })),
+  };
+
+  const models = aiClient.FALLBACK_MODELS.slice();
+  const dbs = dbFiles();
+  const sec = ADMIN_SECS.indexOf(String((req.query && req.query.sec) || '')) !== -1
+    ? String(req.query.sec) : 'overview';
+
   page(res, 'admin', '', {
     title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
   }, Object.assign({
-    rules, messages, blocked,
-    stats: { news, blocked: blockedN, visible: news - blockedN, rules: rules.length, hard, soft, messages: total, unread },
-    flash: null
+    rules, messages, blocked, users, chNews, chFin, ai, models, dbs, sec,
+    sys: systemInfo(dbs),
+    stats: {
+      news, blocked: blockedN, visible: news - blockedN,
+      rules: rules.length, hard, soft, messages: total, unread,
+      activeUsers: users.filter(u => u.active).length,
+      admins: users.filter(u => u.role === 'superadmin').length,
+    },
+    flash:    (req.query && req.query.ok)  ? String(req.query.ok).slice(0, 200)  : null,
+    flashErr: (req.query && req.query.err) ? String(req.query.err).slice(0, 200) : null,
   }, extra || {}));
 }
 
+// بازگشت به همان بخشی که کاربر در آن بود، همراه با پیام نتیجه
+function backFrom(req, res, ok, err) {
+  const p = req.path;
+  let sec = 'overview';
+  if (p.indexOf('/users') !== -1)         sec = 'users';
+  else if (p.indexOf('/channels') !== -1) sec = 'channels';
+  else if (p.indexOf('/ai') !== -1)       sec = 'ai';
+  else if (p.indexOf('/messages') !== -1) sec = 'messages';
+  else if (p.indexOf('/spam') !== -1)     sec = 'spam';
+  else if (p.indexOf('/news') !== -1)     sec = 'blocked';
+  const qs = ['sec=' + sec];
+  if (ok)  qs.push('ok=' + encodeURIComponent(ok));
+  if (err) qs.push('err=' + encodeURIComponent(err));
+  res.redirect('/admin?' + qs.join('&'));
+}
+
 app.get('/admin/login', (req, res) => {
-  if (auth.verifyToken((req.cookies && req.cookies.token) || '')) return res.redirect('/admin');
+  if (auth.verifyToken((req.cookies && req.cookies.token) || '')) return backFrom(req, res);
   page(res, 'admin-login', '', {
     title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
   }, { error: null });
@@ -947,20 +1096,20 @@ app.post('/admin/login', loginLimiter, (req, res) => {
     httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000,
     secure: process.env.NODE_ENV === 'production'
   });
-  res.redirect('/admin');
+  backFrom(req, res);
 });
 
 app.get('/admin/logout', (req, res) => { res.clearCookie('token'); res.redirect('/admin/login'); });
 
-app.get('/admin', adminGuard, (req, res) => adminPage(res, { user: req.user }));
+app.get('/admin', adminGuard, (req, res) => adminPage(req, res, { user: req.user }));
 
 app.post('/admin/messages/:id/read', adminGuard, (req, res) => {
   try { msgDB.prepare('UPDATE messages SET read=1 WHERE id=?').run(req.params.id); } catch (e) {}
-  res.redirect('/admin');
+  backFrom(req, res);
 });
 app.post('/admin/messages/:id/delete', adminGuard, (req, res) => {
   try { msgDB.prepare('DELETE FROM messages WHERE id=?').run(req.params.id); } catch (e) {}
-  res.redirect('/admin');
+  backFrom(req, res);
 });
 
 app.post('/admin/spam/add', adminGuard, (req, res) => {
@@ -973,23 +1122,133 @@ app.post('/admin/spam/add', adminGuard, (req, res) => {
       spam.invalidate();
     } catch (e) { console.error('[admin/spam]', e.message); }
   }
-  res.redirect('/admin');
+  backFrom(req, res);
 });
 app.post('/admin/spam/:id/toggle', adminGuard, (req, res) => {
   try {
     const cur = newsRW.prepare('SELECT enabled FROM spam_rules WHERE id=?').get(req.params.id);
     spam.toggle(req.params.id, !(cur && cur.enabled));
   } catch (e) {}
-  res.redirect('/admin');
+  backFrom(req, res);
 });
 app.post('/admin/spam/:id/delete', adminGuard, (req, res) => {
   try { spam.remove(req.params.id); } catch (e) {}
-  res.redirect('/admin');
+  backFrom(req, res);
 });
 
 app.post('/admin/news/:id/unblock', adminGuard, (req, res) => {
   try { newsRW.prepare('UPDATE news SET blocked=0, blocked_rule=NULL WHERE id=?').run(req.params.id); } catch (e) {}
-  res.redirect('/admin');
+  backFrom(req, res);
+});
+
+// ══ کاربران ══
+// مشاهده‌ی سایت نیازی به حساب ندارد؛ این حساب‌ها فقط برای همین پنل است.
+
+app.post('/admin/users/add', adminGuard, (req, res) => {
+  const b = req.body || {};
+  const mobile = String(b.mobile || '').trim().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+  const password = String(b.password || '');
+  const name = String(b.name || '').trim();
+  const role = b.role === 'superadmin' ? 'superadmin' : 'user';
+
+  if (!/^09\d{9}$/.test(mobile)) return backFrom(req, res, null, 'شماره موبایل معتبر نیست (مثال: 09123456789).');
+  if (password.length < 6)        return backFrom(req, res, null, 'رمز عبور باید حداقل ۶ کاراکتر باشد.');
+
+  try {
+    db.createUser({ mobile, password, name: name || mobile, role });
+    backFrom(req, res, 'کاربر «' + (name || mobile) + '» افزوده شد.');
+  } catch (e) {
+    backFrom(req, res, null, /[\u0600-\u06FF]/.test(e.message) ? e.message : 'خطا: ' + e.message);
+  }
+});
+
+app.post('/admin/users/:id/toggle', adminGuard, (req, res) => {
+  if (String(req.params.id) === String(req.user.id)) return backFrom(req, res, null, 'حساب خودتان را نمی‌توانید غیرفعال کنید.');
+  try {
+    // ⚠️ toggleActive(id, active) آرگومان دوم را «حالت مقصد» می‌گیرد، نه سوییچ.
+    // بدون آن مقدار undefined ذخیره می‌شود و کاربر برای همیشه قفل می‌ماند.
+    const u = (db.getAllUsers() || []).find(x => String(x.id) === String(req.params.id));
+    if (!u) return backFrom(req, res, null, 'کاربر یافت نشد.');
+    db.toggleActive(u.id, !u.active);
+    backFrom(req, res, u.active ? 'کاربر غیرفعال شد.' : 'کاربر فعال شد.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/users/:id/delete', adminGuard, (req, res) => {
+  if (String(req.params.id) === String(req.user.id)) return backFrom(req, res, null, 'حساب خودتان را نمی‌توانید حذف کنید.');
+  try { db.deleteUser(req.params.id); backFrom(req, res, 'کاربر حذف شد.'); }
+  catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// ══ کانال‌ها ══
+// خبری → news-db، مالی → finance-db. حذف نرم است: جمع‌آوری متوقف می‌شود
+// ولی اخبار قبلی روی سایت می‌مانند.
+
+function chanApi(kind) {
+  return kind === 'finance'
+    ? { add: financeDB.upsertFinanceChannel, upd: financeDB.updateFinanceChannel, del: financeDB.deleteFinanceChannel, label: 'مالی' }
+    : { add: newsDB.upsertChannel,           upd: newsDB.updateChannel,           del: newsDB.deleteChannel,           label: 'خبری' };
+}
+
+app.post('/admin/channels/add', adminGuard, (req, res) => {
+  const b = req.body || {};
+  const api = chanApi(b.kind);
+  const username = String(b.username || '').trim().replace(/^@/, '').replace(/^https?:\/\/t\.me\//, '');
+  const title = String(b.title || '').trim();
+  if (!username) return backFrom(req, res, null, 'شناسه‌ی کانال را وارد کنید.');
+
+  try {
+    // tg_id واقعی را ربات هنگام اولین اتصال پر می‌کند؛ فعلاً شناسه‌ی موقت
+    api.add('@' + username, username, title || username, String(b.category || '').trim() || null, null, b.needs_translation ? 1 : 0);
+    backFrom(req, res, 'کانال ' + api.label + ' «' + (title || username) + '» افزوده شد.');
+  } catch (e) {
+    backFrom(req, res, null, /UNIQUE|exist/i.test(e.message) ? 'این کانال از قبل ثبت شده است.' : 'خطا: ' + e.message);
+  }
+});
+
+app.post('/admin/channels/:id/save', adminGuard, (req, res) => {
+  const b = req.body || {};
+  const api = chanApi(b.kind);
+  try {
+    api.upd(req.params.id, {
+      username: String(b.username || '').trim().replace(/^@/, ''),
+      title: String(b.title || '').trim(),
+      category: String(b.category || '').trim() || null,
+      needs_translation: b.needs_translation ? 1 : 0,
+    });
+    backFrom(req, res, 'کانال «' + String(b.title || '').trim() + '» ذخیره شد.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/channels/:id/delete', adminGuard, (req, res) => {
+  const api = chanApi((req.body || {}).kind);
+  try { api.del(req.params.id); backFrom(req, res, 'جمع‌آوری از این کانال متوقف شد.'); }
+  catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// ══ هوش مصنوعی ══
+// lib/ai-client هر بار تنظیمات را تازه می‌خواند، پس تغییر بدون ری‌استارت اعمال می‌شود.
+
+app.post('/admin/ai/save', adminGuard, (req, res) => {
+  const b = req.body || {};
+  try {
+    if (b.ai_model) settingsDB.set('ai_model', String(b.ai_model));
+
+    const lim = parseInt(String(b.ai_daily_limit || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
+    if (!isNaN(lim) && lim >= 0 && lim <= 10000) settingsDB.set('ai_daily_limit', lim);
+
+    for (const m of AI_MODULES) settingsDB.set(m.key, String(b[m.key] || ''));
+
+    backFrom(req, res, 'تنظیمات هوش مصنوعی ذخیره شد و بلافاصله اعمال می‌شود.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/ai/reset-budget', adminGuard, (req, res) => {
+  try {
+    settingsDB.set('ai_calls_used', 0);
+    settingsDB.set('ai_daily_limit_hit', false);
+    backFrom(req, res, 'شمارنده‌ی مصرف امروز صفر شد.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 
 // ── robots و sitemap ──

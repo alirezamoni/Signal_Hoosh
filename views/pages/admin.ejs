@@ -7,16 +7,9 @@
         <p class="page-sub">خوش آمدید، <%= user.name || user.mobile %> · <%= user.role === 'superadmin' ? 'سوپرادمین' : 'کاربر' %></p>
       </div>
       <div class="row wrap" style="gap:6px;">
-        <a class="btn btn-sm" href="/legacy" target="_blank">پنل قدیمی (کاربران، کانال‌ها، AI) ↗</a>
+        <a class="btn btn-sm" href="/" target="_blank">مشاهده سایت ↗</a>
         <a class="btn btn-sm" href="/admin/logout">خروج</a>
       </div>
-    </div>
-
-    <div class="grid g4 mb4">
-      <div class="kpi"><div class="kpi-label">پیام‌های خوانده‌نشده</div><div class="kpi-val accent"><%= fa(stats.unread) %></div><div class="kpi-note">از مجموع <%= fa(stats.messages) %> پیام</div></div>
-      <div class="kpi"><div class="kpi-label">قوانین فیلتر فعال</div><div class="kpi-val"><%= fa(stats.rules) %></div><div class="kpi-note"><%= fa(stats.hard) %> قطعی · <%= fa(stats.soft) %> مشروط</div></div>
-      <div class="kpi"><div class="kpi-label">اخبار بلاک‌شده</div><div class="kpi-val"><%= fa(stats.blocked) %></div><div class="kpi-note">از <%= fa(stats.news) %> خبر</div></div>
-      <div class="kpi"><div class="kpi-label">اخبار قابل نمایش</div><div class="kpi-val up"><%= fa(stats.visible) %></div><div class="kpi-note">روی سایت و در sitemap</div></div>
     </div>
 
     <% if (flash) { %>
@@ -25,154 +18,506 @@
       <%= flash %>
     </div>
     <% } %>
-
-    <!-- ══ پیام‌ها ══ -->
-    <div class="sec-head between wrap">
-      <h2 class="sec-title">پیام‌های دریافتی</h2>
-      <span class="tag"><%= fa(messages.length) %> پیام اخیر</span>
+    <% if (typeof flashErr !== 'undefined' && flashErr) { %>
+    <div class="alert-ok show mb3" style="background:var(--down-bg);color:var(--down);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+      <%= flashErr %>
     </div>
+    <% } %>
 
-    <section class="panel mb6">
-      <div class="panel-body-flush">
-        <% messages.forEach(function (m) { %>
-        <div class="msg-row <%= m.read ? 'read' : 'unread' %>">
-          <span class="msg-dot"></span>
-          <div style="flex:1;min-width:0;">
-            <div class="between wrap">
-              <div>
-                <span class="msg-from"><%= m.name %></span>
-                <span class="msg-mail"><%= m.email %></span>
-                <% if (m.topic) { %><span class="tag"><%= m.topic %></span><% } %>
+    <div class="admin-layout">
+
+      <!-- ══════════ ناوبری ══════════ -->
+      <nav class="admin-nav">
+        <a href="#" data-sec="sec-overview" class="<%= sec === 'overview' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          نمای کلی
+        </a>
+        <a href="#" data-sec="sec-users" class="<%= sec === 'users' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/></svg>
+          کاربران <span class="tag" style="margin-right:auto;"><%= fa(users.length) %></span>
+        </a>
+        <a href="#" data-sec="sec-channels" class="<%= sec === 'channels' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1.5"/></svg>
+          کانال‌ها <span class="tag" style="margin-right:auto;"><%= fa(chNews.length + chFin.length) %></span>
+        </a>
+        <a href="#" data-sec="sec-ai" class="<%= sec === 'ai' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M12 7V4M9 12h.01M15 12h.01M9 16h6"/></svg>
+          هوش مصنوعی
+        </a>
+        <a href="#" data-sec="sec-messages" class="<%= sec === 'messages' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          پیام‌ها
+          <% if (stats.unread) { %><span class="badge badge-down" style="margin-right:auto;"><%= fa(stats.unread) %></span><% } %>
+        </a>
+        <a href="#" data-sec="sec-spam" class="<%= sec === 'spam' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 6L9 17l-5-5" style="display:none"/><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>
+          فیلتر محتوا <span class="tag" style="margin-right:auto;"><%= fa(stats.rules) %></span>
+        </a>
+        <a href="#" data-sec="sec-blocked" class="<%= sec === 'blocked' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+          صف بازبینی <span class="tag" style="margin-right:auto;"><%= fa(stats.blocked) %></span>
+        </a>
+        <a href="#" data-sec="sec-system" class="<%= sec === 'system' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+          وضعیت سامانه
+        </a>
+      </nav>
+
+      <div>
+
+        <!-- ══════════ نمای کلی ══════════ -->
+        <section class="admin-sec <%= sec === 'overview' ? 'on' : '' %>" id="sec-overview">
+          <div class="grid g4 mb4">
+            <div class="kpi"><div class="kpi-label">کاربران ثبت‌شده</div><div class="kpi-val"><%= fa(users.length) %></div><div class="kpi-note"><%= fa(stats.activeUsers) %> فعال · <%= fa(stats.admins) %> مدیر</div></div>
+            <div class="kpi"><div class="kpi-label">کانال‌های رصدشده</div><div class="kpi-val"><%= fa(chNews.length + chFin.length) %></div><div class="kpi-note"><%= fa(chNews.length) %> خبری · <%= fa(chFin.length) %> مالی</div></div>
+            <div class="kpi"><div class="kpi-label">اخبار قابل نمایش</div><div class="kpi-val up"><%= fa(stats.visible) %></div><div class="kpi-note"><%= fa(stats.blocked) %> بلاک‌شده از <%= fa(stats.news) %></div></div>
+            <div class="kpi"><div class="kpi-label">پیام‌های خوانده‌نشده</div><div class="kpi-val accent"><%= fa(stats.unread) %></div><div class="kpi-note">از مجموع <%= fa(stats.messages) %> پیام</div></div>
+          </div>
+
+          <div class="grid g3 mb4">
+            <div class="kpi"><div class="kpi-label">سهمیه‌ی امروز هوش مصنوعی</div>
+              <div class="kpi-val <%= ai.used >= ai.limit ? 'down' : '' %>"><%= fa(ai.used) %><span class="dim" style="font-size:var(--fs-md);"> / <%= fa(ai.limit) %></span></div>
+              <div class="kpi-note"><%= ai.used >= ai.limit ? 'سهمیه تمام شده — تا فردا متوقف است' : 'فراخوانی مصرف‌شده' %></div>
+            </div>
+            <div class="kpi"><div class="kpi-label">قوانین فیلتر</div><div class="kpi-val"><%= fa(stats.rules) %></div><div class="kpi-note"><%= fa(stats.hard) %> قطعی · <%= fa(stats.soft) %> مشروط</div></div>
+            <div class="kpi"><div class="kpi-label">فضای دیسک آزاد</div><div class="kpi-val <%= sys.diskPct > 85 ? 'down' : 'up' %>"><%= fa(sys.freeGB) %><span class="dim" style="font-size:var(--fs-md);"> GB</span></div><div class="kpi-note"><%= fa(sys.diskPct) %>٪ اشغال‌شده از <%= fa(sys.totalGB) %> گیگ</div></div>
+          </div>
+
+          <section class="panel mb4">
+            <div class="panel-head">
+              <h2 class="panel-title">آخرین فعالیت جمع‌آورنده‌ها</h2>
+              <span class="panel-link">زمان آخرین نوشتن در پایگاه داده</span>
+            </div>
+            <div class="panel-body">
+              <% dbs.forEach(function (d) { %>
+              <div class="drow">
+                <div class="drow-main">
+                  <span class="drow-rank" style="background:<%= d.stale ? 'var(--down-bg)' : 'var(--up-bg)' %>;color:<%= d.stale ? 'var(--down)' : 'var(--up)' %>;">●</span>
+                  <span class="drow-name"><%= d.label %></span>
+                </div>
+                <div class="drow-val">
+                  <span class="<%= d.stale ? 'down' : '' %>"><%= timeAgo(d.mtime) %></span>
+                  <span class="drow-sub"><%= fa(d.sizeMB) %> مگ</span>
+                </div>
               </div>
-              <span class="msg-time"><%= timeAgo(m.created_at) %></span>
-            </div>
-            <% if (m.url) { %><div class="hint" style="direction:ltr;text-align:right;"><%= m.url %></div><% } %>
-            <p class="msg-text"><%= m.message %></p>
-            <div class="row wrap mt3" style="gap:6px;">
-              <a class="btn btn-sm" href="mailto:<%= m.email %>?subject=پاسخ سیگنال هوش">پاسخ با ایمیل</a>
-              <% if (!m.read) { %>
-              <form method="POST" action="/admin/messages/<%= m.id %>/read" style="display:inline;"><button class="btn btn-sm" type="submit">علامت خوانده‌شده</button></form>
-              <% } %>
-              <form method="POST" action="/admin/messages/<%= m.id %>/delete" style="display:inline;"><button class="btn btn-sm" type="submit">حذف</button></form>
-            </div>
-          </div>
-        </div>
-        <% }); %>
-        <% if (!messages.length) { %><div class="sentinel"><div class="sentinel-txt">هنوز پیامی دریافت نشده.</div></div><% } %>
-      </div>
-    </section>
-
-    <!-- ══ فیلتر محتوا ══ -->
-    <div class="sec-head"><h2 class="sec-title">فیلتر محتوا — کلیدواژه‌ها</h2></div>
-
-    <blockquote class="desc">
-      <strong>دو درجه‌ی شدت:</strong> قانون <span class="badge badge-down">قطعی</span> به‌تنهایی خبر را
-      بلاک می‌کند (نام برند شرط‌بندی، محتوای بزرگسال). قانون <span class="badge badge-warn">مشروط</span>
-      فقط وقتی بلاک می‌کند که حداقل دو نشانه با هم باشند — چون واژه‌ای مثل «شرط‌بندی» می‌تواند در
-      خبر واقعی هم بیاید.
-      <br><br>
-      <strong>نوع تطبیق:</strong> «واژه‌ی مستقل» فقط وقتی می‌گیرد که کلمه جدا باشد — «بت» داخل «ثبت»
-      و «مثبت» را نمی‌گیرد. «هرجای متن» زیررشته را هم می‌گیرد و برای عبارت‌های بلند مناسب است.
-    </blockquote>
-
-    <div class="grid g3 mb6">
-      <section class="panel">
-        <div class="panel-head"><h3 class="panel-title">افزودن کلیدواژه</h3></div>
-        <div class="panel-body-pad">
-          <form method="POST" action="/admin/spam/add">
-            <div class="field">
-              <label class="label" for="pat">کلیدواژه یا عبارت</label>
-              <input class="input" id="pat" name="pattern" required maxlength="120" placeholder="مثلاً: سایت شرط بندی">
-            </div>
-            <div class="field">
-              <label class="label" for="kind">نوع تطبیق</label>
-              <select class="select" id="kind" name="kind">
-                <option value="contains">هرجای متن — برای عبارت بلند</option>
-                <option value="word">واژه‌ی مستقل — برای واژه‌ی کوتاه</option>
-                <option value="regex">عبارت باقاعده (regex) — پیشرفته</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="label" for="sev">شدت</label>
-              <select class="select" id="sev" name="severity">
-                <option value="hard">قطعی — به‌تنهایی بلاک می‌کند</option>
-                <option value="soft">مشروط — با یک نشانه‌ی دیگر</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="label" for="cat">دسته</label>
-              <select class="select" id="cat" name="category">
-                <option>شرط‌بندی</option><option>کلاهبرداری</option><option>اسپم</option>
-                <option>بزرگسال</option><option>تبلیغات</option><option>سایر</option>
-              </select>
-            </div>
-            <button class="btn btn-acc btn-block" type="submit">افزودن</button>
-          </form>
-        </div>
-      </section>
-
-      <section class="panel span2">
-        <div class="panel-head">
-          <h3 class="panel-title">کلیدواژه‌های فعال</h3>
-          <span class="panel-link"><%= fa(rules.length) %> قانون · مرتب بر اساس برخورد</span>
-        </div>
-        <div class="tbl-wrap" style="border:none;border-radius:0;box-shadow:none;max-height:520px;overflow-y:auto;">
-          <table>
-            <thead><tr><th>کلیدواژه</th><th class="ta-l">تطبیق</th><th class="ta-l">شدت</th><th class="ta-l">دسته</th><th class="ta-l">برخورد</th><th class="ta-l">وضعیت</th><th class="ta-l"></th></tr></thead>
-            <tbody>
-              <% rules.forEach(function (r) { %>
-              <tr>
-                <td class="td-name" style="direction:ltr;text-align:right;"><%= r.pattern %></td>
-                <td class="ta-l"><%= r.kind === 'word' ? 'واژه مستقل' : (r.kind === 'regex' ? 'regex' : 'هرجای متن') %></td>
-                <td class="ta-l"><span class="badge <%= r.severity === 'hard' ? 'badge-down' : 'badge-warn' %>"><%= r.severity === 'hard' ? 'قطعی' : 'مشروط' %></span></td>
-                <td class="ta-l"><span class="tag"><%= r.category %></span></td>
-                <td class="ta-l"><%= fa(r.hits || 0) %></td>
-                <td class="ta-l"><span class="badge <%= r.enabled ? 'badge-up' : 'badge-flat' %>"><%= r.enabled ? 'فعال' : 'خاموش' %></span></td>
-                <td class="ta-l">
-                  <form method="POST" action="/admin/spam/<%= r.id %>/toggle" style="display:inline;"><button class="btn btn-sm" type="submit"><%= r.enabled ? 'خاموش' : 'روشن' %></button></form>
-                  <form method="POST" action="/admin/spam/<%= r.id %>/delete" style="display:inline;"><button class="btn btn-sm" type="submit">حذف</button></form>
-                </td>
-              </tr>
               <% }); %>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- ══ صف بازبینی ══ -->
-    <div class="sec-head between wrap">
-      <h2 class="sec-title">صف بازبینی — اخبار بلاک‌شده</h2>
-      <span class="tag"><%= fa(stats.blocked) %> مورد</span>
-    </div>
-
-    <blockquote class="desc desc-sm">
-      اخبار بلاک‌شده حذف نمی‌شوند، فقط روی سایت نمایش داده نمی‌شوند. اگر موردی اشتباه بلاک شده،
-      با «آزادسازی» بلافاصله به سایت و sitemap برمی‌گردد.
-    </blockquote>
-
-    <section class="panel">
-      <div class="panel-body-flush">
-        <% blocked.forEach(function (b) { %>
-        <div class="msg-row">
-          <span class="msg-dot"></span>
-          <div style="flex:1;min-width:0;">
-            <div class="between wrap">
-              <div><span class="msg-from"><%= b.channel_title || 'نامشخص' %></span><span class="tag">قانون: <%= b.blocked_rule || '—' %></span></div>
-              <span class="msg-time"><%= timeAgo(b.published_at) %></span>
+              <% if (!dbs.length) { %><div class="drow"><span class="dim">پایگاه داده‌ای پیدا نشد</span></div><% } %>
             </div>
-            <p class="msg-text"><%= excerpt(clean(b.text_fa || b.text), 200) %></p>
-            <div class="row wrap mt3" style="gap:6px;">
-              <form method="POST" action="/admin/news/<%= b.id %>/unblock" style="display:inline;"><button class="btn btn-sm btn-acc" type="submit">آزادسازی</button></form>
-              <% if (b.tg_link) { %><a class="btn btn-sm" href="<%= b.tg_link %>" target="_blank" rel="noopener nofollow">منبع ↗</a><% } %>
-            </div>
+            <div class="panel-foot">اگر زمان آخرین نوشتن یک بخش بیش از ۶ ساعت گذشته باشد قرمز می‌شود — نشانه‌ی توقف جمع‌آورنده‌ی آن بخش.</div>
+          </section>
+        </section>
+
+        <!-- ══════════ کاربران ══════════ -->
+        <section class="admin-sec <%= sec === 'users' ? 'on' : '' %>" id="sec-users">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">کاربران</h2>
+            <span class="tag"><%= fa(users.length) %> کاربر</span>
           </div>
-        </div>
-        <% }); %>
-        <% if (!blocked.length) { %><div class="sentinel"><div class="sentinel-txt">هیچ خبری بلاک نشده.</div></div><% } %>
+
+          <blockquote class="desc desc-sm">
+            مشاهده‌ی سایت نیازی به حساب کاربری ندارد. حساب‌ها فقط برای دسترسی به همین پنل مدیریت است.
+            نقش <span class="badge badge-acc">سوپرادمین</span> به همه‌ی بخش‌ها دسترسی دارد.
+          </blockquote>
+
+          <div class="grid g3 mb4">
+            <section class="panel">
+              <div class="panel-head"><h3 class="panel-title">افزودن کاربر</h3></div>
+              <div class="panel-body-pad">
+                <form method="POST" action="/admin/users/add">
+                  <div class="field"><label class="label" for="uName">نام</label>
+                    <input class="input" id="uName" name="name" required placeholder="نام و نام خانوادگی"></div>
+                  <div class="field"><label class="label" for="uMobile">شماره موبایل</label>
+                    <input class="input" id="uMobile" name="mobile" required placeholder="09xxxxxxxxx" style="direction:ltr;text-align:left;">
+                    <div class="hint">همین شماره برای ورود استفاده می‌شود.</div></div>
+                  <div class="field"><label class="label" for="uPass">رمز عبور</label>
+                    <input class="input" id="uPass" name="password" type="text" required minlength="6" placeholder="حداقل ۶ کاراکتر" style="direction:ltr;text-align:left;"></div>
+                  <div class="field"><label class="label" for="uRole">نقش</label>
+                    <select class="select" id="uRole" name="role">
+                      <option value="user">کاربر</option>
+                      <option value="superadmin">سوپرادمین</option>
+                    </select></div>
+                  <button class="btn btn-acc btn-block" type="submit">افزودن کاربر</button>
+                </form>
+              </div>
+            </section>
+
+            <section class="panel span2">
+              <div class="panel-head"><h3 class="panel-title">فهرست کاربران</h3></div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>نام</th><th class="ta-l">موبایل</th><th class="ta-l">نقش</th><th class="ta-l">وضعیت</th><th class="ta-l">ثبت‌نام</th><th class="ta-l">عملیات</th></tr></thead>
+                  <tbody>
+                    <% users.forEach(function (u) { %>
+                    <tr>
+                      <td class="td-name"><%= u.name || '—' %></td>
+                      <td class="ta-l num"><%= fa(u.mobile) %></td>
+                      <td class="ta-l"><span class="badge <%= u.role === 'superadmin' ? 'badge-acc' : 'badge-flat' %>"><%= u.role === 'superadmin' ? 'سوپرادمین' : 'کاربر' %></span></td>
+                      <td class="ta-l"><span class="badge <%= u.active ? 'badge-up' : 'badge-flat' %>"><%= u.active ? 'فعال' : 'غیرفعال' %></span></td>
+                      <td class="ta-l dim" style="font-size:var(--fs-xs);"><%= timeAgo(u.createdAt) %></td>
+                      <td class="ta-l">
+                        <div class="row" style="gap:5px;">
+                          <% if (String(u.id) !== String(user.id)) { %>
+                          <form method="POST" action="/admin/users/<%= u.id %>/toggle" style="display:inline;">
+                            <button class="btn btn-sm" type="submit"><%= u.active ? 'غیرفعال' : 'فعال' %></button>
+                          </form>
+                          <form method="POST" action="/admin/users/<%= u.id %>/delete" style="display:inline;"
+                                onsubmit="return confirm('کاربر «<%= u.name || u.mobile %>» حذف شود؟')">
+                            <button class="btn btn-sm" type="submit">حذف</button>
+                          </form>
+                          <% } else { %><span class="dim" style="font-size:var(--fs-xs);">حساب شما</span><% } %>
+                        </div>
+                      </td>
+                    </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- ══════════ کانال‌ها ══════════ -->
+        <section class="admin-sec <%= sec === 'channels' ? 'on' : '' %>" id="sec-channels">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">کانال‌های تلگرام</h2>
+            <span class="tag"><%= fa(chNews.length) %> خبری · <%= fa(chFin.length) %> مالی</span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            کانال‌های خبری تغذیه‌کننده‌ی تب «ترند اخبار ایران» و کانال‌های مالی تغذیه‌کننده‌ی تب «ترند بازارهای مالی» هستند.
+            گزینه‌ی <strong>ترجمه</strong> برای کانال‌های غیرفارسی است — متن پیش از انتشار خودکار به فارسی برگردانده می‌شود.
+            حذف کانال، اخبار قبلی آن را پاک نمی‌کند؛ فقط جمع‌آوری را متوقف می‌کند.
+          </blockquote>
+
+          <section class="panel mb4">
+            <div class="panel-head"><h3 class="panel-title">افزودن کانال</h3></div>
+            <div class="panel-body-pad">
+              <form method="POST" action="/admin/channels/add">
+                <div class="grid g4">
+                  <div class="field"><label class="label" for="cKind">بخش</label>
+                    <select class="select" id="cKind" name="kind">
+                      <option value="news">ترند اخبار ایران</option>
+                      <option value="finance">ترند بازارهای مالی</option>
+                    </select></div>
+                  <div class="field"><label class="label" for="cUser">شناسه‌ی کانال</label>
+                    <input class="input" id="cUser" name="username" required placeholder="@channelname" style="direction:ltr;text-align:left;"></div>
+                  <div class="field"><label class="label" for="cTitle">نام نمایشی</label>
+                    <input class="input" id="cTitle" name="title" required placeholder="مثلاً: خبرگزاری فارس"></div>
+                  <div class="field"><label class="label" for="cCat">دسته‌بندی</label>
+                    <input class="input" id="cCat" name="category" placeholder="مثلاً: سیاسی"></div>
+                </div>
+                <div class="row wrap" style="gap:var(--s4);align-items:center;">
+                  <label class="switch"><input type="checkbox" name="needs_translation" value="1"><span class="switch-track"></span>
+                    <span style="font-size:var(--fs-sm);">نیاز به ترجمه دارد (کانال غیرفارسی)</span></label>
+                  <button class="btn btn-acc" type="submit" style="margin-right:auto;">افزودن کانال</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <% [{ list: chNews, kind: 'news', label: 'کانال‌های خبری' }, { list: chFin, kind: 'finance', label: 'کانال‌های مالی' }].forEach(function (g) { %>
+          <div class="sec-head between wrap">
+            <h3 class="sec-title" style="font-size:var(--fs-lg);"><%= g.label %></h3>
+            <span class="tag"><%= fa(g.list.length) %> کانال</span>
+          </div>
+          <section class="panel mb4">
+            <div class="panel-body-flush">
+              <% g.list.forEach(function (c) { %>
+              <form method="POST" action="/admin/channels/<%= c.id %>/save" class="ch-row">
+                <input type="hidden" name="kind" value="<%= g.kind %>">
+                <% if (c.photo_url) { %>
+                  <img class="avatar" src="<%= c.photo_url %>" alt="<%= c.title || '' %>" width="38" height="38" loading="lazy">
+                <% } else { %>
+                  <span class="avatar avatar-ph"><%= (c.title || c.username || '?').trim().charAt(0) %></span>
+                <% } %>
+                <input class="input" name="title" value="<%= c.title || '' %>" aria-label="نام کانال">
+                <input class="input" name="username" value="<%= c.username || '' %>" aria-label="شناسه" style="direction:ltr;text-align:left;">
+                <input class="input" name="category" value="<%= c.category || '' %>" placeholder="دسته" aria-label="دسته">
+                <label class="switch" title="نیاز به ترجمه">
+                  <input type="checkbox" name="needs_translation" value="1" <%= c.needs_translation ? 'checked' : '' %>>
+                  <span class="switch-track"></span>
+                  <span style="font-size:var(--fs-xs);">ترجمه</span>
+                </label>
+                <button class="btn btn-sm btn-acc" type="submit">ذخیره</button>
+                <button class="btn btn-sm" type="submit" formaction="/admin/channels/<%= c.id %>/delete"
+                        onclick="return confirm('کانال «<%= c.title || c.username %>» از فهرست جمع‌آوری حذف شود؟')">حذف</button>
+              </form>
+              <% }); %>
+              <% if (!g.list.length) { %><div class="sentinel"><div class="sentinel-txt">کانالی ثبت نشده است.</div></div><% } %>
+            </div>
+          </section>
+          <% }); %>
+        </section>
+
+        <!-- ══════════ هوش مصنوعی ══════════ -->
+        <section class="admin-sec <%= sec === 'ai' ? 'on' : '' %>" id="sec-ai">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">تنظیمات هوش مصنوعی</h2>
+            <span class="tag">OpenRouter</span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            هر بخش سایت می‌تواند مدل اختصاصی خودش را داشته باشد. اگر برای بخشی مدلی انتخاب نشود،
+            از <strong>مدل پیش‌فرض</strong> استفاده می‌کند. اگر مدل انتخابی پاسخ ندهد، سامانه خودکار
+            سراغ مدل‌های پشتیبان می‌رود، پس انتخاب اشتباه باعث قطعی نمی‌شود.
+          </blockquote>
+
+          <div class="grid g3 mb4">
+            <div class="kpi"><div class="kpi-label">مصرف امروز</div>
+              <div class="kpi-val <%= ai.used >= ai.limit ? 'down' : '' %>"><%= fa(ai.used) %></div>
+              <div class="kpi-note">از سقف <%= fa(ai.limit) %> فراخوانی</div></div>
+            <div class="kpi"><div class="kpi-label">تاریخ سهمیه</div>
+              <div class="kpi-val" style="font-size:var(--fs-xl);"><%= fa(ai.date || '—') %></div>
+              <div class="kpi-note">هر روز نیمه‌شب صفر می‌شود</div></div>
+            <div class="kpi"><div class="kpi-label">وضعیت</div>
+              <div class="kpi-val <%= ai.used >= ai.limit ? 'down' : 'up' %>" style="font-size:var(--fs-xl);"><%= ai.used >= ai.limit ? 'متوقف' : 'فعال' %></div>
+              <div class="kpi-note"><%= ai.used >= ai.limit ? 'تا صفر شدن سهمیه' : 'در حال پاسخ‌دهی' %></div></div>
+          </div>
+
+          <form method="POST" action="/admin/ai/save">
+            <section class="panel mb4">
+              <div class="panel-head"><h3 class="panel-title">مدل پیش‌فرض و سهمیه</h3></div>
+              <div class="panel-body-pad">
+                <div class="grid g2">
+                  <div class="field"><label class="label" for="aiGeneral">مدل پیش‌فرض همه‌ی بخش‌ها</label>
+                    <select class="select" id="aiGeneral" name="ai_model">
+                      <% models.forEach(function (m) { %>
+                      <option value="<%= m %>" <%= ai.general === m ? 'selected' : '' %>><%= m %></option>
+                      <% }); %>
+                      <% if (ai.general && models.indexOf(ai.general) === -1) { %>
+                      <option value="<%= ai.general %>" selected><%= ai.general %> (سفارشی)</option>
+                      <% } %>
+                    </select></div>
+                  <div class="field"><label class="label" for="aiLimit">سقف فراخوانی روزانه</label>
+                    <input class="input" id="aiLimit" name="ai_daily_limit" type="number" min="0" max="10000" value="<%= ai.limit %>" style="direction:ltr;text-align:left;">
+                    <div class="hint">مجموع فراخوانی همه‌ی بخش‌ها در یک شبانه‌روز. عدد بالاتر یعنی هزینه/مصرف بیشتر.</div></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel mb4">
+              <div class="panel-head">
+                <h3 class="panel-title">مدل اختصاصی هر بخش</h3>
+                <span class="panel-link"><%= fa(ai.modules.length) %> بخش</span>
+              </div>
+              <div class="panel-body-flush">
+                <% ai.modules.forEach(function (m) { %>
+                <div class="ai-mod-row">
+                  <div style="min-width:0;">
+                    <div class="drow-name"><%= m.label %></div>
+                    <div class="hint" style="margin-top:2px;direction:ltr;text-align:right;"><%= m.file %> · tag: <%= m.tag %></div>
+                  </div>
+                  <select class="select" name="<%= m.key %>" style="max-width:340px;">
+                    <option value="">— استفاده از مدل پیش‌فرض —</option>
+                    <% models.forEach(function (x) { %>
+                    <option value="<%= x %>" <%= m.value === x ? 'selected' : '' %>><%= x %></option>
+                    <% }); %>
+                    <% if (m.value && models.indexOf(m.value) === -1) { %>
+                    <option value="<%= m.value %>" selected><%= m.value %> (سفارشی)</option>
+                    <% } %>
+                  </select>
+                </div>
+                <% }); %>
+              </div>
+              <div class="panel-foot">تغییر مدل بلافاصله اعمال می‌شود — نیازی به راه‌اندازی دوباره‌ی سرویس نیست.</div>
+            </section>
+
+            <div class="row wrap" style="gap:var(--s2);">
+              <button class="btn btn-acc" type="submit">ذخیره‌ی تنظیمات</button>
+              <button class="btn" type="submit" formaction="/admin/ai/reset-budget"
+                      onclick="return confirm('شمارنده‌ی مصرف امروز صفر شود؟')">صفر کردن مصرف امروز</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ══════════ پیام‌ها ══════════ -->
+        <section class="admin-sec <%= sec === 'messages' ? 'on' : '' %>" id="sec-messages">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">پیام‌های دریافتی</h2>
+            <span class="tag"><%= fa(stats.unread) %> خوانده‌نشده از <%= fa(stats.messages) %></span>
+          </div>
+
+          <section class="panel mb6">
+            <div class="panel-body-flush">
+              <% messages.forEach(function (m) { %>
+              <div class="msg-row <%= m.read ? 'read' : 'unread' %>">
+                <span class="msg-dot"></span>
+                <div style="flex:1;min-width:0;">
+                  <div class="between wrap">
+                    <div>
+                      <span class="msg-from"><%= m.name %></span>
+                      <span class="msg-mail"><%= m.email %></span>
+                      <% if (m.topic) { %><span class="tag"><%= m.topic %></span><% } %>
+                    </div>
+                    <span class="msg-time"><%= timeAgo(m.created_at) %></span>
+                  </div>
+                  <% if (m.url) { %><div class="hint" style="direction:ltr;text-align:right;"><%= m.url %></div><% } %>
+                  <p class="msg-text"><%= m.message %></p>
+                  <div class="row wrap mt3" style="gap:6px;">
+                    <a class="btn btn-sm" href="mailto:<%= m.email %>?subject=پاسخ سیگنال هوش">پاسخ با ایمیل</a>
+                    <% if (!m.read) { %>
+                    <form method="POST" action="/admin/messages/<%= m.id %>/read" style="display:inline;"><button class="btn btn-sm" type="submit">علامت خوانده‌شده</button></form>
+                    <% } %>
+                    <form method="POST" action="/admin/messages/<%= m.id %>/delete" style="display:inline;"><button class="btn btn-sm" type="submit">حذف</button></form>
+                  </div>
+                </div>
+              </div>
+              <% }); %>
+              <% if (!messages.length) { %><div class="sentinel"><div class="sentinel-txt">هنوز پیامی دریافت نشده.</div></div><% } %>
+            </div>
+          </section>
+        </section>
+
+        <!-- ══════════ فیلتر محتوا ══════════ -->
+        <section class="admin-sec <%= sec === 'spam' ? 'on' : '' %>" id="sec-spam">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">فیلتر محتوا — کلیدواژه‌ها</h2>
+            <span class="tag"><%= fa(stats.rules) %> قانون</span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            <strong>دو درجه‌ی شدت:</strong> قانون <span class="badge badge-down">قطعی</span> به‌تنهایی خبر را
+            بلاک می‌کند (نام برند شرط‌بندی، محتوای بزرگسال). قانون <span class="badge badge-warn">مشروط</span>
+            فقط وقتی بلاک می‌کند که <strong>دو</strong> قانون مشروط هم‌زمان در یک خبر دیده شوند — چون کلمه‌هایی
+            مثل «برد» یا «ضریب» در خبر ورزشی و اقتصادی هم به‌کار می‌روند و به‌تنهایی نشانه‌ی تبلیغ نیستند.
+            خبرهای بلاک‌شده حذف نمی‌شوند؛ در «صف بازبینی» می‌مانند و قابل بازگرداندن‌اند.
+          </blockquote>
+
+          <div class="grid g3 mb6">
+            <section class="panel">
+              <div class="panel-head"><h3 class="panel-title">افزودن قانون</h3></div>
+              <div class="panel-body-pad">
+                <form method="POST" action="/admin/spam/add">
+                  <div class="field"><label class="label" for="sPattern">عبارت</label>
+                    <input class="input" id="sPattern" name="pattern" required placeholder="مثلاً: سایت شرط بندی"></div>
+                  <div class="field"><label class="label" for="sKind">نوع تطبیق</label>
+                    <select class="select" id="sKind" name="kind">
+                      <option value="contains">شامل باشد (واژه‌ی کامل)</option>
+                      <option value="regex">عبارت باقاعده (regex)</option>
+                    </select></div>
+                  <div class="field"><label class="label" for="sSeverity">شدت</label>
+                    <select class="select" id="sSeverity" name="severity">
+                      <option value="hard">قطعی — به‌تنهایی بلاک می‌کند</option>
+                      <option value="soft">مشروط — با یک قانون دیگر</option>
+                    </select></div>
+                  <div class="field"><label class="label" for="sCat">دسته</label>
+                    <input class="input" id="sCat" name="category" placeholder="مثلاً: شرط‌بندی"></div>
+                  <button class="btn btn-acc btn-block" type="submit">افزودن قانون</button>
+                </form>
+              </div>
+            </section>
+
+            <section class="panel span2">
+              <div class="panel-head"><h3 class="panel-title">قوانین فعلی</h3></div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>عبارت</th><th class="ta-l">دسته</th><th class="ta-l">شدت</th><th class="ta-l">وضعیت</th><th class="ta-l">برخورد</th><th class="ta-l">عملیات</th></tr></thead>
+                  <tbody>
+                    <% rules.forEach(function (r) { %>
+                    <tr>
+                      <td class="td-name"><%= r.pattern %><% if (r.kind === 'regex') { %> <span class="tag">regex</span><% } %></td>
+                      <td class="ta-l"><% if (r.category) { %><span class="tag"><%= r.category %></span><% } %></td>
+                      <td class="ta-l"><span class="badge <%= (r.severity || 'hard') === 'hard' ? 'badge-down' : 'badge-warn' %>"><%= (r.severity || 'hard') === 'hard' ? 'قطعی' : 'مشروط' %></span></td>
+                      <td class="ta-l"><span class="badge <%= r.enabled ? 'badge-up' : 'badge-flat' %>"><%= r.enabled ? 'فعال' : 'خاموش' %></span></td>
+                      <td class="ta-l"><%= fa(r.hits || 0) %></td>
+                      <td class="ta-l">
+                        <div class="row" style="gap:5px;">
+                          <form method="POST" action="/admin/spam/<%= r.id %>/toggle" style="display:inline;"><button class="btn btn-sm" type="submit"><%= r.enabled ? 'خاموش' : 'روشن' %></button></form>
+                          <form method="POST" action="/admin/spam/<%= r.id %>/delete" style="display:inline;" onsubmit="return confirm('قانون «<%= r.pattern %>» حذف شود؟')"><button class="btn btn-sm" type="submit">حذف</button></form>
+                        </div>
+                      </td>
+                    </tr>
+                    <% }); %>
+                    <% if (!rules.length) { %><tr><td colspan="6" class="dim">قانونی ثبت نشده است.</td></tr><% } %>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- ══════════ صف بازبینی ══════════ -->
+        <section class="admin-sec <%= sec === 'blocked' ? 'on' : '' %>" id="sec-blocked">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">صف بازبینی — اخبار بلاک‌شده</h2>
+            <span class="tag"><%= fa(stats.blocked) %> خبر</span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            این خبرها روی سایت نمایش داده نمی‌شوند ولی حذف هم نشده‌اند. اگر خبری اشتباهی بلاک شده،
+            با دکمه‌ی «بازگرداندن» دوباره منتشر می‌شود. ۲۰ مورد آخر نمایش داده می‌شود.
+          </blockquote>
+
+          <section class="panel mb6">
+            <div class="panel-body-flush">
+              <% blocked.forEach(function (b) { %>
+              <div class="msg-row read">
+                <span class="msg-dot"></span>
+                <div style="flex:1;min-width:0;">
+                  <div class="between wrap">
+                    <div>
+                      <span class="msg-from"><%= b.channel_title || 'نامشخص' %></span>
+                      <% if (b.blocked_rule) { %><span class="badge badge-down">قانون: <%= b.blocked_rule %></span><% } %>
+                    </div>
+                    <span class="msg-time"><%= timeAgo(b.published_at) %></span>
+                  </div>
+                  <p class="msg-text"><%= (b.text_fa || b.text || '').slice(0, 300) %></p>
+                  <div class="row wrap mt3" style="gap:6px;">
+                    <form method="POST" action="/admin/news/<%= b.id %>/unblock" style="display:inline;"><button class="btn btn-sm btn-acc" type="submit">بازگرداندن به سایت</button></form>
+                    <% if (b.tg_link) { %><a class="btn btn-sm" href="<%= b.tg_link %>" target="_blank" rel="noopener">مشاهده در تلگرام ↗</a><% } %>
+                  </div>
+                </div>
+              </div>
+              <% }); %>
+              <% if (!blocked.length) { %><div class="sentinel"><div class="sentinel-txt">هیچ خبری در صف بازبینی نیست.</div></div><% } %>
+            </div>
+          </section>
+        </section>
+
+        <!-- ══════════ وضعیت سامانه ══════════ -->
+        <section class="admin-sec <%= sec === 'system' ? 'on' : '' %>" id="sec-system">
+          <div class="sec-head"><h2 class="sec-title">وضعیت سامانه</h2></div>
+
+          <div class="grid g4 mb4">
+            <div class="kpi"><div class="kpi-label">فضای دیسک</div><div class="kpi-val <%= sys.diskPct > 85 ? 'down' : 'up' %>"><%= fa(sys.diskPct) %>٪</div><div class="kpi-note"><%= fa(sys.freeGB) %> از <%= fa(sys.totalGB) %> گیگ آزاد</div></div>
+            <div class="kpi"><div class="kpi-label">حافظه‌ی این سرویس</div><div class="kpi-val"><%= fa(sys.memMB) %><span class="dim" style="font-size:var(--fs-md);"> MB</span></div><div class="kpi-note">RSS پروسه‌ی وب</div></div>
+            <div class="kpi"><div class="kpi-label">مدت کارکرد</div><div class="kpi-val" style="font-size:var(--fs-xl);"><%= fa(sys.uptime) %></div><div class="kpi-note">از آخرین راه‌اندازی</div></div>
+            <div class="kpi"><div class="kpi-label">حجم پایگاه داده</div><div class="kpi-val"><%= fa(sys.dbTotalMB) %><span class="dim" style="font-size:var(--fs-md);"> MB</span></div><div class="kpi-note"><%= fa(dbs.length) %> فایل</div></div>
+          </div>
+
+          <section class="panel mb4">
+            <div class="panel-head"><h3 class="panel-title">پایگاه‌های داده</h3><span class="panel-link">حجم و آخرین نوشتن</span></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>بخش</th><th class="ta-l">فایل</th><th class="ta-l">حجم</th><th class="ta-l">آخرین نوشتن</th></tr></thead>
+                <tbody>
+                  <% dbs.forEach(function (d) { %>
+                  <tr>
+                    <td class="td-name"><%= d.label %></td>
+                    <td class="ta-l dim" style="direction:ltr;text-align:left;font-size:var(--fs-xs);"><%= d.file %></td>
+                    <td class="ta-l"><%= fa(d.sizeMB) %> مگ</td>
+                    <td class="ta-l"><span class="badge <%= d.stale ? 'badge-down' : 'badge-up' %>"><%= timeAgo(d.mtime) %></span></td>
+                  </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h3 class="panel-title">اطلاعات محیط</h3></div>
+            <div class="panel-body">
+              <div class="drow"><div class="drow-main"><span class="drow-name">نسخه‌ی Node.js</span></div><div class="drow-val"><span style="direction:ltr;"><%= sys.node %></span></div></div>
+              <div class="drow"><div class="drow-main"><span class="drow-name">رسانه‌ی ذخیره‌شده‌ی اخبار</span></div><div class="drow-val"><span><%= fa(sys.mediaCount) %></span><span class="drow-sub">فایل · <%= fa(sys.mediaMB) %> مگ</span></div></div>
+              <div class="drow"><div class="drow-main"><span class="drow-name">پورت سرویس عمومی</span></div><div class="drow-val"><span class="num"><%= fa(sys.port) %></span></div></div>
+            </div>
+            <div class="panel-foot">پاک‌سازی خودکار رسانه‌ها هنگام حذف اخبار قدیمی انجام می‌شود؛ فایل‌های یتیم دیگر روی دیسک نمی‌مانند.</div>
+          </section>
+        </section>
+
       </div>
-      <div class="panel-foot">۲۰ مورد اخیر نمایش داده می‌شود</div>
-    </section>
+    </div>
 
   </div>
 </main>

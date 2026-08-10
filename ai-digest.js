@@ -62,7 +62,7 @@ ${items}
 
 async function callAI(prompt) {
   // scoring/acceptance happens in fetchWithRetry below, so accept whatever text comes back here
-  return aiClient.callText(prompt, { max_tokens: 2000, tag: 'digest', validate: () => true });
+  return aiClient.callText(prompt, { max_tokens: 2000, tag: 'digest', validate: () => true, models: aiClient.getModels('ai_model_trends') });
 }
 
 // persianRatio + isChainOfThoughtJunk now come from lib/ai-client.js (duplicates removed)

@@ -285,7 +285,7 @@ ${newsText}
 ---
 قوانین: فقط بر اساس اخبار | فارسی روان | بدون کلمه انگلیسی`;
 
-  const text = await aiClient.callText(prompt, { max_tokens: 1500, tag: 'news-digest', validate: () => true });
+  const text = await aiClient.callText(prompt, { max_tokens: 1500, tag: 'news-digest', validate: () => true, models: aiClient.getModels('ai_model_news') });
   if (!text) { console.warn('[digest] all models failed'); return; }
 
   const now = new Date().toISOString();

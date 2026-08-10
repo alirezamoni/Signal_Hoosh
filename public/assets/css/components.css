@@ -76,35 +76,30 @@
 }
 .tabs::-webkit-scrollbar { display: none; }
 
+/* تب تمام‌ارتفاع است تا خط زیرینش دقیقاً روی لبه‌ی نوار بنشیند.
+   ⚠️ خط را با pseudo-element بیرون‌زده نساز — .tabs برای اسکرول افقی
+   overflow-x:auto دارد و مرورگر overflow-y را هم auto می‌کند، پس هر چیزی
+   که از کادر بیرون بزند بریده می‌شود. border-bottom داخل کادر می‌ماند. */
 .tab {
   display: inline-flex; align-items: center;
   padding-inline: var(--s3);
-  margin-block: 5px;
-  border-radius: var(--r-sm);
+  height: 100%;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
   font-size: var(--fs-md); color: var(--muted);
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   transition: all var(--dur) var(--ease);
 }
 .tab:hover { color: var(--text); background: var(--card-hover); }
 
-/* تب فعال — پس‌زمینه‌ی رنگی + خط زیرین ضخیم روی لبه‌ی نوار تب */
+/* تب فعال — پس‌زمینه‌ی ملایم + خط زیرین ضخیم، خوانا در هر دو تم */
 .tab[aria-current="page"] {
-  color: #fff;
-  background: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-bottom-color: var(--accent);
   font-weight: var(--fw-medium);
-  position: relative;
 }
-.tab[aria-current="page"]:hover { color: #fff; background: var(--accent); }
-
-.tab[aria-current="page"]::after {
-  content: '';
-  position: absolute;
-  right: 0; left: 0; bottom: -5px;      /* روی خط پایین نوار تب می‌نشیند */
-  height: 3px;
-  background: var(--accent);
-  border-radius: 2px 2px 0 0;
-}
+.tab[aria-current="page"]:hover { color: var(--accent); background: var(--accent-bg); }
 
 /* ══════════════ تیکر ══════════════ */
 
@@ -760,6 +755,31 @@ tbody tr:hover { background: var(--card-hover); }
 
 .admin-sec { display: none; }
 .admin-sec.on { display: block; }
+
+/* ردیف ویرایش کانال — هر ردیف خودش یک فرم مستقل است تا بدون
+   جاوااسکریپت هم ذخیره/حذف کار کند. */
+.ch-row {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--pad-row) var(--pad-panel);
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+.ch-row:last-child { border-bottom: none; }
+.ch-row:hover { background: var(--card-hover); }
+.ch-row .input { width: auto; flex: 1 1 130px; min-width: 0; padding: 6px var(--s2); font-size: var(--fs-sm); }
+.ch-row .input[name="title"] { flex: 2 1 180px; }
+.ch-row .switch { flex-shrink: 0; }
+
+/* ردیف انتخاب مدل هوش مصنوعی برای هر بخش */
+.ai-mod-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s3); flex-wrap: wrap;
+  padding: var(--pad-row) var(--pad-panel);
+  border-bottom: 1px solid var(--border-soft);
+}
+.ai-mod-row:last-child { border-bottom: none; }
+.ai-mod-row .select { flex: 0 1 340px; font-size: var(--fs-sm); padding: 7px var(--s3); }
+@media (max-width: 700px) { .ai-mod-row .select { flex: 1 1 100%; } }
 
 .msg-row { display: flex; gap: var(--s3); padding: var(--pad-panel); border-bottom: 1px solid var(--border-soft); }
 .msg-row:last-child { border-bottom: none; }
