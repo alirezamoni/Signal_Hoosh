@@ -58,7 +58,7 @@
   <div class="container">
     <div class="tabs">
       <% TABS.forEach(function (t) { %>
-      <a class="tab" href="<%= t.href %>"<%= t.href === active ? ' aria-current="page"' : '' %>><%= t.label %></a>
+      <a class="tab" href="<%= t.href %>"<%- t.href === active ? ' aria-current="page"' : '' %>><%= t.label %></a>
       <% }); %>
     </div>
   </div>

@@ -74,12 +74,121 @@
     </div>
     <% } %>
 
+    <% if (tiers.length) { %>
+    <div class="page-head"><h2 class="sec-title">قیمت بر کارکرد — مقایسه رده‌ها</h2></div>
+    <blockquote class="desc">
+      «قیمت بر کارکرد» یعنی به ازای هر کیلومتر کارکردِ خودرو، چند تومان بابت قیمت آن می‌پردازید.
+      عدد کمتر یعنی خودرو نسبت به کارکردی که دارد ارزان‌تر است. این مقایسه فقط <strong>داخل هر رده</strong>
+      معنا دارد، چون یک خودروی لوکس ذاتاً قیمت‌بر‌کارکرد بالاتری از یک خودروی اقتصادی دارد.
+      خط عمودی روی هر میله، میانگین همان رده است؛ میله‌ی سبز یعنی به‌صرفه‌تر از میانگین رده.
+    </blockquote>
+
+    <div class="grid g3 mb6">
+      <% tiers.forEach(function (t) { %>
+      <section class="panel">
+        <div class="panel-head">
+          <h3 class="panel-title"><%= t.label %></h3>
+          <span class="panel-link">میانگین رده: <%= fa(num(t.avg)) %></span>
+        </div>
+        <div class="panel-body">
+          <% t.items.forEach(function (it) { %>
+          <div class="drow" style="display:block;">
+            <div class="between" style="margin-bottom:6px;">
+              <span class="drow-name"><%= it.name_fa %></span>
+              <div class="drow-val">
+                <span><%= fa(num(it.price_per_km)) %></span>
+                <span class="drow-sub">تومان/کیلومتر</span>
+              </div>
+            </div>
+            <div class="ppk-bar">
+              <div class="ppk-fill <%= it.value_vs_tier_pct < 0 ? 'good' : 'bad' %>" style="width:<%= it.widthPct %>%;"></div>
+              <span class="ppk-avg" style="right:<%= t.avgPct %>%;" title="میانگین رده"></span>
+            </div>
+          </div>
+          <% }); %>
+        </div>
+        <div class="panel-foot"><%= fa(t.items.length) %> مدل در این رده</div>
+      </section>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (series.length) { %>
+    <div class="page-head between wrap">
+      <h2 class="sec-title">روند قیمت در طول زمان</h2>
+      <span class="tag">از <%= faDay(stats.first_day) %></span>
+    </div>
+    <blockquote class="desc">
+      میانه‌ی قیمت آگهی‌های هر مدل، دو بار در روز ثبت می‌شود. چون تعداد و ترکیب آگهی‌ها
+      هر بار فرق می‌کند، نوسان روزانه طبیعی است؛ آنچه اهمیت دارد جهت کلی خط است نه تک‌نقطه‌ها.
+    </blockquote>
+
+    <div class="grid g3 mb6">
+      <% series.forEach(function (s) { %>
+      <section class="panel">
+        <div class="panel-head">
+          <h3 class="panel-title">
+            <% if (s.image_url) { %><img class="thumb-sm" src="<%= s.image_url %>" alt="<%= s.name_fa %>" loading="lazy"><% } %>
+            <%= s.name_fa %>
+          </h3>
+          <% if (s.changePct != null) { %>
+          <span class="badge <%= s.changePct > 0 ? 'badge-up' : (s.changePct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(s.changePct) %></span>
+          <% } %>
+        </div>
+        <div class="panel-body-pad">
+          <svg class="spark-lg" viewBox="0 0 220 44" preserveAspectRatio="none" role="img" aria-label="روند قیمت <%= s.name_fa %>">
+            <polyline points="<%= s.spark %>" fill="none" stroke="<%= s.changePct > 0 ? 'var(--up)' : (s.changePct < 0 ? 'var(--down)' : 'var(--dim)') %>" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+          </svg>
+          <div class="between mt3" style="font-size:var(--fs-xs);">
+            <span class="dim">آغاز: <%= fa(toman(s.first)) %></span>
+            <span class="dim">اکنون: <%= fa(toman(s.last)) %></span>
+          </div>
+        </div>
+        <div class="panel-foot"><%= s.tierLabel %> · <%= fa(s.points) %> اندازه‌گیری</div>
+      </section>
+      <% }); %>
+    </div>
+    <% } %>
+
     <div class="page-head"><h2 class="sec-title">سرعت رشد و صرفه اقتصادی</h2></div>
     <blockquote class="desc">
       «سرعت رشد» یعنی به‌طور میانگین قیمت هر روز چند درصد تغییر کرده (شتاب بازار، نه فقط جهتش).
       «صرفه نسبت به رده» یعنی قیمت‌بر‌کارکرد این مدل چقدر از میانگین هم‌رده‌اش کمتر یا بیشتر است —
       منفی یعنی به‌صرفه‌تر از رقبای هم‌رده.
     </blockquote>
+
+    <% if (scatter) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h3 class="panel-title">جایگاه هر خودرو در دو محور</h3>
+        <span class="panel-link">ربع بالا-راست بهترین است</span>
+      </div>
+      <div class="panel-body-pad">
+        <div class="scatter-wrap">
+          <svg class="scatter" viewBox="0 0 100 100" role="img" aria-label="پراکندگی سرعت رشد در برابر صرفه اقتصادی">
+            <line x1="50" y1="2" x2="50" y2="98" stroke="var(--border-strong)" stroke-width="0.4"/>
+            <line x1="2" y1="50" x2="98" y2="50" stroke="var(--border-strong)" stroke-width="0.4"/>
+            <% scatter.items.forEach(function (p) { %>
+            <circle cx="<%= p.x %>" cy="<%= p.y %>" r="2.2"
+                    fill="<%= p.value_vs_tier_pct < 0 ? 'var(--up)' : 'var(--down)' %>">
+              <title><%= p.name_fa %> — رشد <%= fa(p.pct_per_day.toFixed(2)) %>٪ در روز، صرفه <%= pct(p.value_vs_tier_pct) %></title>
+            </circle>
+            <text x="<%= p.x %>" y="<%= (Number(p.y) - 3.6).toFixed(1) %>" text-anchor="middle"
+                  font-size="3.1" fill="var(--muted)"><%= p.name_fa %></text>
+            <% }); %>
+          </svg>
+          <span class="scatter-ax scatter-ax-t">به‌صرفه‌تر از رده</span>
+          <span class="scatter-ax scatter-ax-b">گران‌تر از رده</span>
+          <span class="scatter-ax scatter-ax-r">قیمت رو به رشد ←</span>
+          <span class="scatter-ax scatter-ax-l">→ قیمت رو به کاهش</span>
+        </div>
+      </div>
+      <div class="panel-foot">
+        محور افقی سرعت رشد قیمت (درصد در روز) و محور عمودی صرفه نسبت به میانگین رده است.
+        نقطه‌ی سبز یعنی نسبت به هم‌رده‌هایش به‌صرفه‌تر است.
+      </div>
+    </section>
+    <% } %>
 
     <div class="tbl-wrap">
       <table>

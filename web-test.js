@@ -122,6 +122,18 @@ function faSigned(n, digits) {
   return (v < 0 ? '−' : '') + fa(Math.abs(v).toFixed(digits == null ? 2 : digits));
 }
 
+// نقاط polyline برای نمودار خطی کوچک — بدون وابستگی به کتابخانه
+function sparkPoints(vals, wd, ht) {
+  if (!vals || vals.length < 2) return '';
+  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const span = (max - min) || 1;
+  return vals.map((v, i) => {
+    const x = (i / (vals.length - 1)) * wd;
+    const y = ht - ((v - min) / span) * ht;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+}
+
 function faDay(ts) {
   if (!ts) return '—';
   const d = new Date(ts);
@@ -768,12 +780,64 @@ app.get('/cars', (req, res) => {
     value_vs_tier_pct: vMap[c.slug] ? vMap[c.slug].value_vs_tier_pct : null
   })).sort((a, b) => (b.median_price || 0) - (a.median_price || 0));
 
+  const TIER_LABEL = { high: 'لوکس', mid: 'میان‌رده', low: 'اقتصادی' };
+
+  // ── روند قیمت هر مدل در طول زمان ──
+  const series = cars.map(c => {
+    let h = [];
+    try { h = carDB.getHistory(c.slug, 30) || []; } catch (e) {}
+    const vals = h.map(x => x.median_price || x.avg_price).filter(v => v != null);
+    const first = vals[0], last = vals[vals.length - 1];
+    return {
+      slug: c.slug, name_fa: c.name_fa, image_url: c.image_url,
+      tierLabel: TIER_LABEL[c.tier] || c.tier,
+      points: vals.length, first, last,
+      spark: sparkPoints(vals, 220, 44),
+      changePct: (first && last) ? ((last - first) / first) * 100 : null
+    };
+  }).filter(s => s.points > 1);
+
+  // ── قیمت‌بر‌کارکرد، فقط داخل هر رده قابل مقایسه است ──
+  const tiers = ['high', 'mid', 'low'].map(t => {
+    const items = value.filter(v => v.tier === t && v.price_per_km);
+    if (!items.length) return null;
+    const mx = Math.max.apply(null, items.map(i => i.price_per_km));
+    return {
+      label: TIER_LABEL[t],
+      avg: items[0].tier_avg_price_per_km,
+      max: mx,
+      avgPct: mx ? Math.round((items[0].tier_avg_price_per_km / mx) * 100) : 0,
+      items: items.slice().sort((a, b) => a.price_per_km - b.price_per_km)
+        .map(i => Object.assign({}, i, { widthPct: Math.round((i.price_per_km / mx) * 100) }))
+    };
+  }).filter(Boolean);
+
+  // ── پراکندگی: سرعت رشد در برابر صرفه ──
+  let scatter = null;
+  const sp = metrics.filter(m => m.pct_per_day != null && m.value_vs_tier_pct != null);
+  if (sp.length) {
+    const xa = Math.max.apply(null, [1].concat(sp.map(p => Math.abs(p.pct_per_day))));
+    const ya = Math.max.apply(null, [1].concat(sp.map(p => Math.abs(p.value_vs_tier_pct))));
+    scatter = {
+      xMax: xa, yMax: ya,
+      items: sp.map(p => ({
+        name_fa: p.name_fa,
+        tierLabel: TIER_LABEL[p.tier] || p.tier,
+        pct_per_day: p.pct_per_day,
+        value_vs_tier_pct: p.value_vs_tier_pct,
+        x: (50 + (p.pct_per_day / xa) * 42).toFixed(1),
+        // مثبت یعنی گران‌تر از میانگین رده → پایین‌تر روی نمودار
+        y: (50 + (p.value_vs_tier_pct / ya) * 42).toFixed(1)
+      }))
+    };
+  }
+
   page(res, 'cars', '/cars', {
     title: 'ترند خودرو ایران | قیمت روز خودرو بر پایه آگهی‌های واقعی — سیگنال هوش',
     desc: 'روند بازار خودرو ایران: میانه قیمت، کارکرد، سرعت رشد و صرفه اقتصادی خودروها بر پایه‌ی آگهی‌های واقعی بازار، با بروزرسانی هر ۱۲ ساعت.',
     path: '/cars'
   }, {
-    cars, stats, submodels, metrics,
+    cars, stats, submodels, metrics, series, tiers, scatter,
     totalListings: cars.reduce((s, c) => s + (c.listing_count || 0), 0),
     topGain:  byMomentum[0] || null,
     topLoss:  byMomentum[byMomentum.length - 1] || null,
@@ -1341,6 +1405,31 @@ app.post('/admin/ai/reset-budget', adminGuard, (req, res) => {
     settingsDB.set('ai_daily_limit_hit', false);
     backFrom(req, res, 'شمارنده‌ی مصرف امروز صفر شد.');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// بارگذاری تدریجی فید اخبار — تا پیش از این، اسکریپت سمت مرورگر
+// همان ردیف‌های موجود را کپی می‌کرد و خبر تکراری نشان می‌داد.
+app.get('/news/more', (req, res) => {
+  const offset  = Math.min(parseInt(req.query.offset, 10) || 0, 2000);
+  const channel = req.query.channel || null;
+  const cat     = req.query.cat || null;
+  const LIMIT   = 20;
+
+  let rows = [];
+  try { rows = fetchNews(LIMIT, channel, offset, cat) || []; } catch (e) { console.warn('[news/more]', e.message); }
+  rows.forEach(n => { n.isNew = false; n.hot = false; });
+
+  res.set('Cache-Control', 'public, max-age=60');
+  if (!rows.length) return res.json({ count: 0, done: true, html: '' });
+
+  let pending = rows.length;
+  const parts = new Array(rows.length);
+  rows.forEach((n, i) => {
+    res.app.render('partials/news-row', { n, fa, timeAgo, mediaOf, excerpt, clean: txt.clean }, (e, out) => {
+      parts[i] = e ? '' : out;
+      if (--pending === 0) res.json({ count: rows.length, done: rows.length < LIMIT, html: parts.join('') });
+    });
+  });
 });
 
 // ── robots و sitemap ──

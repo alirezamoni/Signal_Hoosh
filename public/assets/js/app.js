@@ -182,30 +182,46 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   }
 
-  /* ── لیزی‌لود فید اخبار ── */
-  var feed = document.getElementById('newsFeed');
+  /* ── بارگذاری تدریجی فید اخبار ──
+     نسخه‌ی قبلی همان ردیف‌های موجود را cloneNode می‌کرد و پنج بار به فهرست
+     می‌چسباند — یعنی کاربر ۱۰۰ ردیف می‌دید که ۸۰تایش تکراری بود. حالا
+     واقعاً از سرور خبر بعدی گرفته می‌شود. */
   var sentinel = document.getElementById('newsSentinel');
 
-  if (feed && sentinel && 'IntersectionObserver' in window) {
-    var page = 1, MAX = 5, loading = false;
-    var tpl = Array.prototype.slice.call(feed.querySelectorAll('.nrow'));
+  if (feedEl && sentinel && 'IntersectionObserver' in window) {
+    var offset = feedEl.querySelectorAll('.nrow').length;
+    var loading = false, done = false;
+    var txtEl = sentinel.querySelector('.sentinel-txt');
+
+    var finish = function (msg) {
+      done = true;
+      obs.disconnect();
+      sentinel.classList.add('done');
+      if (txtEl) txtEl.textContent = msg;
+    };
 
     var loadMore = function () {
-      if (loading) return;
+      if (loading || done) return;
       loading = true;
-      setTimeout(function () {
-        tpl.forEach(function (row) {
-          var c = row.cloneNode(true);
-          c.classList.remove('nrow-new', 'nrow-hot');
-          feed.appendChild(c);
-        });
-        page++; loading = false;
-        if (page >= MAX) {
-          obs.disconnect();
-          sentinel.classList.add('done');
-          sentinel.querySelector('.sentinel-txt').textContent = 'به انتهای فهرست رسیدید';
-        }
-      }, 420);
+
+      var qs = '?offset=' + offset;
+      if (feedEl.dataset.channel) qs += '&channel=' + feedEl.dataset.channel;
+      if (feedEl.dataset.cat) qs += '&cat=' + encodeURIComponent(feedEl.dataset.cat);
+
+      fetch('/news/more' + qs)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          loading = false;
+          if (!d) return finish('بارگذاری ادامه‌ی فهرست ممکن نشد');
+          if (d.count) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = d.html;
+            while (tmp.firstChild) feedEl.appendChild(tmp.firstChild);
+            offset += d.count;
+          }
+          if (d.done) finish('به انتهای فهرست رسیدید');
+        })
+        .catch(function () { loading = false; finish('بارگذاری ادامه‌ی فهرست ممکن نشد'); });
     };
 
     var obs = new IntersectionObserver(function (en) {
@@ -214,4 +230,39 @@
 
     obs.observe(sentinel);
   }
+
+  /* ── ویدیوی خبر ──
+     ویدیوهای تلگرام روی سرور دانلود نشده‌اند، پس خودِ پست تلگرام امبد
+     می‌شود. iframe فقط با کلیک ساخته می‌شود تا صفحه سنگین نشود و برای
+     کاربرانی که به t.me دسترسی ندارند چیزی معلق نماند. */
+  document.querySelectorAll('[data-tg-post]').forEach(function (box) {
+    var ph = box.querySelector('.tg-embed-ph');
+    if (!ph) return;
+    ph.addEventListener('click', function () {
+      var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+      var f = document.createElement('iframe');
+      f.src = 'https://t.me/' + box.dataset.tgPost + '?embed=1&userpic=false' + (dark ? '&dark=1' : '');
+      f.setAttribute('frameborder', '0');
+      f.setAttribute('scrolling', 'no');
+      f.setAttribute('allowfullscreen', '');
+      f.style.width = '100%';
+      f.style.height = '520px';
+      box.innerHTML = '';
+      box.appendChild(f);
+      box.classList.add('on');
+    });
+  });
+
+  /* تلگرام ارتفاع واقعی پست را با postMessage می‌فرستد */
+  window.addEventListener('message', function (e) {
+    if (!/(^|\.)t\.me$/.test((function () {
+      try { return new URL(e.origin).hostname; } catch (err) { return ''; }
+    })())) return;
+    var data;
+    try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (err) { return; }
+    if (!data || data.event !== 'resize' || !data.height) return;
+    document.querySelectorAll('.tg-embed iframe').forEach(function (f) {
+      if (f.contentWindow === e.source) f.style.height = data.height + 'px';
+    });
+  });
 })();

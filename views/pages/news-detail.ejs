@@ -23,6 +23,25 @@
           <% if (n.lang && n.lang !== 'fa' && n.text_fa) { %><span class="badge badge-acc">ترجمه‌ی خودکار</span><% } %>
         </div>
 
+        <%
+          // ویدیوهای تلگرام هرگز روی سرور دانلود نشده‌اند (فقط عکس‌ها).
+          // به‌جای وانمود کردن، خودِ پست تلگرام امبد می‌شود تا ویدیو
+          // همان‌جا قابل پخش باشد. لینک «مشاهده در تلگرام» هم می‌ماند،
+          // چون امبد برای همه‌ی کاربران بارگذاری نمی‌شود.
+          var tgEmbed = null;
+          if ((n.media_type === 'video' || n.media_type === 'gif') && n.tg_link) {
+            var mm = String(n.tg_link).match(/t\.me\/([^\/\?]+)\/(\d+)/);
+            if (mm) tgEmbed = mm[1] + '/' + mm[2];
+          }
+        %>
+        <% if (tgEmbed) { %>
+        <div class="tg-embed mt4" data-tg-post="<%= tgEmbed %>">
+          <div class="tg-embed-ph">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M10 8.2l6 3.8-6 3.8z"/><circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+            <span>نمایش ویدیو از تلگرام</span>
+          </div>
+        </div>
+        <% } %>
         <% if (media.list.length === 1) { %>
         <img class="article-img mt4" src="<%= media.list[0] %>" alt="<%= excerpt(headline, 80) %>" loading="eager">
         <% } else if (media.list.length > 1) { %>
