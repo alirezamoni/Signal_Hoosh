@@ -5,7 +5,7 @@
       <% ticker.forEach(function (t) { %>
       <span class="tick">
         <span class="tick-label"><%= t.name || t.symbol %></span>
-        <span class="tick-val"><%= fa(num(t.price)) %></span>
+        <span class="tick-val"><%= fa(t.priceText) %><% if (t.unitText !== 'تومان') { %><span class="tick-unit"><%= t.unitText %></span><% } %></span>
         <% if (t.change_pct != null) { %>
         <span class="tick-chg <%= t.change_pct > 0 ? 'up' : (t.change_pct < 0 ? 'down' : '') %>"><%= pct(t.change_pct) %></span>
         <% } %>
@@ -22,13 +22,7 @@
     <div class="page-head between wrap">
       <div>
         <h1 class="page-title">نمای کلی</h1>
-        <p class="page-sub">خلاصه‌ی هشت بخش در یک صفحه · آخرین بروزرسانی <%= updatedAt %></p>
-      </div>
-      <div class="row wrap" style="gap:6px;">
-        <span class="tag"><%= fa(newsStats.today || 0) %> خبر امروز</span>
-        <span class="tag"><%= fa(newsStats.channels || 0) %> منبع</span>
-        <span class="tag"><%= fa(carCount) %> مدل خودرو</span>
-        <span class="tag"><%= fa(ticker.length) %> نماد مالی</span>
+        <p class="page-sub">آخرین بروزرسانی <%= updatedAt %></p>
       </div>
     </div>
 
@@ -103,7 +97,7 @@
           <a class="drow" href="/finance">
             <div class="drow-main"><span class="drow-name"><%= f.name || f.symbol %></span></div>
             <div class="drow-val">
-              <span><%= fa(num(f.price)) %></span>
+              <span><%= fa(f.priceText) %></span>
               <% if (f.change_pct != null) { %>
               <span class="badge <%= f.change_pct > 0 ? 'badge-up' : (f.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(f.change_pct) %></span>
               <% } %>

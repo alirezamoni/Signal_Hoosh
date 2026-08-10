@@ -81,9 +81,9 @@ function getLatestList(source = 'week', limit = 50) {
       -- دیروز
       (SELECT rank FROM snapshots WHERE product_id=p.id AND source=? AND snap_date < ? ORDER BY snap_date DESC LIMIT 1) as prev_rank,
       -- هفته قبل
-      (SELECT s7.rank FROM snapshots s7 WHERE s7.product_id=p.id AND s7.source=? AND s7.snap_date <= date(?,' -7 days') ORDER BY s7.snap_date DESC LIMIT 1) as rank_7d,
+      (SELECT s7.rank FROM snapshots s7 WHERE s7.product_id=p.id AND s7.source=? AND s7.snap_date <= date(?,'-7 days') ORDER BY s7.snap_date DESC LIMIT 1) as rank_7d,
       -- ماه قبل
-      (SELECT sm.rank FROM snapshots sm WHERE sm.product_id=p.id AND sm.source=? AND sm.snap_date <= date(?,' -30 days') ORDER BY sm.snap_date DESC LIMIT 1) as rank_30d
+      (SELECT sm.rank FROM snapshots sm WHERE sm.product_id=p.id AND sm.source=? AND sm.snap_date <= date(?,'-30 days') ORDER BY sm.snap_date DESC LIMIT 1) as rank_30d
     FROM snapshots s
     JOIN products p ON p.id = s.product_id
     WHERE s.source=? AND s.snap_date=?

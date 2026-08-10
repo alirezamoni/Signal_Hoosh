@@ -753,6 +753,12 @@ tbody tr:hover { background: var(--card-hover); }
   .admin-nav a.on { border-bottom-color: var(--accent); }
 }
 
+/* واحد کنار قیمت — فقط وقتی تومان نیست (دلار، نقطه) نمایش داده می‌شود */
+.tick-unit { font-size: var(--fs-xs); color: var(--dim); margin-right: 3px; }
+
+/* بازه‌ی درصدی پیش‌بینی، کنار جهت */
+.pred-band { font-size: var(--fs-sm); color: var(--muted); margin-right: var(--s2); }
+
 .admin-sec { display: none; }
 .admin-sec.on { display: block; }
 

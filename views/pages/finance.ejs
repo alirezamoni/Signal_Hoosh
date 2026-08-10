@@ -4,7 +4,7 @@
 
     <div class="page-head">
       <h1 class="page-title">ترند بازارهای مالی</h1>
-      <p class="page-sub">دلار آزاد، طلا، سکه و انس جهانی · بروزرسانی هر ۱۰ دقیقه · واحد: تومان</p>
+      <p class="page-sub">دلار آزاد، طلا، سکه و انس جهانی · بروزرسانی هر ۱۰ دقیقه · قیمت‌ها به تومان، مگر آنکه واحد دیگری کنار عدد آمده باشد</p>
     </div>
 
     <blockquote class="desc">
@@ -25,7 +25,7 @@
       %>
       <div class="kpi <%= p ? 'kpi-spark' : '' %>">
         <div class="kpi-head"><span class="kpi-name"><%= f.name || f.symbol %></span></div>
-        <div class="kpi-val"><%= fa(num(f.price)) %></div>
+        <div class="kpi-val"><%= fa(f.priceText) %><% if (f.unitText !== 'تومان') { %><span class="tick-unit"><%= f.unitText %></span><% } %></div>
         <div class="kpi-note <%= f.change_pct > 0 ? 'up' : (f.change_pct < 0 ? 'down' : '') %>">
           <%= f.change_pct > 0 ? '▲' : (f.change_pct < 0 ? '▼' : '—') %> <%= fa(num(Math.abs(f.change || 0))) %> (<%= pct(f.change_pct) %>)
         </div>
@@ -52,7 +52,7 @@
           %>
           <tr>
             <td class="td-name"><%= f.name || f.symbol %></td>
-            <td class="ta-l"><%= fa(num(f.price)) %></td>
+            <td class="ta-l"><%= fa(f.priceText) %><% if (f.unitText !== 'تومان') { %><span class="tick-unit"><%= f.unitText %></span><% } %></td>
             <td class="ta-l <%= f.change > 0 ? 'up' : (f.change < 0 ? 'down' : '') %>"><%= (f.change > 0 ? '+' : f.change < 0 ? '−' : '') + fa(num(Math.abs(f.change || 0))) %></td>
             <td class="ta-l"><span class="badge <%= f.change_pct > 0 ? 'badge-up' : (f.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(f.change_pct) %></span></td>
             <td class="ta-l"><%= fa(num(f.low)) %></td>

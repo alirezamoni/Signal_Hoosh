@@ -35,20 +35,29 @@
       <% predictions.forEach(function (p) { %>
       <div class="pred-card">
         <div class="pred-head">
-          <span class="pred-sym"><%= p.symbol || p.target || '—' %></span>
-          <% if (p.horizon_hours) { %><span class="badge badge-acc"><%= fa(p.horizon_hours) %> ساعت</span><% } %>
+          <span class="pred-sym"><%= p.symLabel %></span>
+          <% if (p.time_horizon) { %><span class="badge badge-acc"><%= fa(p.time_horizon) %> ساعت</span><% } %>
         </div>
         <div class="pred-range <%= p.direction === 'up' ? 'up' : (p.direction === 'down' ? 'down' : '') %>">
-          <%= p.direction === 'up' ? '▲' : (p.direction === 'down' ? '▼' : '—') %>
-          <%= p.pct_min != null && p.pct_max != null ? fa(Math.abs(p.pct_min).toFixed(1)) + '٪ تا ' + fa(Math.abs(p.pct_max).toFixed(1)) + '٪' : '' %>
+          <%= p.direction === 'up' ? '▲' : (p.direction === 'down' ? '▼' : '▬') %>
+          <%= p.direction === 'up' ? 'صعودی' : (p.direction === 'down' ? 'نزولی' : 'کم‌نوسان') %>
+          <% if (p.predicted_min != null && p.predicted_max != null) { %>
+          <span class="pred-band"><%= faSigned(p.predicted_min) %>٪ تا <%= faSigned(p.predicted_max) %>٪</span>
+          <% } %>
         </div>
-        <% if (p.confidence != null) { %>
-        <div class="dim" style="font-size:var(--fs-xs);">اطمینان: <%= fa(Math.round(p.confidence * (p.confidence <= 1 ? 100 : 1))) %>٪</div>
-        <div class="pred-conf-bar"><div class="pred-conf-fill" style="width:<%= Math.round(p.confidence * (p.confidence <= 1 ? 100 : 1)) %>%;"></div></div>
+        <% if (p.conf != null) { %>
+        <div class="dim" style="font-size:var(--fs-xs);">اطمینان کالیبره‌شده: <%= fa(Math.round(p.conf * 100)) %>٪</div>
+        <div class="pred-conf-bar"><div class="pred-conf-fill" style="width:<%= Math.round(p.conf * 100) %>%;"></div></div>
         <% } %>
         <div class="pred-reasons">
-          <% if (p.trigger) { %>محرک: <%= excerpt(clean(p.trigger), 70) %><br><% } %>
+          <% if (p.regimeLabel) { %>وضعیت بازار: <%= p.regimeLabel %><br><% } %>
+          <% if (p.attr) { %>
+            وزن عوامل — شدت خبری <%= fa(Math.round((p.attr.news_severity || 0) * 100)) %>٪ ·
+            شباهت تاریخی <%= fa(Math.round((p.attr.historical_similarity || 0) * 100)) %>٪ ·
+            تأیید ترند <%= fa(Math.round((p.attr.trend_confirmation || 0) * 100)) %>٪<br>
+          <% } %>
           <% if (p.created_at) { %>ایجاد: <%= timeAgo(p.created_at) %><% } %>
+          <% if (p.expires_at) { %> · نتیجه <%= timeUntil(p.expires_at) %><% } %>
         </div>
       </div>
       <% }); %>
@@ -63,18 +72,18 @@
         <div class="chain-step">
           <span class="chain-node n-news"></span>
           <div><div class="chain-txt"><%= excerpt(clean(c.title || c.root_label || 'زنجیره'), 110) %></div>
-          <div class="chain-time"><%= c.created_at ? timeAgo(c.created_at) : '' %><%= c.status ? ' · ' + c.status : '' %></div></div>
+          <div class="chain-time"><%= c.created_at ? timeAgo(c.created_at) : '' %><%= c.statusLabel ? ' · ' + c.statusLabel : '' %></div></div>
         </div>
-        <% if (c.node_count) { %>
+        <% if (c.topic) { %>
         <div class="chain-step">
           <span class="chain-node"></span>
-          <div><div class="chain-txt"><%= fa(c.node_count) %> گره در این زنجیره</div></div>
+          <div><div class="chain-txt">موضوع: <%= c.topicLabel %><%= c.regimeLabel ? ' · وضعیت بازار: ' + c.regimeLabel : '' %></div></div>
         </div>
         <% } %>
-        <% if (c.strength != null) { %>
+        <% if (c.peak_severity != null) { %>
         <div class="chain-step">
           <span class="chain-node n-market"></span>
-          <div><div class="chain-txt">قدرت رابطه: <%= fa((c.strength <= 1 ? c.strength * 100 : c.strength).toFixed(0)) %>٪</div></div>
+          <div><div class="chain-txt">بیشترین شدت: <%= fa((c.peak_severity <= 1 ? c.peak_severity * 100 : c.peak_severity).toFixed(0)) %>٪</div></div>
         </div>
         <% } %>
       </div>
@@ -94,13 +103,13 @@
         <tbody>
           <% patterns.forEach(function (p) { %>
           <tr>
-            <td class="td-name"><%= excerpt(clean(p.trigger || p.trigger_type || '—'), 46) %></td>
-            <td class="ta-l"><%= p.symbol || '—' %></td>
-            <td class="ta-l"><%= p.horizon_hours ? fa(p.horizon_hours) + ' ساعت' : '—' %></td>
-            <td class="ta-l"><span class="badge <%= p.direction === 'up' ? 'badge-up' : (p.direction === 'down' ? 'badge-down' : 'badge-flat') %>"><%= p.direction === 'up' ? 'صعودی' : (p.direction === 'down' ? 'نزولی' : 'خنثی') %></span></td>
-            <td class="ta-l"><%= p.avg_pct != null ? pct(p.avg_pct) : '—' %></td>
+            <td class="td-name"><%= p.topicLabel %><% if (p.nodeLabel) { %> <span class="tag"><%= p.nodeLabel %></span><% } %></td>
+            <td class="ta-l"><%= p.symLabel %></td>
+            <td class="ta-l"><%= p.time_horizon ? fa(p.time_horizon) + ' ساعت' : '—' %></td>
+            <td class="ta-l"><span class="badge <%= p.outcome_dir === 'up' ? 'badge-up' : (p.outcome_dir === 'down' ? 'badge-down' : 'badge-flat') %>"><%= p.outcome_dir === 'up' ? 'صعودی' : (p.outcome_dir === 'down' ? 'نزولی' : 'خنثی') %></span></td>
+            <td class="ta-l"><%= p.outcome_pct != null ? pct(p.outcome_pct) : '—' %></td>
             <td class="ta-l"><% if (p.reliability != null) { %><span class="badge <%= p.reliability >= 0.7 ? 'badge-up' : (p.reliability >= 0.5 ? 'badge-warn' : 'badge-down') %>"><%= fa(Math.round(p.reliability * (p.reliability <= 1 ? 100 : 1))) %>٪</span><% } else { %>—<% } %></td>
-            <td class="ta-l"><%= fa(p.sample_size || p.samples || 0) %></td>
+            <td class="ta-l"><%= fa(p.sample_count || 0) %></td>
           </tr>
           <% }); %>
         </tbody>

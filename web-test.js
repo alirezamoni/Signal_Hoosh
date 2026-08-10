@@ -100,6 +100,37 @@ function timeAgo(ts) {
   const dd = Math.floor(h / 24);
   return fa(dd) + ' روز پیش';
 }
+// فقط روز، بدون ساعت — برای «تاریخ داده» و «آخرین بروزرسانی»
+// که مقدارشان یک رشته‌ی میلادی مثل 2026-08-10 است
+// timeAgo فقط گذشته را می‌سنجد؛ برای «تا کِی نتیجه مشخص می‌شود» لازم است
+function timeUntil(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  const m = Math.round((d.getTime() - Date.now()) / 60000);
+  if (m <= 0) return 'به‌زودی';
+  if (m < 60) return fa(m) + ' دقیقه دیگر';
+  const h = Math.round(m / 60);
+  if (h < 24) return fa(h) + ' ساعت دیگر';
+  return fa(Math.round(h / 24)) + ' روز دیگر';
+}
+
+// اعداد منفی با منهای فارسی، هم‌راستا با pct()
+function faSigned(n, digits) {
+  if (n == null || isNaN(n)) return '—';
+  const v = Number(n);
+  return (v < 0 ? '−' : '') + fa(Math.abs(v).toFixed(digits == null ? 2 : digits));
+}
+
+function faDay(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  if (isNaN(d)) return fa(ts);
+  try {
+    return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(d);
+  } catch (e) { return fa(String(ts)); }
+}
+
 function faDate(ts) {
   if (!ts) return '';
   const d = new Date(ts);
@@ -189,7 +220,7 @@ function rankBadge(now, before) {
 // رندر صفحه داخل layout
 function page(res, tpl, active, seo, data, jsonld) {
   const locals = Object.assign({
-    fa, num, toman, pct, usd, excerpt, timeAgo, faDate, mediaOf,
+    fa, num, toman, pct, usd, excerpt, timeAgo, timeUntil, faSigned, faDate, faDay, mediaOf,
     clean: txt.clean, rankBadge, sparkPath, sparkArea, trendDir,
     SITE, TABS, active, ASSETS
   }, data);
@@ -412,7 +443,50 @@ function trendRows(limit = 10) {
 // ════════════ روت‌ها ════════════
 
 // قیمت‌های مالی در دیتابیس ریال‌اند — برای نمایش به تومان تبدیل می‌شوند
-function rialToToman(p) { return p == null ? null : Number(p) / 10; }
+// ── واحد نمادهای مالی ──
+// دیتابیس واحد هر نماد را جدا نگه می‌دارد: ریال، دلار، نقطه.
+// فقط ریالی‌ها باید به تومان تبدیل شوند؛ تقسیم بی‌قید بر ۱۰ باعث می‌شد
+// نفت برنت ۸۷٫۴۸ دلار «۹» و انس طلا ۴۳۶۰ دلار «۴۳۶» و شاخص بورس
+// ۵٬۶۵۲٬۰۲۱ نقطه «۵۶۵٬۲۰۲» نمایش داده شود.
+// بیت‌کوین را منبع اشتباهاً «ریال» برچسب می‌زند، پس با نام نماد اصلاح می‌شود.
+const USD_SYMBOLS = new Set(['ounce', 'oil_brent', 'oil', 'bitcoin', 'btc', 'ethereum', 'eth']);
+
+function finUnit(f) {
+  if (!f) return 'تومان';
+  if (USD_SYMBOLS.has(f.symbol)) return 'دلار';
+  const u = String(f.unit || 'ریال').trim();
+  return u === 'ریال' ? 'تومان' : u;
+}
+
+function finPrice(f, v) {
+  const raw = (v === undefined) ? (f && f.price) : v;
+  if (raw == null) return null;
+  const n = Number(raw);
+  if (isNaN(n)) return null;
+  return finUnit(f) === 'تومان' ? n / 10 : n;
+}
+
+// num() گرد می‌کند و ۸۷٫۴۸ دلار را «۸۷» می‌کند؛ برای اعداد کوچک اعشار می‌ماند
+function finText(v) {
+  if (v == null) return '—';
+  const n = Number(v);
+  if (isNaN(n)) return '—';
+  if (Math.abs(n) >= 1000) return num(n);
+  return (Math.round(n * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function finRow(f, extra) {
+  const price = finPrice(f);
+  return Object.assign({}, f, {
+    price,
+    change: finPrice(f, f.change),
+    low:    finPrice(f, f.low),
+    high:   finPrice(f, f.high),
+    bubble: finPrice(f, f.bubble),
+    unitText:  finUnit(f),
+    priceText: finText(price),
+  }, extra || {});
+}
 
 const JOB_LABELS = {
   jobinja: 'جابینجا',
@@ -435,7 +509,7 @@ app.get('/', (req, res) => {
   let ticker = [], finance = [], cars = [], market = [], poly = [], jobs = null, carCount = 0;
 
   try {
-    const raw = (financeDB.getLatest() || []).map(f => Object.assign({}, f, { price: rialToToman(f.price) }));
+    const raw = (financeDB.getLatest() || []).map(f => finRow(f));
     ticker  = raw.slice(0, 8);
     finance = raw.slice(0, 6);
   } catch (e) { console.warn('[home] finance:', e.message); }
@@ -655,11 +729,7 @@ app.get('/finance', (req, res) => {
         hist = (financeDB.getHistory(f.symbol, 24) || []).map(x => x.price);
       }
     } catch (e) {}
-    return Object.assign({}, f, {
-      price: rialToToman(f.price), change: rialToToman(f.change),
-      low: rialToToman(f.low), high: rialToToman(f.high), bubble: rialToToman(f.bubble),
-      hist: hist.filter(x => x != null)
-    });
+    return finRow(f, { hist: hist.filter(x => x != null) });
   }); } catch (e) { console.warn('[finance]', e.message); }
   try { messages = (financeDB.getLatestFinanceMessages(12) || []); } catch (e) {}
   try { channels = (financeDB.getFinanceChannels() || []); } catch (e) {}
@@ -788,11 +858,24 @@ app.get('/polymarket', (req, res) => {
 });
 
 // برچسب فارسی نمادها و گره‌های سیگنال
+// کلیدها باید دقیقاً با symbol در finance.db و target در timeline.db یکی باشند،
+// وگرنه کد خام مثل «gold18» به کاربر نشان داده می‌شود.
 const SYM = {
   usd: 'دلار آزاد', gold18: 'طلای ۱۸ عیار', coin: 'سکه امامی', mesghal: 'مثقال طلا',
-  ounce: 'انس جهانی', eur: 'یورو', tether: 'تتر', btc: 'بیت‌کوین', eth: 'اتریوم',
-  oil: 'نفت', bourse: 'بورس تهران', nim: 'نیم سکه', rob: 'ربع سکه'
+  ounce: 'انس جهانی طلا', eur: 'یورو', tether: 'تتر',
+  bitcoin: 'بیت‌کوین', btc: 'بیت‌کوین', ethereum: 'اتریوم', eth: 'اتریوم',
+  oil_brent: 'نفت برنت', oil: 'نفت', stock_market: 'بورس تهران', bourse: 'بورس تهران',
+  coin_bubble: 'حباب سکه', nim: 'نیم سکه', rob: 'ربع سکه'
 };
+
+// موضوع محرک الگو — مقادیر خام انگلیسی در جدول pattern_library
+const TOPIC = {
+  economy: 'اقتصاد', war: 'جنگ و تنش', politics: 'سیاست', energy: 'انرژی',
+  tech: 'فناوری', sport: 'ورزش', social: 'اجتماعی', health: 'سلامت',
+  culture: 'فرهنگ', general: 'عمومی', other: 'سایر'
+};
+const topicLabel = t => TOPIC[t] || t || '—';
+const CHAIN_STATUS = { active: 'فعال', closed: 'بسته‌شده', expired: 'منقضی' };
 const NODE = { trend: 'ترند جستجو', news: 'خبر', poly: 'پلی‌مارکت', market: 'بازار', telegram: 'تلگرام' };
 const REGIME = { war: 'پرتنش', normal: 'عادی', calm: 'آرام', volatile: 'پرنوسان' };
 const symLabel = s => SYM[s] || s || '—';
@@ -815,10 +898,19 @@ app.get('/future', (req, res) => {
     });
 
   const chains = tl(`SELECT * FROM signal_chains WHERE status='active' ORDER BY peak_severity DESC, created_at DESC LIMIT 8`)
-    .map(c => Object.assign({}, c, { rootLabel: NODE[c.root_node] || c.root_node, regimeLabel: REGIME[c.regime] || c.regime }));
+    .map(c => Object.assign({}, c, {
+      rootLabel: NODE[c.root_node] || c.root_node,
+      regimeLabel: REGIME[c.regime] || c.regime,
+      statusLabel: CHAIN_STATUS[c.status] || c.status,
+      topicLabel: topicLabel(c.topic)
+    }));
 
   const patterns = tl(`SELECT * FROM pattern_library WHERE sample_count >= 2 ORDER BY reliability DESC, sample_count DESC LIMIT 15`)
-    .map(p => Object.assign({}, p, { symLabel: symLabel(p.target), nodeLabel: NODE[p.trigger_node] || p.trigger_node }));
+    .map(p => Object.assign({}, p, {
+      symLabel: symLabel(p.target),
+      nodeLabel: NODE[p.trigger_node] || p.trigger_node,
+      topicLabel: topicLabel(p.trigger_topic)
+    }));
 
   const accuracy = tl(`SELECT * FROM accuracy_metrics WHERE scope='target' ORDER BY total DESC LIMIT 10`)
     .map(a => Object.assign({}, a, {

@@ -55,8 +55,8 @@ function getSummary(date) {
 
   // تاریخ‌های مقایسه
   const yesterday = db.prepare(`SELECT snap_date FROM job_snapshots WHERE snap_date < ? ORDER BY snap_date DESC LIMIT 1`).get(lastDate)?.snap_date;
-  const week7ago  = db.prepare(`SELECT snap_date FROM job_snapshots WHERE snap_date <= date(?,' -7 days') ORDER BY snap_date DESC LIMIT 1`).get(lastDate)?.snap_date;
-  const month30ago = db.prepare(`SELECT snap_date FROM job_snapshots WHERE snap_date <= date(?,' -30 days') ORDER BY snap_date DESC LIMIT 1`).get(lastDate)?.snap_date;
+  const week7ago  = db.prepare(`SELECT snap_date FROM job_snapshots WHERE snap_date <= date(?,'-7 days') ORDER BY snap_date DESC LIMIT 1`).get(lastDate)?.snap_date;
+  const month30ago = db.prepare(`SELECT snap_date FROM job_snapshots WHERE snap_date <= date(?,'-30 days') ORDER BY snap_date DESC LIMIT 1`).get(lastDate)?.snap_date;
 
   function getCount(src, cat, d) {
     if (!d) return null;

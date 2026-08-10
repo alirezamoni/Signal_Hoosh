@@ -28,7 +28,7 @@
       <div class="kpi"><div class="kpi-label">بیشترین افت قیمت</div><div class="kpi-val fa"><%= topLoss ? topLoss.name_fa : '—' %></div><div class="kpi-note down"><%= topLoss ? '▼ ' + fa(Math.abs(topLoss.pct_per_day).toFixed(2)) + '٪ در روز' : '' %></div></div>
       <div class="kpi"><div class="kpi-label">گران‌ترین برند</div><div class="kpi-val fa"><%= priciest ? priciest.name_fa : '—' %></div><div class="kpi-note"><%= priciest ? fa(toman(priciest.median_price)) + ' تومان' : '' %></div></div>
       <div class="kpi"><div class="kpi-label">ارزان‌ترین برند</div><div class="kpi-val fa"><%= cheapest ? cheapest.name_fa : '—' %></div><div class="kpi-note"><%= cheapest ? fa(toman(cheapest.median_price)) + ' تومان' : '' %></div></div>
-      <div class="kpi"><div class="kpi-label">آخرین بروزرسانی</div><div class="kpi-val fa"><%= fa(stats.last_day || '—') %></div><div class="kpi-note">هر ۱۲ ساعت</div></div>
+      <div class="kpi"><div class="kpi-label">آخرین بروزرسانی</div><div class="kpi-val fa"><%= faDay(stats.last_day) %></div><div class="kpi-note">هر ۱۲ ساعت</div></div>
     </div>
 
     <div class="page-head"><h2 class="sec-title">وضعیت فعلی بازار</h2></div>

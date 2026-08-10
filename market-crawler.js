@@ -52,7 +52,7 @@ async function scrapeDigikala(url, label) {
     await page.setViewport({ width: 1440, height: 900 });
 
     console.log(`[market/${label}] fetching...`);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: CONFIG.timeout });
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: CONFIG.timeout });
     await new Promise(r => setTimeout(r, 10000));
 
     // scroll آروم برای lazy load همه عکس‌ها
@@ -78,9 +78,18 @@ async function scrapeDigikala(url, label) {
       const results = [];
       const seenIds   = new Set();
       const seenRanks = new Set();
-      const items = Array.from(document.querySelectorAll('[class*="styles_ProductList__item"]'));
+      // نام کلاس‌های دیجی‌کالا هش‌دار است و هش با هر انتشار عوض می‌شود،
+      // پس فقط به پسوند پایدار تکیه می‌کنیم.
+      let items = Array.from(document.querySelectorAll('[class*="ProductList__item"]'));
+      if (!items.length) {
+        // پشتیبان: اگر نام کلاس هم عوض شد، از خودِ لینک محصول بالا برو
+        const seenEl = new Set();
+        items = Array.from(document.querySelectorAll('a[href*="/product/dkp-"]'))
+          .map(a => a.closest('li, article, [class*="Card"]') || a.parentElement)
+          .filter(el => el && !seenEl.has(el) && (seenEl.add(el), true));
+      }
 
-      items.forEach(item => {
+      items.forEach((item, idx) => {
         try {
           const link = item.querySelector('a[href*="/product/dkp-"]');
           if (!link) return;
@@ -97,6 +106,8 @@ async function scrapeDigikala(url, label) {
           // اگه 0 بود یعنی اولین آیتم، fallback به متن
           if (rank === 0) rank = null;
           if (!rank) rank = parseInt((lines[0]||'').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+          // در صفحه‌ی پرفروش‌ها ترتیب DOM همان رتبه است — آخرین پشتیبان
+          if (!rank || isNaN(rank)) rank = idx + 1;
           if (!rank || rank < 1 || rank > 100) return;
           if (seenRanks.has(rank)) return;
 
