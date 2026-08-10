@@ -1,0 +1,178 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">پنل مدیریت</h1>
+        <p class="page-sub">خوش آمدید، <%= user.name || user.mobile %> · <%= user.role === 'superadmin' ? 'سوپرادمین' : 'کاربر' %></p>
+      </div>
+      <div class="row wrap" style="gap:6px;">
+        <a class="btn btn-sm" href="/legacy" target="_blank">پنل قدیمی (کاربران، کانال‌ها، AI) ↗</a>
+        <a class="btn btn-sm" href="/admin/logout">خروج</a>
+      </div>
+    </div>
+
+    <div class="grid g4 mb4">
+      <div class="kpi"><div class="kpi-label">پیام‌های خوانده‌نشده</div><div class="kpi-val accent"><%= fa(stats.unread) %></div><div class="kpi-note">از مجموع <%= fa(stats.messages) %> پیام</div></div>
+      <div class="kpi"><div class="kpi-label">قوانین فیلتر فعال</div><div class="kpi-val"><%= fa(stats.rules) %></div><div class="kpi-note"><%= fa(stats.hard) %> قطعی · <%= fa(stats.soft) %> مشروط</div></div>
+      <div class="kpi"><div class="kpi-label">اخبار بلاک‌شده</div><div class="kpi-val"><%= fa(stats.blocked) %></div><div class="kpi-note">از <%= fa(stats.news) %> خبر</div></div>
+      <div class="kpi"><div class="kpi-label">اخبار قابل نمایش</div><div class="kpi-val up"><%= fa(stats.visible) %></div><div class="kpi-note">روی سایت و در sitemap</div></div>
+    </div>
+
+    <% if (flash) { %>
+    <div class="alert-ok show mb3">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      <%= flash %>
+    </div>
+    <% } %>
+
+    <!-- ══ پیام‌ها ══ -->
+    <div class="sec-head between wrap">
+      <h2 class="sec-title">پیام‌های دریافتی</h2>
+      <span class="tag"><%= fa(messages.length) %> پیام اخیر</span>
+    </div>
+
+    <section class="panel mb6">
+      <div class="panel-body-flush">
+        <% messages.forEach(function (m) { %>
+        <div class="msg-row <%= m.read ? 'read' : 'unread' %>">
+          <span class="msg-dot"></span>
+          <div style="flex:1;min-width:0;">
+            <div class="between wrap">
+              <div>
+                <span class="msg-from"><%= m.name %></span>
+                <span class="msg-mail"><%= m.email %></span>
+                <% if (m.topic) { %><span class="tag"><%= m.topic %></span><% } %>
+              </div>
+              <span class="msg-time"><%= timeAgo(m.created_at) %></span>
+            </div>
+            <% if (m.url) { %><div class="hint" style="direction:ltr;text-align:right;"><%= m.url %></div><% } %>
+            <p class="msg-text"><%= m.message %></p>
+            <div class="row wrap mt3" style="gap:6px;">
+              <a class="btn btn-sm" href="mailto:<%= m.email %>?subject=پاسخ سیگنال هوش">پاسخ با ایمیل</a>
+              <% if (!m.read) { %>
+              <form method="POST" action="/admin/messages/<%= m.id %>/read" style="display:inline;"><button class="btn btn-sm" type="submit">علامت خوانده‌شده</button></form>
+              <% } %>
+              <form method="POST" action="/admin/messages/<%= m.id %>/delete" style="display:inline;"><button class="btn btn-sm" type="submit">حذف</button></form>
+            </div>
+          </div>
+        </div>
+        <% }); %>
+        <% if (!messages.length) { %><div class="sentinel"><div class="sentinel-txt">هنوز پیامی دریافت نشده.</div></div><% } %>
+      </div>
+    </section>
+
+    <!-- ══ فیلتر محتوا ══ -->
+    <div class="sec-head"><h2 class="sec-title">فیلتر محتوا — کلیدواژه‌ها</h2></div>
+
+    <blockquote class="desc">
+      <strong>دو درجه‌ی شدت:</strong> قانون <span class="badge badge-down">قطعی</span> به‌تنهایی خبر را
+      بلاک می‌کند (نام برند شرط‌بندی، محتوای بزرگسال). قانون <span class="badge badge-warn">مشروط</span>
+      فقط وقتی بلاک می‌کند که حداقل دو نشانه با هم باشند — چون واژه‌ای مثل «شرط‌بندی» می‌تواند در
+      خبر واقعی هم بیاید.
+      <br><br>
+      <strong>نوع تطبیق:</strong> «واژه‌ی مستقل» فقط وقتی می‌گیرد که کلمه جدا باشد — «بت» داخل «ثبت»
+      و «مثبت» را نمی‌گیرد. «هرجای متن» زیررشته را هم می‌گیرد و برای عبارت‌های بلند مناسب است.
+    </blockquote>
+
+    <div class="grid g3 mb6">
+      <section class="panel">
+        <div class="panel-head"><h3 class="panel-title">افزودن کلیدواژه</h3></div>
+        <div class="panel-body-pad">
+          <form method="POST" action="/admin/spam/add">
+            <div class="field">
+              <label class="label" for="pat">کلیدواژه یا عبارت</label>
+              <input class="input" id="pat" name="pattern" required maxlength="120" placeholder="مثلاً: سایت شرط بندی">
+            </div>
+            <div class="field">
+              <label class="label" for="kind">نوع تطبیق</label>
+              <select class="select" id="kind" name="kind">
+                <option value="contains">هرجای متن — برای عبارت بلند</option>
+                <option value="word">واژه‌ی مستقل — برای واژه‌ی کوتاه</option>
+                <option value="regex">عبارت باقاعده (regex) — پیشرفته</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="sev">شدت</label>
+              <select class="select" id="sev" name="severity">
+                <option value="hard">قطعی — به‌تنهایی بلاک می‌کند</option>
+                <option value="soft">مشروط — با یک نشانه‌ی دیگر</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="cat">دسته</label>
+              <select class="select" id="cat" name="category">
+                <option>شرط‌بندی</option><option>کلاهبرداری</option><option>اسپم</option>
+                <option>بزرگسال</option><option>تبلیغات</option><option>سایر</option>
+              </select>
+            </div>
+            <button class="btn btn-acc btn-block" type="submit">افزودن</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h3 class="panel-title">کلیدواژه‌های فعال</h3>
+          <span class="panel-link"><%= fa(rules.length) %> قانون · مرتب بر اساس برخورد</span>
+        </div>
+        <div class="tbl-wrap" style="border:none;border-radius:0;box-shadow:none;max-height:520px;overflow-y:auto;">
+          <table>
+            <thead><tr><th>کلیدواژه</th><th class="ta-l">تطبیق</th><th class="ta-l">شدت</th><th class="ta-l">دسته</th><th class="ta-l">برخورد</th><th class="ta-l">وضعیت</th><th class="ta-l"></th></tr></thead>
+            <tbody>
+              <% rules.forEach(function (r) { %>
+              <tr>
+                <td class="td-name" style="direction:ltr;text-align:right;"><%= r.pattern %></td>
+                <td class="ta-l"><%= r.kind === 'word' ? 'واژه مستقل' : (r.kind === 'regex' ? 'regex' : 'هرجای متن') %></td>
+                <td class="ta-l"><span class="badge <%= r.severity === 'hard' ? 'badge-down' : 'badge-warn' %>"><%= r.severity === 'hard' ? 'قطعی' : 'مشروط' %></span></td>
+                <td class="ta-l"><span class="tag"><%= r.category %></span></td>
+                <td class="ta-l"><%= fa(r.hits || 0) %></td>
+                <td class="ta-l"><span class="badge <%= r.enabled ? 'badge-up' : 'badge-flat' %>"><%= r.enabled ? 'فعال' : 'خاموش' %></span></td>
+                <td class="ta-l">
+                  <form method="POST" action="/admin/spam/<%= r.id %>/toggle" style="display:inline;"><button class="btn btn-sm" type="submit"><%= r.enabled ? 'خاموش' : 'روشن' %></button></form>
+                  <form method="POST" action="/admin/spam/<%= r.id %>/delete" style="display:inline;"><button class="btn btn-sm" type="submit">حذف</button></form>
+                </td>
+              </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ══ صف بازبینی ══ -->
+    <div class="sec-head between wrap">
+      <h2 class="sec-title">صف بازبینی — اخبار بلاک‌شده</h2>
+      <span class="tag"><%= fa(stats.blocked) %> مورد</span>
+    </div>
+
+    <blockquote class="desc desc-sm">
+      اخبار بلاک‌شده حذف نمی‌شوند، فقط روی سایت نمایش داده نمی‌شوند. اگر موردی اشتباه بلاک شده،
+      با «آزادسازی» بلافاصله به سایت و sitemap برمی‌گردد.
+    </blockquote>
+
+    <section class="panel">
+      <div class="panel-body-flush">
+        <% blocked.forEach(function (b) { %>
+        <div class="msg-row">
+          <span class="msg-dot"></span>
+          <div style="flex:1;min-width:0;">
+            <div class="between wrap">
+              <div><span class="msg-from"><%= b.channel_title || 'نامشخص' %></span><span class="tag">قانون: <%= b.blocked_rule || '—' %></span></div>
+              <span class="msg-time"><%= timeAgo(b.published_at) %></span>
+            </div>
+            <p class="msg-text"><%= excerpt(clean(b.text_fa || b.text), 200) %></p>
+            <div class="row wrap mt3" style="gap:6px;">
+              <form method="POST" action="/admin/news/<%= b.id %>/unblock" style="display:inline;"><button class="btn btn-sm btn-acc" type="submit">آزادسازی</button></form>
+              <% if (b.tg_link) { %><a class="btn btn-sm" href="<%= b.tg_link %>" target="_blank" rel="noopener nofollow">منبع ↗</a><% } %>
+            </div>
+          </div>
+        </div>
+        <% }); %>
+        <% if (!blocked.length) { %><div class="sentinel"><div class="sentinel-txt">هیچ خبری بلاک نشده.</div></div><% } %>
+      </div>
+      <div class="panel-foot">۲۰ مورد اخیر نمایش داده می‌شود</div>
+    </section>
+
+  </div>
+</main>

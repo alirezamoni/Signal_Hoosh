@@ -21,6 +21,10 @@ const jobDB     = require('./job-db');
 const polyDB    = require('./polymarket-db');
 const trendDB   = require('./trend-db');
 const txt       = require('./lib/clean-text');
+const spam      = require('./lib/spam-filter');
+const auth      = require('./auth');
+const db        = require('./db');
+const cookieParser = require('cookie-parser');
 
 const app  = express();
 const PORT = process.env.WEB_PORT || 3002;
@@ -28,6 +32,9 @@ const SITE = 'https://signalhoosh.site';
 
 // ── دسترسی مستقیم فقط-خواندنی برای پرس‌وجوهایی که در ماژول‌ها نیست ──
 const newsRO = new Database(path.join(__dirname, 'data', 'news.db'), { readonly: true });
+
+// نوشتنی — فقط برای عملیات پنل مدیریت (آزادسازی خبر، تغییر قانون)
+const newsRW = new Database(path.join(__dirname, 'data', 'news.db'));
 
 let timelineRO = { prepare: () => ({ all: () => [], get: () => null }) };
 try { timelineRO = new Database(path.join(__dirname, 'data', 'timeline.db'), { readonly: true }); }
@@ -191,6 +198,16 @@ const contactLimiter = rateLimit({
   message: 'تعداد پیام‌های ارسالی زیاد است. کمی بعد دوباره تلاش کنید.'
 });
 
+// محدودیت ورود — جلوی حدس رمز را می‌گیرد
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'تلاش‌های ورود بیش از حد. ۱۵ دقیقه بعد دوباره تلاش کنید.'
+});
+
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: false, limit: '64kb' }));
 
 // index:false تا public/index.html (اپ قدیمی) روی روت "/" را نگیرد
@@ -594,6 +611,119 @@ app.get('/disclaimer', (req, res) => {
   }, {});
 });
 
+// ════════════ پنل مدیریت ════════════
+// از robots مسدود است و هدر noindex می‌گیرد.
+
+function adminGuard(req, res, next) {
+  const payload = auth.verifyToken((req.cookies && req.cookies.token) || '');
+  if (!payload) return res.redirect('/admin/login');
+  req.user = payload;
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  next();
+}
+
+function adminPage(res, extra) {
+  const q = (sql, d) => { try { return newsRO.prepare(sql).get(); } catch (e) { return d; } };
+  const news    = q('SELECT COUNT(*) c FROM news', { c: 0 }).c;
+  const blockedN= q('SELECT COUNT(*) c FROM news WHERE blocked=1', { c: 0 }).c;
+  let rules = [], hard = 0, soft = 0;
+  try {
+    rules = spam.list();
+    hard = rules.filter(r => (r.severity || 'hard') === 'hard').length;
+    soft = rules.length - hard;
+  } catch (e) {}
+  let messages = [], unread = 0, total = 0;
+  try {
+    messages = msgDB.prepare('SELECT * FROM messages ORDER BY read ASC, created_at DESC LIMIT 30').all();
+    unread   = msgDB.prepare('SELECT COUNT(*) c FROM messages WHERE read=0').get().c;
+    total    = msgDB.prepare('SELECT COUNT(*) c FROM messages').get().c;
+  } catch (e) {}
+  let blocked = [];
+  try {
+    blocked = newsRO.prepare(`
+      SELECT n.id, n.text, n.text_fa, n.published_at, n.tg_link, n.blocked_rule, c.title channel_title
+      FROM news n LEFT JOIN channels c ON c.id=n.channel_id
+      WHERE n.blocked=1 ORDER BY n.published_at DESC LIMIT 20`).all();
+  } catch (e) {}
+
+  page(res, 'admin', '', {
+    title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
+  }, Object.assign({
+    rules, messages, blocked,
+    stats: { news, blocked: blockedN, visible: news - blockedN, rules: rules.length, hard, soft, messages: total, unread },
+    flash: null
+  }, extra || {}));
+}
+
+app.get('/admin/login', (req, res) => {
+  if (auth.verifyToken((req.cookies && req.cookies.token) || '')) return res.redirect('/admin');
+  page(res, 'admin-login', '', {
+    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
+  }, { error: null });
+});
+
+app.post('/admin/login', loginLimiter, (req, res) => {
+  const mobile = String((req.body && req.body.mobile) || '').trim()
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));   // ارقام فارسی → لاتین
+  const password = String((req.body && req.body.password) || '');
+
+  const fail = msg => page(res, 'admin-login', '', {
+    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
+  }, { error: msg });
+
+  const user = db.findByMobile(mobile);
+  if (!user || user.active === false) return fail('شماره موبایل یا رمز عبور نادرست است.');
+  if (!db.verifyPassword(user, password)) return fail('شماره موبایل یا رمز عبور نادرست است.');
+
+  res.cookie('token', auth.signToken(user), {
+    httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000,
+    secure: process.env.NODE_ENV === 'production'
+  });
+  res.redirect('/admin');
+});
+
+app.get('/admin/logout', (req, res) => { res.clearCookie('token'); res.redirect('/admin/login'); });
+
+app.get('/admin', adminGuard, (req, res) => adminPage(res, { user: req.user }));
+
+app.post('/admin/messages/:id/read', adminGuard, (req, res) => {
+  try { msgDB.prepare('UPDATE messages SET read=1 WHERE id=?').run(req.params.id); } catch (e) {}
+  res.redirect('/admin');
+});
+app.post('/admin/messages/:id/delete', adminGuard, (req, res) => {
+  try { msgDB.prepare('DELETE FROM messages WHERE id=?').run(req.params.id); } catch (e) {}
+  res.redirect('/admin');
+});
+
+app.post('/admin/spam/add', adminGuard, (req, res) => {
+  const b = req.body || {};
+  const pattern = String(b.pattern || '').trim();
+  if (pattern) {
+    try {
+      spam.add(pattern, b.kind || 'contains', b.category || 'سایر');
+      newsRW.prepare('UPDATE spam_rules SET severity=? WHERE pattern=?').run(b.severity === 'soft' ? 'soft' : 'hard', pattern);
+      spam.invalidate();
+    } catch (e) { console.error('[admin/spam]', e.message); }
+  }
+  res.redirect('/admin');
+});
+app.post('/admin/spam/:id/toggle', adminGuard, (req, res) => {
+  try {
+    const cur = newsRW.prepare('SELECT enabled FROM spam_rules WHERE id=?').get(req.params.id);
+    spam.toggle(req.params.id, !(cur && cur.enabled));
+  } catch (e) {}
+  res.redirect('/admin');
+});
+app.post('/admin/spam/:id/delete', adminGuard, (req, res) => {
+  try { spam.remove(req.params.id); } catch (e) {}
+  res.redirect('/admin');
+});
+
+app.post('/admin/news/:id/unblock', adminGuard, (req, res) => {
+  try { newsRW.prepare('UPDATE news SET blocked=0, blocked_rule=NULL WHERE id=?').run(req.params.id); } catch (e) {}
+  res.redirect('/admin');
+});
+
 // ── robots و sitemap ──
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(
@@ -602,6 +732,7 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /api/\n' +
     'Disallow: /internal/\n' +
     'Disallow: /admin\n' +
+    'Disallow: /legacy\n' +
     'Disallow: /news/page/\n\n' +
     'Sitemap: ' + SITE + '/sitemap.xml\n'
   );

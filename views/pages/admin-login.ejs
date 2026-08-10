@@ -1,0 +1,40 @@
+<main id="main" class="page">
+  <div class="container" style="max-width:420px;">
+    <section class="panel" style="margin-top:var(--s8);">
+      <div class="panel-body-pad center">
+        <div class="logo-mark" style="margin:0 auto var(--s3);width:44px;height:44px;border-radius:12px;font-size:18px;">S</div>
+        <h1 class="page-title" style="justify-content:center;font-size:var(--fs-lg);">ورود به پنل مدیریت</h1>
+        <p class="page-sub">سیگنال هوش</p>
+      </div>
+
+      <div class="panel-body-pad" style="padding-top:0;">
+        <% if (error) { %>
+        <div class="notice mb3" style="background:var(--down-bg);border-color:rgba(248,113,113,.25);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div><%= error %></div>
+        </div>
+        <% } %>
+
+        <form method="POST" action="/admin/login">
+          <div class="field">
+            <label class="label" for="mobile">شماره موبایل</label>
+            <input class="input" id="mobile" name="mobile" inputmode="numeric" required
+                   placeholder="09123456789" style="direction:ltr;text-align:right;" autocomplete="username">
+          </div>
+          <div class="field">
+            <label class="label" for="password">رمز عبور</label>
+            <input class="input" id="password" name="password" type="password" required
+                   autocomplete="current-password">
+          </div>
+          <button class="btn btn-acc btn-block" type="submit">ورود</button>
+        </form>
+
+        <p class="hint center mt3">
+          این صفحه از موتور جستجو مخفی است و در robots.txt مسدود شده.
+        </p>
+      </div>
+    </section>
+
+    <p class="center mt4"><a class="btn" href="/">← بازگشت به سایت</a></p>
+  </div>
+</main>
