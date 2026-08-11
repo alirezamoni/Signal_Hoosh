@@ -90,6 +90,16 @@ button { background: none; border: none; cursor: pointer; }
 @media (max-width: 700px) {
   .g2, .g3, .g4, .g5, .g6 { grid-template-columns: 1fr; }
   .span2 { grid-column: span 1; }
+
+  /* کارت‌های آماری روی موبایل دوتا در یک ردیف بمانند.
+     یک مستطیل تمام‌عرض برای یک عدد کوتاه، فضای زیادی هدر می‌دهد و
+     کاربر را مجبور به اسکرول طولانی می‌کند. :has برای اینکه فقط
+     گریدهایی که واقعاً کارت آماری دارند تغییر کنند، نه هر گریدی. */
+  .grid:has(> .kpi) { grid-template-columns: repeat(2, 1fr); gap: var(--s2); }
+  .grid:has(> .kpi) .kpi { padding: var(--s3); }
+  .grid:has(> .kpi) .kpi-val { font-size: var(--fs-xl); }
+  .grid:has(> .kpi) .kpi-label,
+  .grid:has(> .kpi) .kpi-note { font-size: var(--fs-xs); }
 }
 
 /* ── ابزارها ── */

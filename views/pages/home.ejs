@@ -44,7 +44,7 @@
           </h2>
           <a class="panel-link" href="/news">مشاهده همه ←</a>
         </div>
-        <div class="panel-body-flush">
+        <div class="panel-body-flush" id="newsFeed" data-latest="<%= news.length ? news[0].id : 0 %>">
           <% news.forEach(function (n) { %>
             <%- include('../partials/news-row', { n: n, fa: fa, timeAgo: timeAgo, mediaOf: mediaOf, excerpt: excerpt }) %>
           <% }); %>

@@ -137,7 +137,17 @@ async function scrapeOne(page, plat, ref) {
   throw new Error('عددی در بازه‌ی قیمت طلای ۱۸ عیار پیدا نشد');
 }
 
+// اگر یک دور هنوز تمام نشده، دور بعدی نباید مرورگر دوم بالا بیاورد —
+// دو کروم هم‌زمان روی این سرور دو‌هسته‌ای بار I/O را چند برابر می‌کند.
+let crawling = false;
+
 async function crawl() {
+  if (crawling) { console.log('[gold] دور قبلی هنوز تمام نشده — این دور رد شد'); return { ok: 0, fail: 0 }; }
+  crawling = true;
+  try { return await _crawl(); } finally { crawling = false; }
+}
+
+async function _crawl() {
   seed();
   const ref = reference();
   if (!ref) {

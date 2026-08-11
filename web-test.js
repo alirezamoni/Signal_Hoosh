@@ -1142,6 +1142,20 @@ function mediaStats() {
   return _mediaCache;
 }
 
+// در حالت WAL، نوشتن‌ها به فایل -wal می‌روند و mtime خودِ .db می‌تواند
+// هفته‌ها عقب بماند. تازه‌ترین زمان بین سه فایل، زمان واقعی آخرین نوشتن است.
+function dbTouchedAt(full) {
+  let newest = 0, size = 0;
+  for (const suffix of ['', '-wal', '-shm']) {
+    try {
+      const st = fs.statSync(full + suffix);
+      if (st.mtimeMs > newest) newest = st.mtimeMs;
+      if (suffix === '') size = st.size;
+    } catch (e) {}
+  }
+  return { mtimeMs: newest, size };
+}
+
 function dbFiles() {
   const out = [];
   const seen = new Set();
@@ -1152,14 +1166,15 @@ function dbFiles() {
       if (!f.endsWith('.db') || seen.has(f)) continue;
       seen.add(f);
       try {
-        const st = fs.statSync(path.join(dir, f));
+        const t = dbTouchedAt(path.join(dir, f));
+        if (!t.mtimeMs) continue;
         out.push({
           file: f,
           label: DB_LABELS[f] || f.replace(/\.db$/, ''),
-          sizeMB: Math.round(st.size / 1048576 * 10) / 10,
-          mtime: st.mtime.toISOString(),
+          sizeMB: Math.round(t.size / 1048576 * 10) / 10,
+          mtime: new Date(t.mtimeMs).toISOString(),
           // بیش از ۶ ساعت بدون نوشتن = احتمالاً جمع‌آورنده‌ی آن بخش خوابیده
-          stale: Date.now() - st.mtimeMs > 6 * 3600 * 1000,
+          stale: Date.now() - t.mtimeMs > 6 * 3600 * 1000,
         });
       } catch (e) {}
     }

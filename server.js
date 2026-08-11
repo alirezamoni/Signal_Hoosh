@@ -567,6 +567,7 @@ app.listen(PORT, () => {
   _crawlers.job?.startJobScheduler?.();
   startPolymarketScheduler();
   require('./gold-crawler').startGoldScheduler(10);
+  require('./lib/channel-photos').startPhotoScheduler(6);
   startDigestScheduler();
   if (financeCrawler) financeCrawler.startScheduler();
   if (carCrawler) carCrawler.startCarScheduler();

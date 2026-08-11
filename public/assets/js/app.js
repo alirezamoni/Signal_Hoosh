@@ -119,15 +119,16 @@
     });
   }
 
-  /* ── فرم تماس ── */
+  /* ── فرم تماس ──
+     نسخه‌ی قبلی submit را متوقف می‌کرد و فقط پیام موفقیت نشان می‌داد؛ هیچ
+     چیزی به سرور نمی‌رفت. مسیر POST /contact از قبل وجود دارد و پیام را در
+     دیتابیس می‌نویسد، پس فرم باید طبیعی ارسال شود. اینجا فقط جلوی ارسال
+     دوباره با کلیک‌های پیاپی گرفته می‌شود. */
   var form = document.getElementById('contactForm');
   if (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      // در نسخه‌ی نهایی: POST /api/messages → ذخیره در SQLite → نمایش در پنل مدیریت
-      var ok = document.getElementById('formOk');
-      if (ok) { ok.classList.add('show'); ok.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-      form.reset();
+    form.addEventListener('submit', function () {
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'در حال ارسال…'; }
     });
   }
 
