@@ -41,6 +41,10 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1.5"/></svg>
           کانال‌ها <span class="tag" style="margin-right:auto;"><%= fa(chNews.length + chFin.length) %></span>
         </a>
+        <a href="#" data-sec="sec-gold" class="<%= sec === 'gold' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 8l4-4h10l4 4-9 12z"/><path d="M7 4l5 16 5-16"/></svg>
+          پلتفرم‌های طلا <span class="tag" style="margin-right:auto;"><%= fa(goldPlatforms.filter(function(p){return p.ok}).length) %>/<%= fa(goldPlatforms.length) %></span>
+        </a>
         <a href="#" data-sec="sec-ai" class="<%= sec === 'ai' ? 'on' : '' %>">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M12 7V4M9 12h.01M15 12h.01M9 16h6"/></svg>
           هوش مصنوعی
@@ -248,6 +252,67 @@
             </div>
           </section>
           <% }); %>
+        </section>
+
+        <!-- ══════════ پلتفرم‌های طلا ══════════ -->
+        <section class="admin-sec <%= sec === 'gold' ? 'on' : '' %>" id="sec-gold">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">پلتفرم‌های طلا</h2>
+            <span class="tag"><%= fa(goldPlatforms.filter(function(p){return p.ok}).length) %> سالم از <%= fa(goldPlatforms.length) %></span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            قیمت هر پلتفرم هر ۱۰ دقیقه با یک مرورگر واقعی خوانده می‌شود — چون بخشی از این سایت‌ها
+            پشت محافظ ضدربات‌اند و بقیه قیمت را سمت مرورگر بارگذاری می‌کنند.
+            عدد خوانده‌شده در برابر قیمت مرجع بازار سنجیده می‌شود و اگر بیش از ۱۵٪ فاصله داشته باشد
+            پذیرفته نمی‌شود، تا یک تغییر در ساختار سایت به نمایش عدد بی‌ربط منجر نشود.
+            <strong>غیرفعال‌سازی</strong> جمع‌آوری را متوقف می‌کند و تاریخچه می‌ماند؛
+            <strong>حذف</strong> تاریخچه را هم پاک می‌کند.
+          </blockquote>
+
+          <section class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>پلتفرم</th><th class="ta-l">آخرین قیمت</th><th class="ta-l">وضعیت</th><th class="ta-l">آخرین موفقیت</th><th class="ta-l">نمونه</th><th class="ta-l">عملیات</th></tr></thead>
+                <tbody>
+                  <% goldPlatforms.forEach(function (p) { %>
+                  <tr>
+                    <td class="td-name">
+                      <span class="row" style="gap:8px;">
+                        <% if (p.logo) { %><img class="gold-logo" src="<%= p.logo %>" alt="<%= p.name_fa %>" loading="lazy" width="26" height="26"><% } %>
+                        <span>
+                          <%= p.name_fa %><% if (!p.active) { %> <span class="badge badge-flat">غیرفعال</span><% } %>
+                          <div class="hint" style="direction:ltr;text-align:left;margin-top:1px;"><%= p.url %></div>
+                        </span>
+                      </span>
+                    </td>
+                    <td class="ta-l"><%= p.price ? fa(num(p.price)) : '—' %></td>
+                    <td class="ta-l">
+                      <% if (p.ok) { %><span class="badge badge-up">سالم<%= p.ms ? ' · ' + fa(Math.round(p.ms / 1000)) + ' ثانیه' : '' %></span>
+                      <% } else if (p.last_try) { %><span class="badge badge-down">ناموفق<%= p.fail_streak > 1 ? ' · ' + fa(p.fail_streak) + ' بار پیاپی' : '' %></span>
+                      <% } else { %><span class="badge badge-flat">هنوز تلاش نشده</span><% } %>
+                      <% if (!p.ok && p.error) { %><div class="hint"><%= p.error %></div><% } %>
+                    </td>
+                    <td class="ta-l"><%= p.last_ok ? timeAgo(p.last_ok) : '—' %></td>
+                    <td class="ta-l"><%= fa(p.samples || 0) %></td>
+                    <td class="ta-l">
+                      <div class="row" style="gap:5px;">
+                        <form method="POST" action="/admin/gold/<%= p.id %>/toggle" style="display:inline;">
+                          <button class="btn btn-sm" type="submit"><%= p.active ? 'غیرفعال' : 'فعال' %></button>
+                        </form>
+                        <form method="POST" action="/admin/gold/<%= p.id %>/delete" style="display:inline;"
+                              onsubmit="return confirm('«<%= p.name_fa %>» و همه‌ی تاریخچه‌ی قیمتش حذف شود؟ برگشت‌پذیر نیست.')">
+                          <button class="btn btn-sm" type="submit">حذف</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel-foot">ستون «نمونه» تعداد کل اندازه‌گیری‌های ذخیره‌شده است. تاریخچه ۳۰ روز نگه داشته می‌شود.</div>
+          </section>
         </section>
 
         <!-- ══════════ هوش مصنوعی ══════════ -->

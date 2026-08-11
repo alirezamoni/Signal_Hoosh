@@ -20,6 +20,7 @@ const marketDB  = require('./market-db');
 const jobDB     = require('./job-db');
 const polyDB    = require('./polymarket-db');
 const trendDB   = require('./trend-db');
+const goldDB    = require('./gold-db');
 const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
@@ -747,11 +748,56 @@ app.get('/finance', (req, res) => {
   try { messages = (financeDB.getLatestFinanceMessages(12) || []); } catch (e) {}
   try { channels = (financeDB.getFinanceChannels() || []); } catch (e) {}
 
+  // ── پلتفرم‌های طلای آنلاین ──
+  // getLatest از ارزان به گران مرتب می‌آید، پس ردیف اول کف بازار است.
+  let goldRows = [], goldChart = null, goldUpdated = null, goldSpread = null;
+  try {
+    const rows = (goldDB.getLatest() || []).filter(r => r.price != null);
+    if (rows.length) {
+      const floor = rows[0].price;
+      const top   = rows[rows.length - 1].price;
+      goldRows = rows.map((r, i) => Object.assign({}, r, {
+        diff: Math.round(r.price - floor),
+        isFloor: i === 0,
+        isTop: rows.length > 2 && r.price === top && i > 0,
+      }));
+      goldSpread = Math.round(top - floor);
+      goldUpdated = rows.reduce((m, r) => (r.captured_at > m ? r.captured_at : m), rows[0].captured_at);
+    }
+  } catch (e) { console.warn('[gold]', e.message); }
+
+  // نمودار مشترک: همه‌ی پلتفرم‌ها روی یک محور تا اختلافشان دیده شود
+  try {
+    const series = (goldDB.getSeries(24) || []).filter(s => s.points.length > 1);
+    if (series.length) {
+      const all = series.flatMap(s => s.points);
+      const vs = all.map(p => p.v);
+      const ts = all.map(p => new Date(p.t).getTime());
+      const vMin = Math.min.apply(null, vs), vMax = Math.max.apply(null, vs);
+      const tMin = Math.min.apply(null, ts), tMax = Math.max.apply(null, ts);
+      const vSpan = (vMax - vMin) || 1, tSpan = (tMax - tMin) || 1;
+      const W = 600, H = 180;
+      goldChart = {
+        vMin, vMax, W, H,
+        lines: series.map((s, i) => ({
+          name_fa: s.name_fa, slug: s.slug,
+          hue: Math.round((i * 360) / series.length),
+          last: s.points[s.points.length - 1].v,
+          d: s.points.map(p => {
+            const x = ((new Date(p.t).getTime() - tMin) / tSpan) * W;
+            const y = H - ((p.v - vMin) / vSpan) * H;
+            return x.toFixed(1) + ',' + y.toFixed(1);
+          }).join(' '),
+        })),
+      };
+    }
+  } catch (e) { console.warn('[gold/chart]', e.message); }
+
   page(res, 'finance', '/finance', {
     title: 'ترند بازارهای مالی | قیمت لحظه‌ای دلار، طلا، سکه و انس — سیگنال هوش',
     desc: 'رصد لحظه‌ای بازارهای موازی ایران: دلار آزاد، طلای ۱۸ عیار، سکه امامی و انس جهانی طلا، همراه با جریان اخبار مالی کانال‌های تلگرام.',
     path: '/finance'
-  }, { rows, kpi: rows.slice(0, 4), messages, channels });
+  }, { rows, kpi: rows.slice(0, 4), messages, channels, goldRows, goldChart, goldUpdated, goldSpread });
 });
 
 app.get('/cars', (req, res) => {
@@ -1147,7 +1193,7 @@ function systemInfo(dbs) {
   };
 }
 
-const ADMIN_SECS = ['overview', 'users', 'channels', 'ai', 'messages', 'spam', 'blocked', 'system'];
+const ADMIN_SECS = ['overview', 'users', 'channels', 'gold', 'ai', 'messages', 'spam', 'blocked', 'system'];
 
 function adminPage(req, res, extra) {
   const q = (sql, d) => { try { return newsRO.prepare(sql).get(); } catch (e) { return d; } };
@@ -1178,6 +1224,9 @@ function adminPage(req, res, extra) {
 
   let users = [];
   try { users = db.getAllUsers() || []; } catch (e) {}
+
+  let goldPlatforms = [];
+  try { goldPlatforms = goldDB.getAllWithStatus() || []; } catch (e) {}
 
   let chNews = [], chFin = [];
   try { chNews = newsDB.getChannels() || []; } catch (e) {}
@@ -1212,7 +1261,7 @@ function adminPage(req, res, extra) {
   page(res, 'admin', '', {
     title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
   }, Object.assign({
-    rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec,
+    rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec, goldPlatforms,
     sys: systemInfo(dbs),
     stats: {
       news, blocked: blockedN, visible: news - blockedN,
@@ -1393,6 +1442,28 @@ app.post('/admin/channels/:id/delete', adminGuard, (req, res) => {
   const api = chanApi((req.body || {}).kind);
   try { api.del(req.params.id); backFrom(req, res, 'جمع‌آوری از این کانال متوقف شد.'); }
   catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// ══ پلتفرم‌های طلا ══
+// غیرفعال‌سازی جمع‌آوری را متوقف می‌کند ولی تاریخچه می‌ماند؛ حذف کامل
+// تاریخچه را هم می‌برد و نمودار گذشته سوراخ می‌شود.
+
+app.post('/admin/gold/:id/toggle', adminGuard, (req, res) => {
+  try {
+    const p = (goldDB.getPlatforms() || []).find(x => String(x.id) === String(req.params.id));
+    if (!p) return backFrom(req, res, null, 'پلتفرم یافت نشد.');
+    if (p.active) { goldDB.deactivate(p.id); backFrom(req, res, '«' + p.name_fa + '» غیرفعال شد — جمع‌آوری متوقف، تاریخچه محفوظ.'); }
+    else { goldDB.activate(p.id); backFrom(req, res, '«' + p.name_fa + '» دوباره فعال شد.'); }
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/gold/:id/delete', adminGuard, (req, res) => {
+  try {
+    const p = (goldDB.getPlatforms() || []).find(x => String(x.id) === String(req.params.id));
+    if (!p) return backFrom(req, res, null, 'پلتفرم یافت نشد.');
+    goldDB.removePlatform(p.id);
+    backFrom(req, res, '«' + p.name_fa + '» و همه‌ی تاریخچه‌اش حذف شد.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 
 // ══ هوش مصنوعی ══

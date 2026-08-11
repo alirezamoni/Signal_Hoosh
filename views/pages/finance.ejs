@@ -69,6 +69,87 @@
       </table>
     </div>
 
+    <% if (goldRows.length) { %>
+    <div class="page-head between wrap">
+      <h2 class="sec-title">ترند قیمت پلتفرم‌های طلا</h2>
+      <div class="row wrap" style="gap:6px;">
+        <span class="badge badge-down">زنده</span>
+        <% if (goldUpdated) { %><span class="tag">بروزرسانی <%= timeAgo(goldUpdated) %></span><% } %>
+      </div>
+    </div>
+
+    <blockquote class="desc">
+      قیمت خرید هر گرم طلای ۱۸ عیار در پلتفرم‌های آنلاین، هر ۱۰ دقیقه مستقیماً از خود سایت‌ها خوانده می‌شود.
+      ارزان‌ترین پلتفرم «کف بازار» نام می‌گیرد و اختلاف بقیه نسبت به همان سنجیده می‌شود.
+      این ارقام قیمت اعلامی هر پلتفرم است و کارمزد، اجرت یا شرایط خرید در آن لحاظ نشده —
+      پیش از خرید، صفحه‌ی خود پلتفرم را ببینید.
+    </blockquote>
+
+    <div class="grid g4 mb4">
+      <div class="kpi"><div class="kpi-label">کف بازار</div>
+        <div class="kpi-val up"><%= fa(num(goldRows[0].price)) %></div>
+        <div class="kpi-note"><%= goldRows[0].name_fa %> · تومان بر گرم</div></div>
+      <div class="kpi"><div class="kpi-label">سقف بازار</div>
+        <div class="kpi-val down"><%= fa(num(goldRows[goldRows.length - 1].price)) %></div>
+        <div class="kpi-note"><%= goldRows[goldRows.length - 1].name_fa %></div></div>
+      <div class="kpi"><div class="kpi-label">دامنه‌ی اختلاف</div>
+        <div class="kpi-val"><%= fa(num(goldSpread)) %></div>
+        <div class="kpi-note">فاصله‌ی گران‌ترین تا ارزان‌ترین</div></div>
+      <div class="kpi"><div class="kpi-label">پلتفرم رصد‌شده</div>
+        <div class="kpi-val"><%= fa(goldRows.length) %></div>
+        <div class="kpi-note">هر ۱۰ دقیقه بروزرسانی</div></div>
+    </div>
+
+    <% if (goldChart) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h3 class="panel-title">روند ۲۴ ساعت گذشته</h3>
+        <span class="panel-link"><%= fa(num(goldChart.vMin)) %> تا <%= fa(num(goldChart.vMax)) %> تومان</span>
+      </div>
+      <div class="panel-body-pad">
+        <svg class="gold-chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="روند قیمت طلا در پلتفرم‌ها">
+          <% goldChart.lines.forEach(function (l) { %>
+          <polyline points="<%= l.d %>" fill="none" stroke="hsl(<%= l.hue %> 70% 55%)" stroke-width="1.6"
+                    stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+          <% }); %>
+        </svg>
+        <div class="gold-legend">
+          <% goldChart.lines.forEach(function (l) { %>
+          <span class="gold-key"><i style="background:hsl(<%= l.hue %> 70% 55%)"></i><%= l.name_fa %></span>
+          <% }); %>
+        </div>
+      </div>
+      <div class="panel-foot">محور عمودی روی بازه‌ی مشترک همه‌ی پلتفرم‌ها کشیده شده تا اختلافشان قابل مقایسه باشد.</div>
+    </section>
+    <% } %>
+
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr><th>برند</th><th class="ta-l">قیمت خرید (تومان)</th><th class="ta-l">اختلاف با کف بازار</th><th class="ta-l">وضعیت</th><th class="ta-l">صفحه</th></tr></thead>
+        <tbody>
+          <% goldRows.forEach(function (g) { %>
+          <tr>
+            <td class="td-name">
+              <span class="row" style="gap:8px;">
+                <% if (g.logo) { %><img class="gold-logo" src="<%= g.logo %>" alt="<%= g.name_fa %>" loading="lazy" width="26" height="26"><% } %>
+                <%= g.name_fa %>
+              </span>
+            </td>
+            <td class="ta-l"><%= fa(num(g.price)) %></td>
+            <td class="ta-l"><% if (g.isFloor) { %><span class="dim">—</span><% } else { %>+<%= fa(num(g.diff)) %><% } %></td>
+            <td class="ta-l">
+              <% if (g.isFloor) { %><span class="badge badge-up">کف بازار · کمترین قیمت</span>
+              <% } else if (g.isTop) { %><span class="badge badge-down">سقف قیمت</span>
+              <% } else { %><span class="badge badge-flat">مناسب</span><% } %>
+            </td>
+            <td class="ta-l"><a class="btn btn-sm" href="<%= g.url %>" target="_blank" rel="nofollow noopener">مشاهده ↗</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
     <section class="panel">
       <div class="panel-head">
         <h2 class="panel-title">

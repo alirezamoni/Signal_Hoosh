@@ -24,3 +24,4 @@ public/finance-media/
 backups/
 __pycache__/
 data/openrouter-models.json
+data/gold.db*
