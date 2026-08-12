@@ -312,9 +312,35 @@ const ASSETS = {
 };
 
 app.use(helmet({
-  contentSecurityPolicy: false,          // استایل/اسکریپت درون‌خطی داریم
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      // unsafe-inline لازم است چون استایل و اسکریپت درون‌خطی داریم؛
+      // ولی دامنه‌های مجاز محدودند، پس تزریق از بیرون همچنان بسته است
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://www.googletagmanager.com', 'https://www.google-analytics.com'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", 'https://www.google-analytics.com', 'https://region1.google-analytics.com', 'https://www.googletagmanager.com'],
+      frameSrc: ['https://t.me', 'https://*.t.me'],   // امبد ویدیوی خبر
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  // امبد تلگرام از دامنه‌ی دیگری می‌آید و با same-origin بلاک می‌شود
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+
+// دسترسی‌هایی که این سایت هرگز لازم ندارد
+app.use((req, res, next) => {
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
+  next();
+});
 
 app.use(rateLimit({
   windowMs: 60 * 1000,
@@ -877,7 +903,9 @@ app.get('/cars', (req, res) => {
     }
     for (const g of by.values()) {
       g.total = g.items.length;
-      g.items = g.items.slice().sort((x, y) => (y.avg_price || 0) - (x.avg_price || 0)).slice(0, 4);
+      g.items.sort((x, y) => (y.avg_price || 0) - (x.avg_price || 0));
+      g.top = g.items.slice(0, 5);
+      g.rest = g.items.slice(5);
       submodelGroups.push(g);
     }
     const TIER_ORD = { high: 0, mid: 1, low: 2 };
@@ -2137,6 +2165,8 @@ app.use((req, res) => {
   }, {});
 });
 
-app.listen(PORT, () => {
+// فقط لوکال‌هاست — دسترسی عمومی باید از nginx بگذرد
+const HOST = process.env.BIND_HOST || '127.0.0.1';
+app.listen(PORT, HOST, () => {
   console.log(`[web-test] رندر سمت سرور روی پورت ${PORT} — سایت اصلی (۳۰۰۱) دست‌نخورده است`);
 });

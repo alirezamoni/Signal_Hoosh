@@ -994,3 +994,51 @@ tbody tr:hover { background: var(--card-hover); }
   margin: var(--s5) 0 var(--s3);
 }
 .sub-brand-name { font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--text); }
+
+/* ── زیرمدل‌های خودرو ──
+   کارت عکس‌دار برای ۱۱۹ ردیف مناسب نیست: در موبایل هر کارت ~۲۸۰ پیکسل
+   ارتفاع می‌گیرد و فهرست بی‌انتها می‌شود. ردیف فشرده ~۴۴ پیکسل است. */
+.sm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: var(--s2); }
+.sm-row {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: 7px 10px; min-width: 0;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); box-shadow: var(--shadow);
+}
+.sm-thumb {
+  width: 44px; height: 32px; object-fit: cover; flex-shrink: 0;
+  border-radius: 4px; background: var(--inset); border: 1px solid var(--border);
+}
+.sm-thumb-ph { display: inline-block; }
+.sm-name {
+  flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sm-num { text-align: left; flex-shrink: 0; line-height: 1.5; }
+.sm-price { display: block; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--text); }
+.sm-km { display: block; font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
+
+.sm-more { margin-top: var(--s3); margin-bottom: var(--s4); }
+.sm-more > summary {
+  cursor: pointer; list-style: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--fs-sm); color: var(--accent);
+  padding: 6px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-pill); background: var(--card);
+}
+.sm-more > summary::-webkit-details-marker { display: none; }
+.sm-more > summary:hover { border-color: var(--accent); }
+.sm-more > summary::after { content: '⌄'; font-size: 13px; line-height: 1; }
+.sm-more[open] > summary::after { content: '⌃'; }
+.sm-more .sm-more-close { display: none; }
+.sm-more[open] .sm-more-open { display: none; }
+.sm-more[open] .sm-more-close { display: inline; }
+
+@media (max-width: 700px) {
+  /* یک ستون ولی ردیف کوتاه — به‌جای ۲۴ کارت بلند، ۲۴ ردیف کم‌ارتفاع */
+  .sm-grid { grid-template-columns: 1fr; gap: 6px; }
+  .car-grid { grid-template-columns: repeat(2, 1fr); gap: var(--s2); }
+  .car-card { padding: var(--s3); }
+  .car-price { font-size: var(--fs-lg); }
+  .car-meta { flex-direction: column; gap: 2px; }
+}

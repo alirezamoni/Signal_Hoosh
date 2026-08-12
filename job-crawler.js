@@ -35,6 +35,7 @@ async function getBrowser() {
     executablePath: CONFIG.chromePath,
     headless: 'new',
     userDataDir: browserProfileDir,
+    protocolTimeout: 120_000,   // پیش‌فرض زیر فشار این سرور کوتاه است
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
   });
   return browser;
@@ -125,10 +126,29 @@ async function _crawlJobs() {
   return { count: items.length };
 }
 
-function startJobScheduler() {
-  setTimeout(crawlJobs, 15000);
-  setInterval(crawlJobs, 24 * 60 * 60 * 1000);
-  console.log('[job] scheduler started — runs every 24h');
+/**
+ * اجرای اول با تأخیر شش دقیقه تا از هجوم کرالرهای لحظه‌ی بوت فاصله بگیرد،
+ * و تا سه بار تلاش با فاصله‌ی ده دقیقه. بدون تلاش مجدد، یک شکست گذرا
+ * یعنی یک روز کامل بدون داده.
+ */
+async function crawlWithRetry(attempt = 1) {
+  const MAX = 3;
+  try {
+    const n = await crawlJobs();
+    if (n || attempt >= MAX) return n;
+    console.warn('[job] هیچ آماری برنگشت — تلاش ' + attempt + ' از ' + MAX);
+  } catch (e) {
+    console.warn('[job] تلاش ' + attempt + ' از ' + MAX + ' شکست خورد: ' + e.message);
+    if (attempt >= MAX) return null;
+  }
+  await new Promise(r => setTimeout(r, 10 * 60 * 1000));
+  return crawlWithRetry(attempt + 1);
 }
 
-module.exports = { crawlJobs, startJobScheduler };
+function startJobScheduler() {
+  setTimeout(() => crawlWithRetry().catch(e => console.error('[job]', e.message)), 6 * 60 * 1000);
+  setInterval(() => crawlWithRetry().catch(e => console.error('[job]', e.message)), 24 * 60 * 60 * 1000);
+  console.log('[job] scheduler started — runs every 24h (اجرای اول با ۶ دقیقه تأخیر)');
+}
+
+module.exports = { crawlJobs, startJobScheduler, crawlWithRetry };

@@ -560,7 +560,9 @@ db.seedSuperAdmin();
 // Chrome profile dir is lost and it leaks forever. Sweep anything stale on boot.
 try { require('./lib/browser-lifecycle').sweepStaleProfileDirs(); } catch (e) { console.warn('[warn] profile-dir sweep failed:', e.message); }
 
-app.listen(PORT, () => {
+// فقط لوکال‌هاست — دسترسی عمومی باید از nginx بگذرد
+const HOST = process.env.BIND_HOST || '127.0.0.1';
+app.listen(PORT, HOST, () => {
   console.log(`\nSignal → http://localhost:${PORT}`);
   _crawlers.scheduler?.startScheduler?.();
   _crawlers.market?.startMarketScheduler?.();

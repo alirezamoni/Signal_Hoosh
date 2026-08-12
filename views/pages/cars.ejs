@@ -68,16 +68,35 @@
       <span class="tag"><%= g.tier === 'high' ? 'لوکس' : (g.tier === 'mid' ? 'میان‌رده' : 'اقتصادی') %></span>
       <span class="dim" style="font-size:var(--fs-xs);"><%= fa(g.total) %> زیرمدل در بازار</span>
     </div>
-    <div class="car-grid mb4">
-      <% g.items.forEach(function (sm) { %>
-      <div class="car-card">
-        <% if (sm.image_url) { %><img class="car-img" src="<%= sm.image_url %>" alt="<%= sm.name_fa %>" loading="lazy"><% } %>
-        <div class="car-name"><%= sm.name_fa %></div>
-        <div class="car-price"><%= fa(toman(sm.avg_price)) %></div>
-        <div class="car-meta"><span><%= sm.model_name || '' %></span><span>کارکرد <%= fa(num(sm.avg_mileage)) %></span></div>
+    <div class="sm-grid">
+      <% g.top.forEach(function (sm) { %>
+      <div class="sm-row">
+        <% if (sm.image_url) { %><img class="sm-thumb" src="<%= sm.image_url %>" alt="<%= sm.name_fa %>" loading="lazy" width="44" height="32"><% } else { %><span class="sm-thumb sm-thumb-ph"></span><% } %>
+        <span class="sm-name" title="<%= sm.name_fa %>"><%= sm.name_fa %></span>
+        <span class="sm-num">
+          <span class="sm-price"><%= fa(toman(sm.avg_price)) %></span>
+          <span class="sm-km">کارکرد <%= fa(num(sm.avg_mileage)) %></span>
+        </span>
       </div>
       <% }); %>
     </div>
+    <% if (g.rest.length) { %>
+    <details class="sm-more">
+      <summary><span class="sm-more-open">نمایش <%= fa(g.rest.length) %> زیرمدل دیگر <%= g.name %></span><span class="sm-more-close">بستن فهرست <%= g.name %></span></summary>
+      <div class="sm-grid mt3">
+        <% g.rest.forEach(function (sm) { %>
+        <div class="sm-row">
+          <% if (sm.image_url) { %><img class="sm-thumb" src="<%= sm.image_url %>" alt="<%= sm.name_fa %>" loading="lazy" width="44" height="32"><% } else { %><span class="sm-thumb sm-thumb-ph"></span><% } %>
+          <span class="sm-name" title="<%= sm.name_fa %>"><%= sm.name_fa %></span>
+          <span class="sm-num">
+            <span class="sm-price"><%= fa(toman(sm.avg_price)) %></span>
+            <span class="sm-km">کارکرد <%= fa(num(sm.avg_mileage)) %></span>
+          </span>
+        </div>
+        <% }); %>
+      </div>
+    </details>
+    <% } %>
     <% }); %>
     <% } %>
 
