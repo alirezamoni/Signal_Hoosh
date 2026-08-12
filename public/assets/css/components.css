@@ -1042,3 +1042,16 @@ tbody tr:hover { background: var(--card-hover); }
   .car-price { font-size: var(--fs-lg); }
   .car-meta { flex-direction: column; gap: 2px; }
 }
+
+/* ── روایت روزانه ── */
+.brief-text { font-size: var(--fs-lg); line-height: 2.1; color: var(--text); }
+.brief-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+.brief-chip {
+  font-size: var(--fs-xs); color: var(--muted);
+  background: var(--inset); border: 1px solid var(--border);
+  border-radius: var(--r-pill); padding: 4px 11px; white-space: nowrap;
+}
+.brief-chip b { color: var(--text); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
+.brief-more { margin-top: var(--s2); }
+.brief-more > summary { cursor: pointer; color: var(--accent); display: inline-block; }
+.brief-old { font-size: var(--fs-sm); line-height: 1.9; color: var(--muted); margin-top: var(--s2); }

@@ -22,6 +22,7 @@ const polyDB    = require('./polymarket-db');
 const trendDB   = require('./trend-db');
 const goldDB    = require('./gold-db');
 const propDB    = require('./property-db');
+const insightsDB = require('./insights-db');
 const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
@@ -1153,6 +1154,63 @@ app.get('/future', (req, res) => {
     if (g && g.t) { acc = { dir: (g.c / g.t) * 100, n: g.t }; confidence = (g.c / g.t) * 100; }
   } catch (e) {}
 
+  // ── روایت روزانه ──
+  let brief = null, briefHistory = [];
+  try {
+    brief = insightsDB.latestBrief();
+    if (brief && brief.facts_json) { try { brief.facts = JSON.parse(brief.facts_json); } catch (e) {} }
+    briefHistory = insightsDB.briefHistory(6).slice(1);
+  } catch (e) { console.warn('[future/brief]', e.message); }
+
+  // ── رابطه‌های تأخیری ──
+  let leadLag = [], leadLagMeta = { n: 0, sig: 0, at: null };
+  try {
+    leadLag = insightsDB.topLeadLag(14).map(r => Object.assign({}, r, {
+      corrPct: Math.round(Math.abs(r.corr) * 100),
+      hitPct: Math.round(r.hit_rate * 100),
+      dir: r.corr >= 0 ? 'هم‌جهت' : 'وارونه',
+    }));
+    leadLagMeta = insightsDB.leadLagMeta();
+  } catch (e) { console.warn('[future/leadlag]', e.message); }
+
+  // ── اعتبار منابع ──
+  // جدول برای هر بروزرسانی یک ردیف تازه درج می‌کند به‌جای آپدیت، پس ۲۶۹
+  // ردیف در واقع چند منبع تکراری است. آخرین ردیف هر منبع را برمی‌داریم.
+  let sources = [];
+  try {
+    sources = tl(`SELECT * FROM source_reliability r
+                  WHERE r.id = (SELECT MAX(id) FROM source_reliability
+                                WHERE source_type = r.source_type
+                                  AND COALESCE(source_key, label) = COALESCE(r.source_key, r.label))
+                  ORDER BY reliability DESC, sample_count DESC LIMIT 14`)
+      .map(s => Object.assign({}, s, {
+        relPct: s.reliability != null ? Math.round(s.reliability * 100) : null,
+        accPct: s.historical_accuracy != null ? Math.round(s.historical_accuracy * 100) : null,
+        typeLabel: ({ rss: 'خوراک خبری', telegram: 'کانال تلگرام', market: 'داده‌ی بازار',
+                      trend: 'ترند جستجو', poly: 'بازار پیش‌بینی' })[s.source_type] || s.source_type,
+        biasLabel: ({ neutral: 'خنثی', positive: 'خوش‌بین', negative: 'بدبین' })[s.bias] || s.bias,
+        speedLabel: ({ real_time: 'لحظه‌ای', fast: 'سریع', medium: 'متوسط', slow: 'کند' })[s.update_speed] || s.update_speed,
+      }));
+
+    /* چند کانال جدا برچسب یکسان دارند (source_key عدد داخلی است و به درد
+       کاربر نمی‌خورد). به‌جای ده ردیف تکراری، یک ردیف با میانگین وزنی. */
+    const byLabel = new Map();
+    for (const s of sources) {
+      const k = (s.label || s.source_key || '?') + '|' + s.source_type;
+      if (!byLabel.has(k)) byLabel.set(k, Object.assign({}, s, { members: 0, _rel: 0, _acc: 0, _n: 0 }));
+      const g = byLabel.get(k);
+      g.members++;
+      g._rel += (s.reliability || 0);
+      g._acc += (s.historical_accuracy || 0);
+      g._n += (s.sample_count || 0);
+    }
+    sources = [...byLabel.values()].map(g => Object.assign(g, {
+      relPct: g.members ? Math.round((g._rel / g.members) * 100) : null,
+      accPct: g.members ? Math.round((g._acc / g.members) * 100) : null,
+      sample_count: g._n,
+    })).sort((a, b) => (b.relPct || 0) - (a.relPct || 0) || b.sample_count - a.sample_count);
+  } catch (e) { console.warn('[future/sources]', e.message); }
+
   let regime = null;
   try { regime = timelineRO.prepare(`SELECT * FROM market_regimes ORDER BY rowid DESC LIMIT 1`).get(); } catch (e) {}
 
@@ -1160,7 +1218,8 @@ app.get('/future', (req, res) => {
     title: 'ترند آینده | زنجیره‌های علّی و پیش‌بینی بازار ایران — سیگنال هوش',
     desc: 'موتور کشف زنجیره‌های علّی: چه خبری چه بازاری را با چه تأخیری حرکت می‌دهد. پیش‌بینی دلار، سکه و طلا با سنجش شفاف دقت.',
     path: '/future'
-  }, { predictions, chains, patterns, accuracy, indicators, archive, acc, confidence, regime, REGIME });
+  }, { predictions, chains, patterns, accuracy, indicators, archive, acc, confidence, regime, REGIME,
+       brief, briefHistory, leadLag, leadLagMeta, sources });
 });
 
 // ── ارتباط با ما ──

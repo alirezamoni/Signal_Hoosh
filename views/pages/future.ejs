@@ -30,6 +30,155 @@
     </div>
 
     <% if (predictions.length) { %>
+
+    <!-- ══ روایت روزانه ══ -->
+    <% if (brief) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          روایت امروز ایران
+        </h2>
+        <span class="panel-link">
+          <% if (brief.source === 'ai') { %><span class="ai-badge">✦ AI</span><% } else { %><span class="tag">خودکار</span><% } %>
+        </span>
+      </div>
+      <div class="panel-body-pad">
+        <p class="brief-text"><%= fa(brief.text_fa) %></p>
+        <% if (brief.facts) { %>
+        <div class="brief-chips">
+          <% (brief.facts.markets || []).slice(0,4).forEach(function (m) { %>
+          <span class="brief-chip"><%= m.name %> <b class="<%= m.changePct > 0 ? 'up' : 'down' %>"><%= pct(m.changePct) %></b></span>
+          <% }); %>
+          <% if (brief.facts.news && brief.facts.news.count) { %>
+          <span class="brief-chip">خبر امروز <b><%= fa(num(brief.facts.news.count)) %></b></span>
+          <% } %>
+          <% if (brief.facts.property) { %>
+          <span class="brief-chip">مسکن تهران <b><%= fa(brief.facts.property.avgMeterM) %> م.ت/متر</b></span>
+          <% } %>
+          <% if (brief.facts.jobs && brief.facts.jobs.count) { %>
+          <span class="brief-chip">آگهی استخدام <b><%= fa(num(brief.facts.jobs.count)) %></b></span>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+      <div class="panel-foot">
+        همه‌ی اعداد این پاراگراف مستقیماً از دیتابیس همین سایت خوانده شده‌اند
+        <% if (brief.source === 'ai') { %>و فقط جمله‌بندی‌اش با مدل زبانی انجام شده است<% } %>.
+        <% if (briefHistory.length) { %>
+        <details class="brief-more">
+          <summary>روزهای قبل</summary>
+          <% briefHistory.forEach(function (b) { %>
+          <p class="brief-old"><span class="dim"><%= faDay(b.day) %>:</span> <%= fa(b.text_fa) %></p>
+          <% }); %>
+        </details>
+        <% } %>
+      </div>
+    </section>
+    <% } %>
+
+    <!-- ══ رابطه‌های تأخیری ══ -->
+    <div class="page-head between wrap">
+      <h2 class="sec-title">رابطه‌های کشف‌شده بین بخش‌ها</h2>
+      <% if (leadLagMeta && leadLagMeta.at) { %>
+      <span class="dim" style="font-size:var(--fs-xs);">
+        <%= fa(leadLagMeta.n || 0) %> کاندید · <%= fa(leadLagMeta.sig || 0) %> از نظر آماری معنادار
+      </span>
+      <% } %>
+    </div>
+    <blockquote class="desc">
+      این جدول می‌پرسد: «وقتی یک بخش حرکت می‌کند، آیا بخش دیگری چند روز بعد حرکت می‌کند؟»
+      همبستگی روی <strong>تغییرات روزانه</strong> حساب می‌شود نه روی خود قیمت — چون دو چیزی که هر دو
+      با تورم بالا می‌روند، روی قیمت همبستگی نزدیک به صد می‌دهند بدون آنکه واقعاً رابطه‌ای داشته باشند.
+      «نرخ برد» یعنی در چند درصد مواقع جهت درست از آب درآمده.
+      <strong>هیچ‌کدام از این‌ها علیت را ثابت نمی‌کند</strong>؛ دو چیز می‌توانند با هم حرکت کنند چون
+      عامل سومی هر دو را حرکت می‌دهد. این یک ابزار کاوش است، نه مدل پیش‌بینی.
+    </blockquote>
+
+    <% if (leadLag.length) { %>
+    <div class="panel mb4">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>وقتی این حرکت می‌کند</th><th>این هم حرکت می‌کند</th>
+            <th class="ta-l">با تأخیر</th><th class="ta-l">جهت</th>
+            <th class="ta-l">قدرت رابطه</th><th class="ta-l">نرخ برد</th><th class="ta-l">مشاهده</th>
+          </tr></thead>
+          <tbody>
+            <% leadLag.forEach(function (r) { %>
+            <tr>
+              <td><%= r.x_label %></td>
+              <td><%= r.y_label %>
+                <% if (r.significant) { %><span class="tag" title="از تصحیح آزمون چندگانه رد شده">معنادار</span><% } %>
+              </td>
+              <td class="ta-l"><%= fa(r.lag_days) %> روز</td>
+              <td class="ta-l"><span class="tag"><%= r.dir %></span></td>
+              <td class="ta-l">
+                <div class="row" style="gap:var(--s2);">
+                  <span class="ppk-bar" style="flex:1;min-width:52px;"><span class="ppk-fill" style="width:<%= r.corrPct %>%"></span></span>
+                  <span style="font-variant-numeric:tabular-nums;"><%= fa((Math.abs(r.corr)).toFixed(2)) %></span>
+                </div>
+              </td>
+              <td class="ta-l"><%= fa(r.hitPct) %>٪</td>
+              <td class="ta-l"><%= fa(r.n) %> روز</td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        «معنادار» یعنی بعد از تصحیح آزمون چندگانه (بنجامینی-هوخبرگ) هم باقی مانده است. بقیه کاندیدهایی‌اند
+        که با تاریخچه‌ی بیشتر یا رد می‌شوند یا تأیید. رصد این سایت هنوز جوان است و هر روز که می‌گذرد این جدول قابل‌اتکاتر می‌شود.
+      </div>
+    </div>
+    <% } else { %>
+    <section class="panel mb4"><div class="panel-body-pad center">
+      <p class="dim">هنوز رابطه‌ای که از غربال آماری رد شود پیدا نشده است.</p>
+      <p class="dim" style="font-size:var(--fs-sm);margin-top:var(--s2);">
+        برای اینکه یک رابطه قابل اتکا باشد دست‌کم سه هفته داده‌ی هم‌پوشان لازم است.
+      </p>
+    </div></section>
+    <% } %>
+
+    <!-- ══ اعتبار منابع ══ -->
+    <% if (sources.length) { %>
+    <div class="page-head"><h2 class="sec-title">اعتبار منابع</h2></div>
+    <blockquote class="desc desc-sm">
+      هر منبعی که سیگنال می‌دهد، کارنامه‌ی خودش را دارد: چقدر سریع خبر می‌دهد، چقدر
+      سوگیری دارد، و در گذشته چقدر درست درآمده. این امتیازها از عملکرد واقعی همان منبع ساخته می‌شوند.
+    </blockquote>
+    <div class="panel mb4">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>منبع</th><th class="ta-l">نوع</th><th class="ta-l">سرعت</th>
+            <th class="ta-l">سوگیری</th><th class="ta-l">دقت تاریخی</th>
+            <th class="ta-l">اعتبار</th><th class="ta-l">نمونه</th>
+          </tr></thead>
+          <tbody>
+            <% sources.forEach(function (s) { %>
+            <tr>
+              <td><%= s.label || s.source_key || '—' %><% if (s.members > 1) { %> <span class="dim" style="font-size:var(--fs-xs);">(<%= fa(s.members) %> منبع)</span><% } %></td>
+              <td class="ta-l"><span class="tag"><%= s.typeLabel %></span></td>
+              <td class="ta-l"><%= s.speedLabel || '—' %></td>
+              <td class="ta-l"><%= s.biasLabel || '—' %></td>
+              <td class="ta-l"><%= s.accPct != null ? fa(s.accPct) + '٪' : '—' %></td>
+              <td class="ta-l">
+                <div class="row" style="gap:var(--s2);">
+                  <span class="ppk-bar" style="flex:1;min-width:52px;"><span class="ppk-fill" style="width:<%= s.relPct || 0 %>%"></span></span>
+                  <span style="font-variant-numeric:tabular-nums;"><%= s.relPct != null ? fa(s.relPct) : '—' %></span>
+                </div>
+              </td>
+              <td class="ta-l"><%= fa(s.sample_count || 0) %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">اعتبار از ترکیب دقت تاریخی، سرعت بروزرسانی و تعداد نمونه ساخته می‌شود</div>
+    </div>
+    <% } %>
+
     <div class="page-head"><h2 class="sec-title">پیش‌بینی‌های پیش‌رو</h2></div>
     <div class="pred-grid mb6">
       <% predictions.forEach(function (p) { %>

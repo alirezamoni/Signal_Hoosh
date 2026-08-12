@@ -570,6 +570,10 @@ app.listen(PORT, HOST, () => {
   startPolymarketScheduler();
   require('./gold-crawler').startGoldScheduler(10);
   require('./property-crawler').startPropertyScheduler(24);
+  require('./insights-brief').startBriefScheduler(6);
+  // تحلیل همبستگی سنگین است و داده‌اش روزانه عوض می‌شود — شبی یک‌بار کافی است
+  setTimeout(() => { try { require('./insights-leadlag').run(); } catch (e) { console.warn('[leadlag]', e.message); } }, 8 * 60 * 1000);
+  setInterval(() => { try { require('./insights-leadlag').run(); } catch (e) { console.warn('[leadlag]', e.message); } }, 24 * 3600 * 1000);
   require('./lib/channel-photos').startPhotoScheduler(6);
   startDigestScheduler();
   if (financeCrawler) financeCrawler.startScheduler();
