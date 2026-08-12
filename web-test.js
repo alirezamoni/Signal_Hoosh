@@ -232,7 +232,31 @@ function rankBadge(now, before) {
 }
 
 // رندر صفحه داخل layout
+// مسیر راهنما در صفحه دیده می‌شود ولی برای گوگل نشانه‌گذاری نشده بود؛
+// با این نشانه‌گذاری، در نتایج جستجو به‌جای آدرس خام، مسیر فارسی می‌آید.
+function breadcrumbFor(active) {
+  const tab = TABS.find(t => t.href === active);
+  if (!tab || tab.href === '/') return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'خانه', item: SITE + '/' },
+      { '@type': 'ListItem', position: 2, name: tab.label, item: SITE + tab.href },
+    ],
+  };
+}
+
 function page(res, tpl, active, seo, data, jsonld) {
+  // صفحات عمومی می‌توانند در لبه کش شوند. s-maxage فقط برای کش مشترک
+  // (nginx و Cloudflare) است؛ مرورگر کاربر با max-age کوتاه‌تر تازه می‌ماند.
+  // بدون این، هر بازدیدکننده مستقیم به سرور می‌خورد و زیر ترافیک، همین
+  // نقطه اول از همه‌جا کم می‌آورد.
+  if (!seo || !seo.noindex) {
+    res.set('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=600');
+  } else {
+    res.set('Cache-Control', 'no-store');
+  }
   const locals = Object.assign({
     fa, num, toman, pct, usd, excerpt, timeAgo, timeUntil, faSigned, faDate, faDay, mediaOf,
     clean: txt.clean, rankBadge, sparkPath, sparkArea, trendDir,
@@ -240,7 +264,10 @@ function page(res, tpl, active, seo, data, jsonld) {
   }, data);
   res.render('pages/' + tpl, locals, (err, body) => {
     if (err) { console.error('[render]', tpl, err.message); return res.status(500).send('خطا در رندر صفحه'); }
-    res.render('layout', Object.assign({}, locals, { body, seo, jsonld: jsonld || null }), (e2, html) => {
+    const crumb = breadcrumbFor(active);
+    let ld = jsonld || null;
+    if (crumb) ld = ld ? [].concat(ld, crumb) : crumb;
+    res.render('layout', Object.assign({}, locals, { body, seo, jsonld: ld }), (e2, html) => {
       if (e2) { console.error('[layout]', e2.message); return res.status(500).send('خطا در رندر صفحه'); }
       res.send(html);
     });
@@ -1578,7 +1605,10 @@ app.get('/sitemap.xml', (req, res) => {
   ];
   let items = '';
   try {
-    for (const r of newsRO.prepare('SELECT id, published_at FROM news ORDER BY published_at DESC LIMIT 2000').all()) {
+    // خبرِ کوتاه برای گوگل «محتوای نازک» است. از ۷۹ هزار خبر، حدود
+    // ۲۵ هزارتا زیر ۱۲۰ نویسه‌اند؛ ایندکس شدن انبوهشان اعتبار کل دامنه
+    // را پایین می‌آورد. فقط خبرهایی با متن کافی وارد سایت‌مپ می‌شوند.
+    for (const r of newsRO.prepare().all()) {
       items += `<url><loc>${SITE}/news/${r.id}</loc><lastmod>${new Date(r.published_at).toISOString()}</lastmod><changefreq>never</changefreq><priority>0.6</priority></url>`;
     }
   } catch (e) {}
