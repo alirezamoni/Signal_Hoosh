@@ -1608,7 +1608,7 @@ app.get('/sitemap.xml', (req, res) => {
     // خبرِ کوتاه برای گوگل «محتوای نازک» است. از ۷۹ هزار خبر، حدود
     // ۲۵ هزارتا زیر ۱۲۰ نویسه‌اند؛ ایندکس شدن انبوهشان اعتبار کل دامنه
     // را پایین می‌آورد. فقط خبرهایی با متن کافی وارد سایت‌مپ می‌شوند.
-    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 AND LENGTH(COALESCE(text_fa, text, '')) >= 300 ORDER BY published_at DESC LIMIT 5000').all()) {
+    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 AND LENGTH(COALESCE(text_fa, text)) >= 300 ORDER BY published_at DESC LIMIT 5000').all()) {
       items += `<url><loc>${SITE}/news/${r.id}</loc><lastmod>${new Date(r.published_at).toISOString()}</lastmod><changefreq>never</changefreq><priority>0.6</priority></url>`;
     }
   } catch (e) {}
