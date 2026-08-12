@@ -10,7 +10,11 @@ const tdb = require('./timeline-db');
 const ai = require('./timeline-ai');
 
 const TO_NODES = ['usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce'];
-const HORIZONS = [3, 12, 24];
+/* افق‌ها بر حسب ساعت ذخیره می‌شوند (ستون time_horizon تغییر نمی‌کند) ولی
+   مقیاسشان از ساعت به روز رفت: ۱، ۳ و ۷ روز. در افق سه‌ساعته، نوسان
+   عادی بازار از هر سیگنالی که این موتور دارد بزرگ‌تر است. */
+const HORIZONS = [24, 72, 168];
+const PRIMARY_HORIZON = 24;
 const SYMBOL_LABEL = {
   usd: 'دلار', coin: 'سکه', gold18: 'طلای ۱۸', tether: 'تتر', bitcoin: 'بیت‌کوین',
   oil_brent: 'نفت', stock_market: 'بورس', mesghal: 'مثقال', ounce: 'انس',
@@ -263,7 +267,10 @@ async function tryGeneratePredictions() {
   if (existing.length >= MAX_OPEN) return 0; // enough already
 
   // track existing target+horizon combos — don't create duplicates
-  const existingCombos = new Set(existing.map(p => `${p.target}_${p.time_horizon}_${p.direction}`));
+  /* جهت را از کلید برداشتیم: جهتی که اینجا حدس زده می‌شود با جهت نهایی
+     بعد از ترکیب مدل‌ها یکی نیست، و همین باعث می‌شد یکتاسازی رد شود.
+     یک پیش‌بینی باز برای هر هدف و افق، فارغ از جهت. */
+  const existingCombos = new Set(existing.map(p => `${p.target}_${p.time_horizon}`));
 
   const chains = tdb.getChains('active', 30);
   const hasPred = _chainsWithOpenPredictions();
@@ -291,15 +298,15 @@ async function tryGeneratePredictions() {
       const bias = edge.correlation || 0;
       if (Math.abs(bias) < 0.15) continue; // no directional signal — skip this target
       const dir = bias > 0 ? 'up' : 'down';
-      const comboKey = `${target}_3_${dir}`;
+      const comboKey = `${target}_${PRIMARY_HORIZON}`;
       if (existingCombos.has(comboKey)) continue; // skip if already predicted
       const score = (edge.reliability || 0) * Math.abs(bias) + (currentPrice(target) ? 0.1 : 0);
       if (!best || score > best.score) best = { target, edge, score, dir };
     }
     if (best) {
-      existingCombos.add(`${best.target}_3_${best.dir}`); // mark combo as used
+      existingCombos.add(`${best.target}_${PRIMARY_HORIZON}`);
       try {
-        if (await generatePrediction(chain, full, best.target, 3, regime, triggerTopic, best.edge)) made++;
+        if (await generatePrediction(chain, full, best.target, PRIMARY_HORIZON, regime, triggerTopic, best.edge)) made++;
       } catch (e) { /* continue */ }
     }
   }
@@ -342,7 +349,15 @@ function reviseOpenPredictions(newEvents) {
     // if event direction opposes prediction direction, invert likelihood
     if (e.direction && p.direction !== 'flat' && e.direction !== p.direction) L = 1 - L;
     const prior = p.confidence || 0.5;
-    let posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.01, 0.95);
+    /* یال‌های این گراف اعتبار ~۰٫۱۵ دارند. با به‌روزرسانی بیزی خام، هر
+       رویداد اطمینان را چند برابر کوچک می‌کند و بعد از چند رویداد به کف
+       می‌چسبد — و آن‌وقت *همه‌ی* پیش‌بینی‌ها اطمینان یکسان می‌گیرند و
+       کالیبراسیون هم یک عدد ثابت برمی‌گرداند. سقف حرکت هر بازبینی محدود
+       شد تا شواهد ضعیف نتوانند یک‌شبه اطمینان را صفر کنند. */
+    let posterior = clamp((prior * L) / (prior * L + (1 - prior) * (1 - L)), 0.05, 0.95);
+    const MAX_STEP = 0.12;
+    posterior = clamp(posterior, prior - MAX_STEP, prior + MAX_STEP);
+    posterior = clamp(posterior, 0.05, 0.95);
     // during cold-start (no validations yet), cap confidence at 0.5 — don't show fake high confidence
     if (tdb.countValidations() < 20) posterior = Math.min(posterior, 0.5);
     // Only nudge predicted_pct when the trigger carries a comparable price-percentage.
@@ -354,6 +369,14 @@ function reviseOpenPredictions(newEvents) {
       ? p.predicted_pct
       : clamp((p.predicted_pct || 0) * 0.7 + clamp(mag, -5, 5) * 0.3, -5, 5);
     const cal = tdb.calibrate(posterior);
+
+    /* اگر نه اطمینان تغییر کرده، نه درصد، نوشتن ردیف فقط دیتابیس را
+       باد می‌کند. ۴۸ هزار ردیف از ۴۸ هزار ردیف همین بودند. */
+    const moved = Math.abs(posterior - prior) > 0.005 ||
+                  Math.abs((newPct || 0) - (p.predicted_pct || 0)) > 0.01 ||
+                  Math.abs((cal || 0) - (p.calibrated_confidence || 0)) > 0.005;
+    if (!moved) continue;
+
     tdb.insertPredictionUpdate({
       prediction_id: p.id, trigger_event_id: e.id, trigger_desc: e.title,
       prev_confidence: prior, new_confidence: posterior,

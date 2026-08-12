@@ -23,6 +23,7 @@ const trendDB   = require('./trend-db');
 const goldDB    = require('./gold-db');
 const propDB    = require('./property-db');
 const insightsDB = require('./insights-db');
+const tlSkill    = require('./timeline-skill');
 const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
@@ -1154,6 +1155,16 @@ app.get('/future', (req, res) => {
     if (g && g.t) { acc = { dir: (g.c / g.t) * 100, n: g.t }; confidence = (g.c / g.t) * 100; }
   } catch (e) {}
 
+  // ── کارنامه‌ی واقعی موتور ──
+  let skill = null;
+  try {
+    skill = tlSkill.compute();
+    if (skill) {
+      skill.verdictText = tlSkill.VERDICT_FA[skill.verdict] || '';
+      (skill.byTarget || []).forEach(t => { t.label = symLabel(t.target); });
+    }
+  } catch (e) { console.warn('[future/skill]', e.message); }
+
   // ── روایت روزانه ──
   let brief = null, briefHistory = [];
   try {
@@ -1219,7 +1230,7 @@ app.get('/future', (req, res) => {
     desc: 'موتور کشف زنجیره‌های علّی: چه خبری چه بازاری را با چه تأخیری حرکت می‌دهد. پیش‌بینی دلار، سکه و طلا با سنجش شفاف دقت.',
     path: '/future'
   }, { predictions, chains, patterns, accuracy, indicators, archive, acc, confidence, regime, REGIME,
-       brief, briefHistory, leadLag, leadLagMeta, sources });
+       brief, briefHistory, leadLag, leadLagMeta, sources, skill });
 });
 
 // ── ارتباط با ما ──

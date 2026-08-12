@@ -771,10 +771,26 @@ function plattCalibrate(rawConfidence) {
   const z = _platt.a * rawConfidence + _platt.b;
   return 1 / (1 + Math.exp(-z));
 }
+/**
+ * اگر اطمینان‌های خامِ گذشته همه یک عدد باشند، منحنی کالیبراسیون یک نقطه
+ * دارد و هر ورودی را به همان یک عدد نگاشت می‌کند. خروجی آن‌وقت شبیه
+ * «اطمینان کالیبره‌شده» است ولی در واقع یک ثابت است — که بدتر از نداشتنِ
+ * کالیبراسیون است، چون به عدد بی‌معنی ظاهر معتبر می‌دهد.
+ */
+function _degenerateSpread() {
+  const r = db.prepare(`
+    SELECT MIN(p.confidence) lo, MAX(p.confidence) hi
+    FROM predictions p JOIN prediction_validations v ON v.prediction_id = p.id
+  `).get();
+  if (!r || r.lo == null) return true;
+  return (r.hi - r.lo) < 0.05;
+}
+
 function calibrate(rawConfidence) {
   // Phase 1 (<20): raw. Phase 2 (20-100): isotonic-5. Phase 3 (>100): isotonic-10 OR platt (lower ECE).
   const n = countValidations();
   if (n < 20) return rawConfidence;
+  if (_degenerateSpread()) return rawConfidence;
   if (n < 100) return isotonicCalibrate(rawConfidence);
   // choose lower-ECE method by quick estimate
   const iso = isotonicCalibrate(rawConfidence);

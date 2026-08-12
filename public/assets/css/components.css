@@ -1055,3 +1055,15 @@ tbody tr:hover { background: var(--card-hover); }
 .brief-more { margin-top: var(--s2); }
 .brief-more > summary { cursor: pointer; color: var(--accent); display: inline-block; }
 .brief-old { font-size: var(--fs-sm); line-height: 1.9; color: var(--muted); margin-top: var(--s2); }
+
+/* ── کارنامه‌ی موتور پیش‌بینی ──
+   رنگ حاشیه معنی دارد: وقتی موتور مهارت اثبات‌شده ندارد، این باید در
+   نگاه اول دیده شود نه بعد از خواندن متن. */
+.skill-box { border-right: 3px solid var(--border-strong); }
+.skill-box.skill-no_skill { border-right-color: var(--down); }
+.skill-box.skill-too_few,
+.skill-box.skill-no_data { border-right-color: var(--warn); }
+.skill-box.skill-weak { border-right-color: var(--warn); }
+.skill-box.skill-skill { border-right-color: var(--up); }
+.skill-verdict { font-size: var(--fs-md); line-height: 2; color: var(--text); }
+.skill-detail > summary { cursor: pointer; color: var(--accent); font-size: var(--fs-sm); }

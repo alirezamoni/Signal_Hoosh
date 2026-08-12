@@ -7,13 +7,6 @@
       <p class="page-sub">کشف خودکار زنجیره‌های علّی میان خبر، جستجو و بازار</p>
     </div>
 
-    <% if (confidence != null) { %>
-    <div class="ribbon">
-      <span class="ribbon-label">اطمینان کلی سیستم</span>
-      <div class="ribbon-bar"><div class="ribbon-fill" style="width:<%= Math.round(confidence) %>%;"></div></div>
-      <span class="ribbon-val"><%= fa(Math.round(confidence)) %>٪</span>
-    </div>
-    <% } %>
 
     <blockquote class="desc">
       این بخش زنجیره‌ی رویدادهایی را که همین الان در حال رخ دادن‌اند نشان می‌دهد: ریشه‌ی خبر،
@@ -23,13 +16,73 @@
     </blockquote>
 
     <div class="grid g4 mb4">
-      <div class="kpi"><div class="kpi-label">دقت جهت</div><div class="kpi-val <%= acc.dir != null ? 'up' : '' %>"><%= acc.dir != null ? fa(Math.round(acc.dir)) + '٪' : '—' %></div><div class="kpi-note">از <%= fa(acc.n || 0) %> پیش‌بینی اعتبارسنجی‌شده</div></div>
+      <div class="kpi"><div class="kpi-label">دقت جهت</div><div class="kpi-val"><%= acc.dir != null ? fa(Math.round(acc.dir)) + '٪' : '—' %></div><div class="kpi-note">از <%= fa(acc.n || 0) %> پیش‌بینی · کارنامه‌ی کامل پایین‌تر</div></div>
       <div class="kpi"><div class="kpi-label">زنجیره‌های فعال</div><div class="kpi-val"><%= fa(chains.length) %></div><div class="kpi-note">در حال پیگیری</div></div>
       <div class="kpi"><div class="kpi-label">پیش‌بینی‌های باز</div><div class="kpi-val"><%= fa(predictions.length) %></div><div class="kpi-note">هنوز نتیجه‌شان مشخص نشده</div></div>
       <div class="kpi"><div class="kpi-label">الگوهای آموخته‌شده</div><div class="kpi-val"><%= fa(patterns.length) %></div><div class="kpi-note">حافظه‌ی بلندمدت سیستم</div></div>
     </div>
 
-    <% if (predictions.length) { %>
+    <!-- ══ کارنامه‌ی واقعی موتور ══ -->
+    <% if (skill && skill.n) { %>
+    <section class="panel mb4 skill-box skill-<%= skill.verdict %>">
+      <div class="panel-head">
+        <h2 class="panel-title">کارنامه‌ی این موتور</h2>
+        <span class="panel-link"><%= fa(skill.n) %> پیش‌بینی اعتبارسنجی‌شده</span>
+      </div>
+      <div class="panel-body-pad">
+        <p class="skill-verdict"><%= skill.verdictText %></p>
+
+        <div class="grid g4 mt3">
+          <div class="kpi">
+            <div class="kpi-label">دقت جهت، وقتی بازار واقعاً حرکت کرد</div>
+            <div class="kpi-val"><%= skill.movedAccPct != null ? fa(skill.movedAccPct) + '٪' : '—' %></div>
+            <div class="kpi-note">روی <%= fa(skill.movedN) %> مورد · پرتاب سکه ۵۰٪ است</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">دقت خام روی همه‌ی موارد</div>
+            <div class="kpi-val"><%= fa(skill.accPct) %>٪</div>
+            <div class="kpi-note">مبنای «همیشه جهت غالب» <%= fa(skill.majorityPct) %>٪</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">سهم نتایج بی‌حرکت</div>
+            <div class="kpi-val"><%= fa(skill.flatSharePct) %>٪</div>
+            <div class="kpi-note">حرکت کمتر از ۰٫۲ درصد «بی‌حرکت» شمرده می‌شود</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">افتادن در بازه‌ی پیش‌بینی‌شده</div>
+            <div class="kpi-val"><%= fa(skill.inRangePct) %>٪</div>
+            <div class="kpi-note">مقدار واقعی بین کف و سقف اعلام‌شده</div>
+          </div>
+        </div>
+
+        <% if (skill.byTarget && skill.byTarget.length) { %>
+        <details class="skill-detail mt3">
+          <summary>کارنامه به تفکیک نماد</summary>
+          <div class="tbl-wrap mt3">
+            <table>
+              <thead><tr><th>نماد</th><th class="ta-l">تعداد</th><th class="ta-l">درست</th><th class="ta-l">دقت</th></tr></thead>
+              <tbody>
+                <% skill.byTarget.forEach(function (t) { %>
+                <tr>
+                  <td><%= t.label || t.target %></td>
+                  <td class="ta-l"><%= fa(t.n) %></td>
+                  <td class="ta-l"><%= fa(t.correct) %></td>
+                  <td class="ta-l"><%= fa(t.accPct) %>٪</td>
+                </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </details>
+        <% } %>
+      </div>
+      <div class="panel-foot">
+        این اعداد از مقایسه‌ی هر پیش‌بینی با قیمت واقعیِ همان لحظه ساخته شده‌اند و هیچ موردی
+        از آن‌ها کنار گذاشته نشده است. افق پیش‌بینی‌ها از سه ساعت به یک تا هفت روز تغییر کرده؛
+        کارنامه‌ی بالا هنوز عمدتاً بر پایه‌ی افق قدیمی است و با انباشته شدن نتایج تازه بازنویسی می‌شود.
+      </div>
+    </section>
+    <% } %>
 
     <!-- ══ روایت روزانه ══ -->
     <% if (brief) { %>
@@ -178,6 +231,9 @@
       <div class="panel-foot">اعتبار از ترکیب دقت تاریخی، سرعت بروزرسانی و تعداد نمونه ساخته می‌شود</div>
     </div>
     <% } %>
+
+
+    <% if (predictions.length) { %>
 
     <div class="page-head"><h2 class="sec-title">پیش‌بینی‌های پیش‌رو</h2></div>
     <div class="pred-grid mb6">
