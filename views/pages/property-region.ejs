@@ -1,0 +1,170 @@
+﻿<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/property">ترند ملک تهران</a> <span>/</span>
+      <span><%= r.name_fa %></span>
+    </nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">قیمت مسکن <%= r.name_fa %> تهران</h1>
+        <p class="page-sub">
+          رتبه‌ی <%= fa(r.rank) %> از <%= fa(total) %> منطقه از نظر قیمت · آخرین بروزرسانی <%= updatedAt %>
+        </p>
+      </div>
+      <div class="row" style="gap:var(--s2);">
+        <% if (prev) { %><a class="btn btn-sm" href="/property/<%= prev.slug %>"><%= prev.name_fa %> ←</a><% } %>
+        <% if (next) { %><a class="btn btn-sm" href="/property/<%= next.slug %>">→ <%= next.name_fa %></a><% } %>
+      </div>
+    </div>
+
+    <blockquote class="desc">
+      <%= intro %>
+    </blockquote>
+
+    <!-- ══ شاخص‌ها ══ -->
+    <div class="grid g4 mb4">
+      <div class="kpi">
+        <div class="kpi-label">قیمت تخمینی هر متر مربع</div>
+        <div class="kpi-val"><%= fa(toman(r.meter)) %></div>
+        <div class="kpi-note">تومان<% if (r.est) { %> · تخمین از سری ماهانه<% } %></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">قیمت یک واحد مسکونی متوسط</div>
+        <div class="kpi-val"><%= r.unit ? fa(toman(r.unit)) : '—' %></div>
+        <div class="kpi-note"><%= r.area ? 'واحد متوسط حدود ' + fa(r.area) + ' متر مربع' : 'داده‌ی واحد متوسط موجود نیست' %></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">نسبت به میانگین تهران</div>
+        <div class="kpi-val"><%= pct(r.vsCity) %></div>
+        <div class="kpi-note">میانگین شهر <%= fa(toman(city.avg)) %> تومان بر متر</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">رشد سالانه‌شده‌ی قیمت</div>
+        <div class="kpi-val"><%= r.growthYr != null ? pct(r.growthYr) : '—' %></div>
+        <div class="kpi-note"><%= fa(r.growthNote) %></div>
+      </div>
+    </div>
+
+    <!-- ══ نمودار روند ══ -->
+    <div class="grid g3 mb4">
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7h-5v5"/></svg>
+            اطلاعات بازار مسکن <%= r.name_fa %>
+          </h2>
+          <span class="panel-link">تومان بر متر</span>
+        </div>
+        <div class="panel-body-pad">
+          <% if (chart.points.length > 1) { %>
+          <svg class="gold-chart" viewBox="0 0 100 40" preserveAspectRatio="none" role="img"
+               aria-label="نمودار روند قیمت هر متر مربع در <%= r.name_fa %>">
+            <% chart.grid.forEach(function (g) { %>
+            <line x1="0" y1="<%= g %>" x2="100" y2="<%= g %>" stroke="var(--border-soft)" stroke-width=".3" vector-effect="non-scaling-stroke"/>
+            <% }); %>
+            <polyline points="<%= chart.poly %>" fill="none" stroke="var(--accent)" stroke-width="0.8" vector-effect="non-scaling-stroke"/>
+          </svg>
+          <!-- ترتیب برعکس: نمودار قدیمی‌ترین نقطه را چپ می‌کشد، RTL اولین
+               عنصر را راست می‌گذارد -->
+          <div class="row between mt3" style="font-size:var(--fs-xs);color:var(--faint);">
+            <span><%= chart.last.label %></span>
+            <span><%= chart.first.label %></span>
+          </div>
+          <div class="row wrap mt3" style="gap:var(--s3);font-size:var(--fs-sm);">
+            <span>کمترین: <strong><%= fa(toman(chart.min)) %></strong></span>
+            <span>بیشترین: <strong><%= fa(toman(chart.max)) %></strong></span>
+            <span>رشد کل بازه: <strong class="<%= chart.growth > 0 ? 'up' : 'down' %>"><%= pct(chart.growth) %></strong></span>
+          </div>
+          <% } else { %>
+          <p class="dim">سری زمانی کافی برای این منطقه ثبت نشده است.</p>
+          <% } %>
+        </div>
+        <div class="panel-foot">
+          <% if (chart.gap) { %>سری ماهانه‌ی منبع در بخشی از بازه پیوسته نیست؛ نقاط موجود بدون درون‌یابی رسم شده‌اند. <% } %>
+          رصد روزانه‌ی ما از <%= faDay(coverage.first_day) %> شروع شده و <%= fa(coverage.days) %> روز داده دارد.
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">جای این منطقه در شهر</h2></div>
+        <div class="panel-body-pad">
+          <% if (map.viewBox) { %>
+          <svg class="tmap tmap-sm" viewBox="<%= map.viewBox %>" role="img" aria-label="جای <%= r.name_fa %> روی نقشه‌ی تهران">
+            <% map.shapes.forEach(function (s) { %>
+            <path class="tmap-r" d="<%= s.d %>" fill="<%= s.region_no === r.region_no ? 'var(--accent)' : 'var(--inset)' %>"
+                  stroke="var(--border)"/>
+            <% }); %>
+          </svg>
+          <% } %>
+          <div class="row between mt3" style="font-size:var(--fs-sm);">
+            <span class="dim">رتبه‌ی قیمت</span>
+            <span><%= fa(r.rank) %> از <%= fa(total) %></span>
+          </div>
+          <div class="row between mt3" style="font-size:var(--fs-sm);">
+            <span class="dim">شاخص فرصت</span>
+            <span class="badge badge-acc"><%= r.opp != null ? fa(r.opp) : '—' %></span>
+          </div>
+          <div class="row between mt3" style="font-size:var(--fs-sm);">
+            <span class="dim">دسته</span>
+            <span><%= r.quadrant || '—' %></span>
+          </div>
+        </div>
+        <div class="panel-foot">شاخص فرصت، ترکیب ارزانی و سرعت رشد است — <a class="accent" href="/property">توضیح کامل</a></div>
+      </section>
+
+    </div>
+
+    <!-- ══ محله‌ها ══ -->
+    <% if (areas.length) { %>
+    <div class="sec-head"><h2 class="sec-title">محله‌های شاخص <%= r.name_fa %></h2></div>
+    <div class="filters mb4">
+      <% areas.forEach(function (a) { %><span class="filt"><%= a %></span><% }); %>
+    </div>
+    <% } %>
+
+    <!-- ══ مناطق هم‌قیمت ══ -->
+    <% if (similar.length) { %>
+    <div class="sec-head"><h2 class="sec-title">مناطق با قیمت نزدیک</h2></div>
+    <section class="panel mb4">
+      <div class="panel-body">
+        <% similar.forEach(function (s) { %>
+        <a class="drow" href="/property/<%= s.slug %>">
+          <div class="drow-main">
+            <span>
+              <span class="drow-name"><%= s.name_fa %></span>
+              <span class="drow-sub"><%= s.area ? 'واحد متوسط ' + fa(s.area) + ' متر' : '' %></span>
+            </span>
+          </div>
+          <div class="drow-val">
+            <span><%= fa(toman(s.meter)) %></span>
+            <!-- خنثی عمداً: سبز و قرمز در بقیه‌ی سایت یعنی رشد و افت،
+                 نه گران و ارزان — رنگ‌کردن اینجا دو معنی را قاطی می‌کرد -->
+            <span class="tag"><%= pct(s.diff) %></span>
+          </div>
+        </a>
+        <% }); %>
+      </div>
+      <div class="panel-foot">درصد، اختلاف قیمت متری آن منطقه با <%= r.name_fa %> است</div>
+    </section>
+    <% } %>
+
+    <div class="row wrap mb4" style="gap:var(--s2);">
+      <a class="btn btn-acc btn-sm" href="/property">مقایسه‌ی همه‌ی ۲۲ منطقه</a>
+      <a class="btn btn-sm" href="/finance">ترند بازارهای مالی</a>
+    </div>
+
+    <div class="notice">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+      <p>
+        این اعداد تخمین آماری از سطح قیمت <%= r.name_fa %> است و قیمت هیچ ملک مشخصی را نشان نمی‌دهد.
+        قیمت واقعی هر ملک به موقعیت دقیق، سن بنا، کیفیت ساخت و امکانات آن بستگی دارد.
+        <a href="/disclaimer">سلب مسئولیت</a>.
+      </p>
+    </div>
+
+  </div>
+</main>

@@ -21,6 +21,7 @@ const jobDB     = require('./job-db');
 const polyDB    = require('./polymarket-db');
 const trendDB   = require('./trend-db');
 const goldDB    = require('./gold-db');
+const propDB    = require('./property-db');
 const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
@@ -178,6 +179,7 @@ const TABS = [
   { href: '/trends',     label: 'ترند سرچ ایران' },
   { href: '/news',       label: 'ترند اخبار ایران' },
   { href: '/finance',    label: 'ترند بازارهای مالی' },
+  { href: '/property',   label: 'ترند ملک' },
   { href: '/cars',       label: 'ترند خودرو ایران' },
   { href: '/market',     label: 'ترند کالای ایران' },
   { href: '/jobs',       label: 'مارکت کار ایران' },
@@ -247,6 +249,13 @@ function breadcrumbFor(active) {
   };
 }
 
+function breadcrumbLeaf(active, leaf) {
+  const base = breadcrumbFor(active);
+  if (!base || !leaf) return base;
+  base.itemListElement.push({ '@type': 'ListItem', position: 3, name: leaf.name, item: SITE + leaf.item });
+  return base;
+}
+
 function page(res, tpl, active, seo, data, jsonld) {
   // صفحات عمومی می‌توانند در لبه کش شوند. s-maxage فقط برای کش مشترک
   // (nginx و Cloudflare) است؛ مرورگر کاربر با max-age کوتاه‌تر تازه می‌ماند.
@@ -264,7 +273,7 @@ function page(res, tpl, active, seo, data, jsonld) {
   }, data);
   res.render('pages/' + tpl, locals, (err, body) => {
     if (err) { console.error('[render]', tpl, err.message); return res.status(500).send('خطا در رندر صفحه'); }
-    const crumb = breadcrumbFor(active);
+    const crumb = (seo && seo.crumb) ? breadcrumbLeaf(active, seo.crumb) : breadcrumbFor(active);
     let ld = jsonld || null;
     if (crumb) ld = ld ? [].concat(ld, crumb) : crumb;
     res.render('layout', Object.assign({}, locals, { body, seo, jsonld: ld }), (e2, html) => {
@@ -546,6 +555,25 @@ const JOB_LABELS = {
   'customer-support': 'پشتیبانی مشتری'
 };
 
+/**
+ * خلاصه‌ی ملک برای تب خانه — گران‌ترین و ارزان‌ترین سر و ته شهر، به‌همراه
+ * نقشه‌ی کوچک. هر تب تازه باید نشانه‌ای در خانه بگذارد وگرنه کاربری که
+ * فقط صفحه‌ی اول را می‌بیند از وجودش خبردار نمی‌شود.
+ */
+function propertyHome() {
+  try {
+    const m = propertyModel();
+    if (!m.rows.length) return null;
+    return {
+      city: m.city, map: m.map,
+      top: m.rows.slice(0, 3),
+      bottom: m.rows.slice(-3).reverse(),
+      best: m.oppRows[0] || null,
+      count: m.rows.length,
+    };
+  } catch (e) { console.warn('[home/property]', e.message); return null; }
+}
+
 app.get('/', (req, res) => {
   let ticker = [], finance = [], cars = [], market = [], poly = [], jobs = null, carCount = 0;
 
@@ -591,6 +619,7 @@ app.get('/', (req, res) => {
   }, {
     ticker, finance, cars, market, poly, jobs, carCount,
     news, newsStats: newsStats(), trends: trendRows(10),
+    property: propertyHome(),
     future: [],
     updatedAt: faDate(new Date().toISOString())
   }, {
@@ -1152,7 +1181,12 @@ const DB_LABELS = {
   'market.db': 'کالا', 'jobs.db': 'بازار کار', 'job.db': 'بازار کار',
   'polymarket.db': 'پلی‌مارکت', 'timeline.db': 'ترند آینده',
   'messages.db': 'پیام‌های تماس', 'users.db': 'کاربران',
+  'property.db': 'ملک تهران', 'gold.db': 'پلتفرم‌های طلا',
 };
+
+// آستانه‌ی «قدیمی» برای بخش‌هایی که عمداً کم‌تکرار بروز می‌شوند
+const DB_MAX_AGE_H = { 'property.db': 30, 'messages.db': 24 * 30 };
+const DEFAULT_MAX_AGE_H = 6;
 
 // شمردن ۳۰هزار فایل رسانه در هر بار باز کردن پنل کند است — یک دقیقه کش می‌شود.
 let _mediaCache = { at: 0, count: 0, mb: 0 };
@@ -1200,8 +1234,8 @@ function dbFiles() {
           label: DB_LABELS[f] || f.replace(/\.db$/, ''),
           sizeMB: Math.round(t.size / 1048576 * 10) / 10,
           mtime: new Date(t.mtimeMs).toISOString(),
-          // بیش از ۶ ساعت بدون نوشتن = احتمالاً جمع‌آورنده‌ی آن بخش خوابیده
-          stale: Date.now() - t.mtimeMs > 6 * 3600 * 1000,
+          // بدون نوشتن در بازه‌ی مورد انتظار = احتمالاً جمع‌آورنده خوابیده
+          stale: Date.now() - t.mtimeMs > (DB_MAX_AGE_H[f] || DEFAULT_MAX_AGE_H) * 3600 * 1000,
         });
       } catch (e) {}
     }
@@ -1749,6 +1783,262 @@ app.get('/news/source/:username', (req, res, next) => {
   });
 });
 
+// ════════════ ترند ملک ════════════
+
+/* رنگ‌بندی نقشه: طیف تک‌رنگ از روشن به تیره. طیف سبز-قرمز اینجا اشتباه
+   بود چون در همین سایت معنی «رشد و افت» می‌دهد، نه «کم و زیاد». */
+/** نقاط polyline با محور افقی متناسب با تاریخ واقعی هر نقطه */
+function datePoly(points, wd, ht) {
+  const p = (points || []).filter(x => x && x.date && x.value > 0);
+  if (p.length < 2) return '';
+  const ts = p.map(x => new Date(x.date).getTime());
+  const t0 = ts[0], tSpan = (ts[ts.length - 1] - t0) || 1;
+  const vals = p.map(x => x.value);
+  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const vSpan = (max - min) || 1;
+  return p.map((x, i) => {
+    const px = ((ts[i] - t0) / tSpan) * wd;
+    const py = ht - ((x.value - min) / vSpan) * ht;
+    return px.toFixed(1) + ',' + py.toFixed(1);
+  }).join(' ');
+}
+
+const PROP_BANDS = ['#e0ecfb', '#a7c8f0', '#6ba3e3', '#3d7fd1', '#1f5aa8'];
+const PROP_TTL = 5 * 60 * 1000;
+let _propCache = { at: 0, data: null };
+
+function monthsBetween(a, b) {
+  const d1 = new Date(a), d2 = new Date(b);
+  if (isNaN(d1) || isNaN(d2)) return 0;
+  return Math.max(0, Math.round((d2 - d1) / (30.44 * 86400000)));
+}
+
+/**
+ * همه‌ی محاسبات تب ملک در یک جا.
+ *
+ * چرا کش پنج‌دقیقه‌ای: داده روزی یک‌بار عوض می‌شود ولی ساختن این مدل
+ * ۲۲ پرس‌وجوی سری زمانی دارد. بدون کش، هر بازدید همه را دوباره می‌زند.
+ */
+function propertyModel() {
+  if (_propCache.data && Date.now() - _propCache.at < PROP_TTL) return _propCache.data;
+
+  const all = propDB.latest();
+  const rows = all.filter(r => r.meter > 0).map(r => {
+    const t = propDB.trendsOf(r.region_no);
+    let growthYr = null, growthTotal = null, growthNote = 'سری زمانی کافی نیست', gap = false;
+
+    if (t.length >= 2) {
+      const a = t[0], b = t[t.length - 1];
+      const m = monthsBetween(a.date, b.date);
+      growthTotal = (b.value / a.value - 1) * 100;
+      if (m >= 6 && a.value > 0) {
+        growthYr = (Math.pow(b.value / a.value, 12 / m) - 1) * 100;
+        growthNote = 'از ' + (a.period || '') + ' تا ' + (b.period || '') + '، سالانه‌شده';
+      }
+      // فاصله‌ی بیش از دو ماه بین دو نقطه یعنی سری پیوسته نیست
+      for (let i = 1; i < t.length; i++) if (monthsBetween(t[i - 1].date, t[i].date) > 2) { gap = true; break; }
+    }
+
+    return {
+      region_no: r.region_no, name_fa: r.name_fa, slug: r.slug,
+      meter: r.meter, unit: r.unit, est: !!r.est,
+      d: r.svg_path, cx: r.svg_cx, cy: r.svg_cy,
+      areas: (() => { try { return JSON.parse(r.areas || '[]'); } catch (e) { return []; } })(),
+      day: r.day, captured_at: r.captured_at,
+      area: (r.unit && r.meter) ? Math.round(r.unit / r.meter) : null,
+      trends: t, growthYr, growthTotal, growthNote, gap,
+    };
+  });
+
+  if (!rows.length) {
+    const empty = { rows: [], city: null, map: { viewBox: null, shapes: [], legend: [] }, cityTrend: { points: [] } };
+    _propCache = { at: Date.now(), data: empty };
+    return empty;
+  }
+
+  rows.sort((a, b) => b.meter - a.meter);
+
+  const metersAll = rows.map(r => r.meter);
+  const avg = metersAll.reduce((s, v) => s + v, 0) / metersAll.length;
+  const maxM = Math.max.apply(null, metersAll), minM = Math.min.apply(null, metersAll);
+  const city = {
+    avg, max: rows[0], min: rows[rows.length - 1],
+    gap: minM > 0 ? maxM / minM : 0,
+  };
+
+  rows.forEach((r, i) => {
+    r.rank = i + 1;
+    r.vsCity = (r.meter / avg - 1) * 100;
+    r.barPct = Math.round((r.meter / maxM) * 100);
+  });
+
+  /* شاخص فرصت — دو نمره‌ی نرمال‌شده‌ی صفر تا صد، میانگین ساده.
+     عمداً ساده نگه داشته شده تا بشود در یک جمله توضیحش داد. */
+  const gs = rows.map(r => r.growthYr).filter(v => v != null);
+  const gMin = gs.length ? Math.min.apply(null, gs) : 0;
+  const gMax = gs.length ? Math.max.apply(null, gs) : 1;
+  const gSpan = (gMax - gMin) || 1;
+  const mSpan = (maxM - minM) || 1;
+  const gMed = gs.length ? gs.slice().sort((a, b) => a - b)[Math.floor(gs.length / 2)] : 0;
+
+  rows.forEach(r => {
+    const cheap = (1 - (r.meter - minM) / mSpan) * 100;
+    if (r.growthYr == null) { r.opp = null; r.quadrant = 'داده‌ی رشد ندارد'; return; }
+    const grow = ((r.growthYr - gMin) / gSpan) * 100;
+    r.opp = Math.round((cheap + grow) / 2);
+    const isCheap = r.meter < avg, isFast = r.growthYr > gMed;
+    r.quadrant = isCheap && isFast ? 'ارزان و پررشد'
+      : isCheap ? 'ارزان و کم‌رشد'
+      : isFast ? 'گران و پررشد' : 'گران و کم‌رشد';
+  });
+
+  /* نقشه — پنج دسته‌ی هم‌جمعیت (چندک) تا رنگ‌ها یکنواخت پخش شوند */
+  const sortedM = metersAll.slice().sort((a, b) => a - b);
+  const cuts = [];
+  for (let i = 1; i < PROP_BANDS.length; i++) cuts.push(sortedM[Math.floor(sortedM.length * i / PROP_BANDS.length)]);
+  const bandOf = v => { let i = 0; while (i < cuts.length && v >= cuts[i]) i++; return i; };
+
+  const map = {
+    viewBox: propDB.getMeta('map_viewbox'),
+    shapes: rows.filter(r => r.d).map(r => ({
+      region_no: r.region_no, slug: r.slug, name_fa: r.name_fa, meter: r.meter,
+      d: r.d, cx: r.cx, cy: r.cy, fill: PROP_BANDS[bandOf(r.meter)],
+    })),
+    legend: PROP_BANDS.map((fill, i) => ({ fill, from: i === 0 ? sortedM[0] : cuts[i - 1] })),
+  };
+
+  /* پراکندگی: محور افقی ارزانی (راست = ارزان‌تر، چون صفحه راست‌چین است)،
+     محور عمودی رشد (بالا = بیشتر) */
+  const scatter = rows.filter(r => r.growthYr != null).map(r => ({
+    region_no: r.region_no, slug: r.slug, name_fa: r.name_fa, meter: r.meter, growthYr: r.growthYr,
+    x: (8 + (1 - (r.meter - minM) / mSpan) * 84).toFixed(1),
+    y: (92 - ((r.growthYr - gMin) / gSpan) * 84).toFixed(1),
+  }));
+
+  /* روند میانگین شهر: میانگین ماه‌به‌ماه، فقط ماه‌هایی که حداقل نیمی از
+     مناطق داده دارند — وگرنه یک منطقه‌ی پرت کل خط را جابه‌جا می‌کند */
+  const byDate = new Map();
+  for (const r of rows) for (const p of r.trends) {
+    if (!byDate.has(p.date)) byDate.set(p.date, { period: p.period, vals: [] });
+    byDate.get(p.date).vals.push(p.value);
+  }
+  const need = Math.max(3, Math.floor(rows.length / 2));
+  const ct = [...byDate.entries()].filter(([, v]) => v.vals.length >= need)
+    .sort((a, b) => a[0] < b[0] ? -1 : 1)
+    .map(([date, v]) => ({ date, label: v.period, value: v.vals.reduce((s, x) => s + x, 0) / v.vals.length }));
+
+  const cityTrend = { points: ct, poly: '', first: null, last: null, growth: null };
+  if (ct.length > 1) {
+    cityTrend.poly = datePoly(ct, 100, 40);
+    cityTrend.first = ct[0];
+    cityTrend.last = ct[ct.length - 1];
+    cityTrend.growth = (ct[ct.length - 1].value / ct[0].value - 1) * 100;
+  }
+
+  const areaRows = rows.filter(r => r.area).sort((a, b) => b.area - a.area);
+  const maxArea = areaRows.length ? areaRows[0].area : 1;
+  areaRows.forEach(r => { r.areaPct = Math.round((r.area / maxArea) * 100); });
+
+  const oppRows = rows.filter(r => r.opp != null).slice().sort((a, b) => b.opp - a.opp);
+
+  const newest = rows.map(r => r.captured_at).filter(Boolean).sort().pop();
+
+  const data = {
+    rows, city, map, scatter, cityTrend, areaRows, oppRows,
+    coverage: propDB.coverage(),
+    updatedAt: newest ? timeAgo(newest) : '—',
+    budgetData: JSON.stringify(rows.map(r => ({ n: r.name_fa, s: r.slug, m: Math.round(r.meter) }))),
+  };
+  _propCache = { at: Date.now(), data };
+  return data;
+}
+
+app.get('/property', (req, res) => {
+  const m = propertyModel();
+  if (!m.rows.length) return res.status(503).send('داده‌ی ملک هنوز جمع‌آوری نشده است');
+
+  page(res, 'property', '/property', {
+    title: 'ترند ملک تهران | قیمت مسکن ۲۲ منطقه و روند بازار — سیگنال هوش',
+    desc: 'قیمت تخمینی هر متر مربع مسکن در ۲۲ منطقه‌ی تهران، متراژ واحد متوسط هر منطقه، ' +
+          'رشد سالانه‌ی قیمت، نقشه‌ی رنگی قیمت و شاخص فرصت — با بروزرسانی روزانه.',
+    path: '/property',
+  }, m, {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: 'قیمت مسکن مناطق تهران',
+    description: 'قیمت تخمینی هر متر مربع و قیمت واحد مسکونی متوسط در ۲۲ منطقه‌ی شهرداری تهران، با رصد روزانه.',
+    url: SITE + '/property',
+    inLanguage: 'fa-IR',
+    isAccessibleForFree: true,
+    spatialCoverage: { '@type': 'Place', name: 'تهران، ایران' },
+    variableMeasured: ['قیمت هر متر مربع', 'قیمت واحد مسکونی متوسط', 'متراژ واحد متوسط', 'رشد سالانه‌ی قیمت'],
+    creator: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+  });
+});
+
+app.get('/property/:slug', (req, res, next) => {
+  const slug = String(req.params.slug || '');
+  const mt = slug.match(/^region([1-9]|1[0-9]|2[0-2])$/);
+  if (!mt) return next();
+  const no = parseInt(mt[1], 10);
+
+  const m = propertyModel();
+  const r = m.rows.find(x => x.region_no === no);
+  if (!r) return next();
+
+  const idx = m.rows.indexOf(r);
+  const prev = idx > 0 ? m.rows[idx - 1] : null;          // گران‌تر
+  const next2 = idx < m.rows.length - 1 ? m.rows[idx + 1] : null;
+
+  // نمودار سری ماهانه‌ی همین منطقه
+  const pts = r.trends;
+  const chart = { points: pts, poly: '', grid: [10, 20, 30], min: null, max: null, growth: null, gap: r.gap };
+  if (pts.length > 1) {
+    const vals = pts.map(p => p.value);
+    chart.poly = datePoly(pts, 100, 40);
+    chart.min = Math.min.apply(null, vals);
+    chart.max = Math.max.apply(null, vals);
+    chart.growth = (vals[vals.length - 1] / vals[0] - 1) * 100;
+    chart.first = pts[0];
+    chart.last = pts[pts.length - 1];
+  }
+
+  // نزدیک‌ترین مناطق از نظر قیمت — پیوند داخلی مفید و مسیر خزش
+  const similar = m.rows.filter(x => x.region_no !== no)
+    .map(x => Object.assign({}, x, { diff: (x.meter / r.meter - 1) * 100 }))
+    .sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff)).slice(0, 5);
+
+  const intro =
+    r.name_fa + ' تهران با قیمت تخمینی ' + fa(toman(r.meter)) + ' تومان برای هر متر مربع، ' +
+    'رتبه‌ی ' + fa(r.rank) + ' از ' + fa(m.rows.length) + ' منطقه‌ی شهر را دارد و ' +
+    (r.vsCity >= 0 ? fa(Math.abs(r.vsCity).toFixed(0)) + ' درصد گران‌تر' : fa(Math.abs(r.vsCity).toFixed(0)) + ' درصد ارزان‌تر') +
+    ' از میانگین تهران است' +
+    (r.area ? '. آپارتمان معمول این منطقه حدود ' + fa(r.area) + ' متر مربع است' : '') + '.';
+
+  page(res, 'property-region', '/property', {
+    title: 'قیمت مسکن ' + r.name_fa + ' تهران | هر متر ' + fa(toman(r.meter)) + ' تومان — سیگنال هوش',
+    desc: 'قیمت تخمینی هر متر مربع و قیمت واحد مسکونی متوسط در ' + r.name_fa + ' تهران، ' +
+          'روند ماهانه‌ی قیمت، متراژ واحد متوسط و مقایسه با میانگین شهر.',
+    path: '/property/' + r.slug,
+    crumb: { name: r.name_fa, item: '/property/' + r.slug },
+  }, {
+    r, city: m.city, map: m.map, chart, similar, areas: r.areas,
+    total: m.rows.length, prev, next: next2,
+    coverage: m.coverage, updatedAt: m.updatedAt,
+    intro,
+  }, {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: 'قیمت مسکن ' + r.name_fa + ' تهران',
+    description: intro,
+    url: SITE + '/property/' + r.slug,
+    inLanguage: 'fa-IR',
+    isAccessibleForFree: true,
+    spatialCoverage: { '@type': 'Place', name: r.name_fa + '، تهران، ایران' },
+    creator: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+  });
+});
+
 // ── robots و sitemap ──
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(
@@ -1770,6 +2060,7 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/news', pri: '0.9', freq: 'hourly' },
     { loc: '/news/archive', pri: '0.8', freq: 'daily' },
     { loc: '/finance', pri: '0.9', freq: 'hourly' },
+    { loc: '/property', pri: '0.9', freq: 'daily' },
     { loc: '/cars', pri: '0.8', freq: 'daily' },
     { loc: '/market', pri: '0.8', freq: 'daily' },
     { loc: '/jobs', pri: '0.7', freq: 'daily' },
@@ -1779,6 +2070,13 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/disclaimer', pri: '0.4', freq: 'monthly' }
   ];
   let items = '';
+
+  // صفحه‌ی هر منطقه‌ی تهران — ۲۲ صفحه‌ی مستقل و قابل ایندکس
+  try {
+    for (const r of propDB.getRegions()) {
+      items += `<url><loc>${SITE}/property/${r.slug}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    }
+  } catch (e) {}
 
   // صفحات روز و منبع — این‌ها مسیر خزش به تک‌تک اخبار می‌سازند
   try {

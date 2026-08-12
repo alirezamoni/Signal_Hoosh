@@ -934,3 +934,50 @@ tbody tr:hover { background: var(--card-hover); }
 .msg-mail { font-size: var(--fs-xs); color: var(--dim); direction: ltr; unicode-bidi: isolate; }
 .msg-text { font-size: var(--fs-md); color: var(--muted); line-height: 1.8; margin-top: 5px; }
 .msg-time { font-size: var(--fs-xs); color: var(--faint); white-space: nowrap; }
+
+/* ── نقشه‌ی مناطق تهران ──
+   طیف تک‌رنگ عمداً در هر دو تم یکی است: راهنمای رنگ باید بین تم روشن و
+   تیره یک معنی بدهد، وگرنه کاربر ناچار است هربار دوباره بخواندش. */
+.tmap { width: 100%; height: auto; display: block; }
+.tmap-sm { max-height: 190px; }
+.tmap-r {
+  stroke: var(--bg);
+  stroke-width: 1.2;
+  transition: opacity var(--dur) var(--ease);
+}
+.tmap a:hover .tmap-r { opacity: .72; }
+.tmap a:focus-visible .tmap-r { stroke: var(--accent); stroke-width: 2.4; }
+.tmap-n {
+  font-size: 15px;
+  font-weight: var(--fw-medium);
+  fill: #0b2545;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(255,255,255,.65);
+  stroke-width: 2.5px;
+}
+.tmap-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2);
+  margin-top: var(--s3); font-size: var(--fs-xs); color: var(--muted);
+}
+.tmap-key { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.tmap-key i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.scatter-lbl { font-size: 4px; fill: #fff; text-anchor: middle; pointer-events: none; }
+
+/* ── محاسبه‌گر بودجه ── */
+.bud-row {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: 7px 0; border-bottom: 1px solid var(--border-soft);
+}
+.bud-row:last-child { border-bottom: none; }
+.bud-name { width: 82px; flex-shrink: 0; font-size: var(--fs-md); color: var(--text); }
+.bud-name:hover { color: var(--accent); }
+.bud-m { width: 96px; text-align: left; flex-shrink: 0; font-variant-numeric: tabular-nums; font-size: var(--fs-md); }
+.bud-note { font-size: var(--fs-xs); color: var(--faint); }
+
+/* نوار نسبت — تا اینجا فقط حالت‌های good/bad رنگ داشتند و نوار خنثی
+   نامرئی می‌ماند. رنگ پیش‌فرض و display:block اضافه شد تا هرجا بدون
+   حالت استفاده شود هم دیده شود. */
+.ppk-fill { display: block; background: var(--accent); }

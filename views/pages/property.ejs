@@ -1,0 +1,294 @@
+﻿<main id="main" class="page">
+  <div class="container">
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">ترند ملک تهران</h1>
+        <p class="page-sub">قیمت مسکن ۲۲ منطقه‌ی تهران · آخرین بروزرسانی <%= updatedAt %></p>
+      </div>
+      <span class="tag"><%= fa(rows.length) %> منطقه</span>
+    </div>
+
+    <blockquote class="desc">
+      قیمت تخمینی هر متر مربع آپارتمان مسکونی در تمام مناطق شهرداری تهران، هر روز رصد و
+      در بایگانی ثبت می‌شود. علاوه بر قیمت، متراژ واحد متوسط هر منطقه، سرعت رشد قیمت،
+      و شاخص فرصت هم محاسبه می‌شود تا بشود مناطق را با هم مقایسه کرد — نه فقط از نظر
+      گرانی، بلکه از نظر آنچه در ازای پول به‌دست می‌آید.
+    </blockquote>
+
+    <!-- ══ شاخص‌های کلیدی ══ -->
+    <div class="grid g4 mb4">
+      <div class="kpi">
+        <div class="kpi-label">میانگین قیمت هر متر مربع در تهران</div>
+        <div class="kpi-val"><%= fa(toman(city.avg)) %></div>
+        <div class="kpi-note">میانگین ساده‌ی <%= fa(rows.length) %> منطقه · تومان</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">گران‌ترین منطقه</div>
+        <div class="kpi-val fa"><%= city.max.name_fa %></div>
+        <div class="kpi-note"><%= fa(toman(city.max.meter)) %> تومان برای هر متر</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">ارزان‌ترین منطقه</div>
+        <div class="kpi-val fa"><%= city.min.name_fa %></div>
+        <div class="kpi-note"><%= fa(toman(city.min.meter)) %> تومان برای هر متر</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">شکاف قیمتی شهر</div>
+        <div class="kpi-val"><%= fa(city.gap.toFixed(1)) %> <span style="font-size:var(--fs-md);color:var(--dim);">برابر</span></div>
+        <div class="kpi-note">هر متر در <%= city.max.name_fa %> به‌اندازه‌ی <%= fa(city.gap.toFixed(1)) %> متر در <%= city.min.name_fa %> است</div>
+      </div>
+    </div>
+
+    <!-- ══ نقشه + رتبه‌بندی ══ -->
+    <div class="grid g3 mb4">
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            نقشه‌ی قیمت مسکن تهران
+          </h2>
+          <span class="panel-link">تومان بر متر مربع</span>
+        </div>
+        <div class="panel-body-pad">
+          <% if (map.viewBox) { %>
+          <svg class="tmap" viewBox="<%= map.viewBox %>" role="img" aria-label="نقشه‌ی رنگی قیمت مسکن در ۲۲ منطقه‌ی تهران">
+            <% map.shapes.forEach(function (s) { %>
+            <a href="/property/<%= s.slug %>" aria-label="<%= s.name_fa %>">
+              <title><%= s.name_fa %> — <%= s.meter ? fa(toman(s.meter)) + ' تومان بر متر' : 'بدون داده' %></title>
+              <path class="tmap-r" d="<%= s.d %>" fill="<%= s.fill %>"/>
+            </a>
+            <% }); %>
+            <% map.shapes.forEach(function (s) { if (s.cx == null) return; %>
+            <text class="tmap-n" x="<%= s.cx %>" y="<%= s.cy %>"><%= fa(s.region_no) %></text>
+            <% }); %>
+          </svg>
+          <div class="tmap-legend">
+            <span class="dim">ارزان‌تر</span>
+            <% map.legend.forEach(function (b) { %>
+            <span class="tmap-key"><i style="background:<%= b.fill %>"></i><%= fa(toman(b.from)) %></span>
+            <% }); %>
+            <span class="dim">گران‌تر</span>
+          </div>
+          <% } else { %>
+          <p class="dim">نقشه هنوز ساخته نشده است.</p>
+          <% } %>
+        </div>
+        <div class="panel-foot">با کلیک روی هر منطقه، صفحه‌ی کامل آن منطقه باز می‌شود · مرزها مطابق تقسیمات شهرداری تهران</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7h-5v5"/></svg>
+            گران‌ترین مناطق
+          </h2>
+          <span class="panel-link">هر متر</span>
+        </div>
+        <div class="panel-body">
+          <% rows.slice(0, 11).forEach(function (r, i) { %>
+          <a class="drow" href="/property/<%= r.slug %>">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.name_fa %></span></div>
+            <div class="drow-val">
+              <span><%= fa(toman(r.meter)) %></span>
+              <% if (r.growthYr != null) { %>
+              <span class="badge <%= r.growthYr > 0 ? 'badge-up' : 'badge-down' %>"><%= pct(r.growthYr) %></span>
+              <% } %>
+            </div>
+          </a>
+          <% }); %>
+        </div>
+        <div class="panel-foot">درصد کنار هر منطقه، رشد سالانه‌شده‌ی قیمت است</div>
+      </section>
+
+    </div>
+
+    <!-- ══ جدول کامل ══ -->
+    <div class="sec-head between wrap">
+      <h2 class="sec-title">همه‌ی مناطق</h2>
+      <span class="dim" style="font-size:var(--fs-sm);">قیمت‌ها به تومان</span>
+    </div>
+
+    <div class="panel mb4">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="rank-cell">رتبه</th>
+              <th>منطقه</th>
+              <th>هر متر مربع</th>
+              <th>یک واحد متوسط</th>
+              <th>متراژ واحد متوسط</th>
+              <th>رشد سالانه</th>
+              <th>نسبت به میانگین شهر</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach(function (r, i) { %>
+            <tr>
+              <td class="rank-cell"><%= fa(i + 1) %></td>
+              <td><a class="accent" href="/property/<%= r.slug %>"><%= r.name_fa %></a><% if (r.est) { %> <span class="tag">تخمینی</span><% } %></td>
+              <td><%= fa(toman(r.meter)) %></td>
+              <td><%= r.unit ? fa(toman(r.unit)) : '—' %></td>
+              <td><%= r.area ? fa(r.area) + ' متر' : '—' %></td>
+              <td><% if (r.growthYr != null) { %><span class="<%= r.growthYr > 0 ? 'up' : 'down' %>"><%= pct(r.growthYr) %></span><% } else { %>—<% } %></td>
+              <td>
+                <div class="row" style="gap:var(--s2);align-items:center;">
+                  <span class="ppk-bar" style="flex:1;min-width:70px;">
+                    <span class="ppk-fill <%= r.vsCity >= 0 ? 'bad' : 'good' %>" style="width:<%= r.barPct %>%"></span>
+                  </span>
+                  <span style="font-variant-numeric:tabular-nums;white-space:nowrap;"><%= pct(r.vsCity) %></span>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        «متراژ واحد متوسط» از تقسیم قیمت یک واحد مسکونی متوسط بر قیمت هر متر مربع همان منطقه به‌دست می‌آید
+        و نشان می‌دهد آپارتمان معمول آن منطقه چقدر بزرگ است.
+      </div>
+    </div>
+
+    <!-- ══ متراژ واحد متوسط ══ -->
+    <div class="sec-head"><h2 class="sec-title">آپارتمان معمول هر منطقه چقدر بزرگ است؟</h2></div>
+    <blockquote class="desc desc-sm">
+      دو منطقه می‌توانند قیمت متری نزدیک داشته باشند ولی خانه‌هایشان اندازه‌های کاملاً متفاوتی داشته باشد.
+      این تفاوت تعیین می‌کند برای ورود به هر منطقه چقدر سرمایه لازم است — نه قیمت متری.
+    </blockquote>
+
+    <div class="panel mb4">
+      <div class="panel-body-pad">
+        <% areaRows.forEach(function (r) { %>
+        <div class="row between" style="gap:var(--s3);margin-bottom:10px;align-items:center;">
+          <a class="drow-name" href="/property/<%= r.slug %>" style="width:82px;flex-shrink:0;"><%= r.name_fa %></a>
+          <span class="ppk-bar" style="flex:1;">
+            <span class="ppk-fill" style="width:<%= r.areaPct %>%"></span>
+          </span>
+          <span style="width:120px;text-align:left;flex-shrink:0;font-variant-numeric:tabular-nums;">
+            <%= fa(r.area) %> متر
+            <span class="dim" style="font-size:var(--fs-xs);">· <%= fa(toman(r.unit)) %></span>
+          </span>
+        </div>
+        <% }); %>
+      </div>
+      <div class="panel-foot">عدد سمت چپ، متراژ واحد متوسط و قیمت کل آن واحد است</div>
+    </div>
+
+    <!-- ══ شاخص فرصت ══ -->
+    <div class="sec-head between wrap">
+      <h2 class="sec-title">شاخص فرصت</h2>
+      <span class="ai-badge">✦ تحلیل</span>
+    </div>
+    <blockquote class="desc desc-sm">
+      این شاخص دو چیز را کنار هم می‌گذارد: قیمت فعلی هر متر، و سرعت رشد قیمت در آن منطقه.
+      منطقه‌ای که هنوز ارزان است ولی سریع‌تر از بقیه رشد می‌کند، امتیاز بالاتری می‌گیرد.
+      محاسبه کاملاً شفاف است: نمره‌ی ارزانی و نمره‌ی رشد هرکدام بین صفر تا صد نرمال می‌شوند
+      و میانگین ساده‌شان شاخص فرصت است.
+      <strong>این یک شاخص آماری است، نه توصیه‌ی سرمایه‌گذاری</strong> — قیمت مسکن به موقعیت دقیق ملک،
+      کیفیت ساخت، دسترسی و ده‌ها عامل دیگر بستگی دارد که در این عدد نیست.
+    </blockquote>
+
+    <div class="grid g2 mb4">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">بالاترین شاخص فرصت</h2></div>
+        <div class="panel-body">
+          <% oppRows.slice(0, 8).forEach(function (r, i) { %>
+          <a class="drow" href="/property/<%= r.slug %>">
+            <div class="drow-main">
+              <span class="drow-rank"><%= fa(i + 1) %></span>
+              <span>
+                <span class="drow-name"><%= r.name_fa %></span>
+                <span class="drow-sub"><%= r.quadrant %></span>
+              </span>
+            </div>
+            <div class="drow-val">
+              <span class="dim" style="font-size:var(--fs-xs);"><%= fa(toman(r.meter)) %></span>
+              <span class="badge badge-acc"><%= fa(r.opp) %></span>
+            </div>
+          </a>
+          <% }); %>
+        </div>
+        <div class="panel-foot">عدد آبی، شاخص فرصت از صد است</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">قیمت در برابر رشد</h2>
+          <span class="panel-link"><%= fa(scatter.length) %> منطقه</span>
+        </div>
+        <div class="panel-body-pad">
+          <div class="scatter-wrap">
+            <span class="scatter-ax scatter-ax-t">رشد بیشتر</span>
+            <span class="scatter-ax scatter-ax-b">رشد کمتر</span>
+            <span class="scatter-ax scatter-ax-r">ارزان‌تر</span>
+            <span class="scatter-ax scatter-ax-l">گران‌تر</span>
+            <svg class="scatter" viewBox="0 0 100 100" role="img" aria-label="پراکندگی مناطق بر اساس قیمت و رشد">
+              <line x1="50" y1="0" x2="50" y2="100" stroke="var(--border)" stroke-width=".4"/>
+              <line x1="0" y1="50" x2="100" y2="50" stroke="var(--border)" stroke-width=".4"/>
+              <% scatter.forEach(function (p) { %>
+              <a href="/property/<%= p.slug %>"><title><%= p.name_fa %> — <%= fa(toman(p.meter)) %> تومان · رشد <%= pct(p.growthYr) %></title>
+                <circle cx="<%= p.x %>" cy="<%= p.y %>" r="3.4" fill="var(--accent)" opacity=".8"/>
+                <text x="<%= p.x %>" y="<%= (Number(p.y) + 1.4).toFixed(1) %>" class="scatter-lbl"><%= fa(p.region_no) %></text>
+              </a>
+              <% }); %>
+            </svg>
+          </div>
+        </div>
+        <div class="panel-foot">هر دایره یک منطقه است · بالا-راست یعنی هم ارزان هم پررشد</div>
+      </section>
+    </div>
+
+    <!-- ══ محاسبه‌گر بودجه ══ -->
+    <div class="sec-head"><h2 class="sec-title">با بودجه‌ی شما، کجا چند متر؟</h2></div>
+    <section class="panel mb4" id="budgetBox" data-regions="<%= budgetData %>">
+      <div class="panel-body-pad">
+        <div class="whatif">
+          <input class="input" id="budgetInput" type="text" inputmode="numeric" value="۱۰٬۰۰۰٬۰۰۰٬۰۰۰"
+                 aria-label="بودجه به تومان">
+          <span class="dim" style="font-size:var(--fs-sm);white-space:nowrap;">تومان</span>
+        </div>
+        <div class="hint mb3">عدد را تغییر دهید تا ببینید همین پول در هر منطقه چند متر مربع می‌خرد.</div>
+        <div id="budgetOut"></div>
+      </div>
+      <div class="panel-foot">محاسبه بر پایه‌ی قیمت تخمینی هر متر است و هزینه‌های جانبی معامله را در بر نمی‌گیرد</div>
+    </section>
+
+    <!-- ══ روند شهر ══ -->
+    <% if (cityTrend.points.length > 1) { %>
+    <div class="sec-head"><h2 class="sec-title">روند میانگین قیمت مسکن تهران</h2></div>
+    <section class="panel mb4">
+      <div class="panel-body-pad">
+        <svg class="gold-chart" viewBox="0 0 100 40" preserveAspectRatio="none" role="img"
+             aria-label="نمودار روند میانگین قیمت هر متر مربع مسکن در تهران">
+          <polyline points="<%= cityTrend.poly %>" fill="none" stroke="var(--accent)" stroke-width="0.7"
+                    vector-effect="non-scaling-stroke"/>
+        </svg>
+        <!-- نمودار قدیمی‌ترین نقطه را سمت چپ می‌کشد؛ در RTL اولین عنصر
+             سمت راست می‌نشیند، پس ترتیب برچسب‌ها برعکس شده تا زیر نقطه‌ی
+             خودشان بیایند. -->
+        <div class="row between mt3" style="font-size:var(--fs-xs);color:var(--faint);">
+          <span><%= cityTrend.last.label %> · <%= fa(toman(cityTrend.last.value)) %></span>
+          <span><%= cityTrend.first.label %> · <%= fa(toman(cityTrend.first.value)) %></span>
+        </div>
+      </div>
+      <div class="panel-foot">
+        میانگین ماهانه‌ی <%= fa(rows.length) %> منطقه · رشد کل در این بازه
+        <span class="<%= cityTrend.growth > 0 ? 'up' : 'down' %>"><%= pct(cityTrend.growth) %></span>
+      </div>
+    </section>
+    <% } %>
+
+    <div class="notice">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+      <p>
+        اعداد این صفحه تخمین آماری از سطح قیمت هر منطقه است و قیمت هیچ ملک مشخصی نیست.
+        برای هر معامله‌ی واقعی حتماً کارشناسی محلی انجام دهید.
+        جزئیات بیشتر در <a href="/disclaimer">صفحه‌ی سلب مسئولیت</a>.
+      </p>
+    </div>
+
+  </div>
+</main>

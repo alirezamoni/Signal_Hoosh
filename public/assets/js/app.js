@@ -266,4 +266,61 @@
       if (f.contentWindow === e.source) f.style.height = data.height + 'px';
     });
   });
+
+  /* ── محاسبه‌گر بودجه‌ی ملک ──
+     کاربر عدد را با ارقام فارسی می‌بیند و احتمالاً با ارقام لاتین تایپ
+     می‌کند، پس هر دو باید پذیرفته شود. جداکننده‌ها هم موقع تایپ دوباره
+     گذاشته می‌شوند تا عدد چند میلیاردی خوانا بماند. */
+  var budBox = document.getElementById('budgetBox');
+  if (budBox) {
+    var budInput = document.getElementById('budgetInput');
+    var budOut = document.getElementById('budgetOut');
+    var regions = [];
+    try { regions = JSON.parse(budBox.getAttribute('data-regions') || '[]'); } catch (e) {}
+
+    var arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+    var parseFaNum = function (s) {
+      var out = '';
+      String(s).split('').forEach(function (ch) {
+        var i = faDigits.indexOf(ch);
+        if (i < 0) i = arabicDigits.indexOf(ch);
+        if (i >= 0) out += String(i);
+        else if (ch >= '0' && ch <= '9') out += ch;
+      });
+      return out ? parseInt(out, 10) : 0;
+    };
+    var group = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+
+    var render = function () {
+      var budget = parseFaNum(budInput.value);
+      if (!budget || !regions.length) { budOut.innerHTML = ''; return; }
+
+      var list = regions.map(function (r) {
+        return { n: r.n, s: r.s, m: r.m, sq: budget / r.m };
+      }).sort(function (a, b) { return b.sq - a.sq; });
+
+      var best = list[0].sq;
+      budOut.innerHTML = list.map(function (r) {
+        var w = Math.max(2, Math.round((r.sq / best) * 100));
+        var note = r.sq < 25 ? 'کمتر از یک واحد معمول' : '';
+        return '<div class="bud-row">' +
+          '<a class="bud-name" href="/property/' + r.s + '">' + r.n + '</a>' +
+          '<span class="ppk-bar" style="flex:1;"><span class="ppk-fill" style="width:' + w + '%"></span></span>' +
+          '<span class="bud-m">' + toFa(r.sq.toFixed(1)).replace('.', '٫') + ' متر</span>' +
+          '<span class="bud-note">' + note + '</span>' +
+          '</div>';
+      }).join('');
+    };
+
+    budInput.addEventListener('input', function () {
+      var n = parseFaNum(budInput.value);
+      var pos = budInput.selectionStart, len = budInput.value.length;
+      budInput.value = n ? toFa(group(n)).replace(/,/g, '٬') : '';
+      // نگه‌داشتن مکان‌نما بعد از دوباره‌قالب‌بندی، وگرنه به آخر می‌پرد
+      var diff = budInput.value.length - len;
+      try { budInput.setSelectionRange(pos + diff, pos + diff); } catch (e) {}
+      render();
+    });
+    render();
+  }
 })();

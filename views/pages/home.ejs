@@ -156,6 +156,69 @@
 
     </div>
 
+    <!-- ردیف ملک -->
+    <% if (property) { %>
+    <div class="grid g3 mb3">
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>
+            ترند ملک
+          </h2>
+          <a class="panel-link" href="/property">مشاهده همه ←</a>
+        </div>
+        <div class="panel-bar">
+          <span class="badge badge-acc">۲۲ منطقه‌ی تهران</span>
+          <span class="dim" style="font-size:var(--fs-xs);">میانگین هر متر مربع <%= fa(toman(property.city.avg)) %> تومان</span>
+        </div>
+        <div class="panel-body">
+          <% property.top.forEach(function (r, i) { %>
+          <a class="drow" href="/property/<%= r.slug %>">
+            <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.name_fa %></span></div>
+            <div class="drow-val">
+              <span><%= fa(toman(r.meter)) %></span>
+              <% if (r.growthYr != null) { %><span class="badge <%= r.growthYr > 0 ? 'badge-up' : 'badge-down' %>"><%= pct(r.growthYr) %></span><% } %>
+            </div>
+          </a>
+          <% }); %>
+          <div class="drow"><span class="dim" style="font-size:var(--fs-xs);">ارزان‌ترین‌ها</span></div>
+          <% property.bottom.forEach(function (r) { %>
+          <a class="drow" href="/property/<%= r.slug %>">
+            <div class="drow-main"><span class="drow-rank">·</span><span class="drow-name"><%= r.name_fa %></span></div>
+            <div class="drow-val"><span><%= fa(toman(r.meter)) %></span></div>
+          </a>
+          <% }); %>
+        </div>
+        <div class="panel-foot">
+          شکاف قیمتی شهر <%= fa(property.city.gap.toFixed(1)) %> برابر است
+          <% if (property.best) { %>· بالاترین شاخص فرصت: <a class="accent" href="/property/<%= property.best.slug %>"><%= property.best.name_fa %></a><% } %>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">نقشه‌ی قیمت</h2>
+          <a class="panel-link" href="/property">بزرگ‌تر ←</a>
+        </div>
+        <div class="panel-body-pad">
+          <% if (property.map.viewBox) { %>
+          <svg class="tmap" viewBox="<%= property.map.viewBox %>" role="img" aria-label="نقشه‌ی قیمت مسکن مناطق تهران">
+            <% property.map.shapes.forEach(function (s) { %>
+            <a href="/property/<%= s.slug %>"><title><%= s.name_fa %> — <%= fa(toman(s.meter)) %> تومان بر متر</title>
+              <path class="tmap-r" d="<%= s.d %>" fill="<%= s.fill %>"/></a>
+            <% }); %>
+          </svg>
+          <div class="tmap-legend"><span class="dim">ارزان‌تر</span>
+            <% property.map.legend.forEach(function (b) { %><span class="tmap-key"><i style="background:<%= b.fill %>"></i></span><% }); %>
+            <span class="dim">گران‌تر</span>
+          </div>
+          <% } %>
+        </div>
+        <div class="panel-foot">قیمت تخمینی هر متر مربع · بروزرسانی روزانه</div>
+      </section>
+    </div>
+    <% } %>
+
     <!-- ردیف ۳ -->
     <div class="grid g3">
 
