@@ -62,8 +62,14 @@
       میانگین قیمت و کارکرد هر تریم/نسخه مستقیماً از آمار دیوار روی کل آگهی‌های آن برند می‌آید،
       نه فقط نمونه‌ی محدود ما — تصویر کامل‌تری از تنوع بازار هر برند می‌دهد.
     </blockquote>
-    <div class="car-grid mb6">
-      <% submodels.slice(0, 8).forEach(function (sm) { %>
+    <% submodelGroups.forEach(function (g) { %>
+    <div class="sub-brand">
+      <h3 class="sub-brand-name"><%= g.name %></h3>
+      <span class="tag"><%= g.tier === 'high' ? 'لوکس' : (g.tier === 'mid' ? 'میان‌رده' : 'اقتصادی') %></span>
+      <span class="dim" style="font-size:var(--fs-xs);"><%= fa(g.total) %> زیرمدل در بازار</span>
+    </div>
+    <div class="car-grid mb4">
+      <% g.items.forEach(function (sm) { %>
       <div class="car-card">
         <% if (sm.image_url) { %><img class="car-img" src="<%= sm.image_url %>" alt="<%= sm.name_fa %>" loading="lazy"><% } %>
         <div class="car-name"><%= sm.name_fa %></div>
@@ -72,6 +78,7 @@
       </div>
       <% }); %>
     </div>
+    <% }); %>
     <% } %>
 
     <% if (tiers.length) { %>

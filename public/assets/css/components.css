@@ -981,3 +981,16 @@ tbody tr:hover { background: var(--card-hover); }
    نامرئی می‌ماند. رنگ پیش‌فرض و display:block اضافه شد تا هرجا بدون
    حالت استفاده شود هم دیده شود. */
 .ppk-fill { display: block; background: var(--accent); }
+
+/* ── سرریز افقی: نمودار پراکندگی ──
+   .scatter مربع است (aspect-ratio:1) و width:100%. داخل پنل تمام‌عرض،
+   یعنی یک مربع ۱۲۰۰ پیکسلی که برای شش نقطه بی‌معنی است. سقف عرض
+   می‌گذاریم و وسط‌چین می‌کنیم. */
+.scatter-wrap { max-width: 560px; margin-inline: auto; }
+
+/* عنوان برند در بخش تنوع زیرمدل‌ها */
+.sub-brand {
+  display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap;
+  margin: var(--s5) 0 var(--s3);
+}
+.sub-brand-name { font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--text); }

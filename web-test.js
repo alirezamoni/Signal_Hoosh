@@ -864,6 +864,28 @@ app.get('/cars', (req, res) => {
   try { value     = carDB.getValueScores() || []; } catch (e) {}
   try { submodels = carDB.getLatestSubmodels() || []; } catch (e) {}
 
+  /* زیرمدل‌ها بر اساس رده و نام برند مرتب برمی‌گردند. با برداشتن ۸ تای
+     اول، هر هشت‌تا از یک برند درمی‌آمد و بقیه‌ی برندها اصلاً دیده نمی‌شدند.
+     گروه‌بندی می‌کنیم تا «تنوع» واقعاً تنوع باشد. */
+  const submodelGroups = [];
+  {
+    const by = new Map();
+    for (const s of submodels) {
+      const k = s.model_slug || s.model_name || '?';
+      if (!by.has(k)) by.set(k, { slug: k, name: s.model_name || k, tier: s.model_tier, items: [] });
+      by.get(k).items.push(s);
+    }
+    for (const g of by.values()) {
+      g.total = g.items.length;
+      g.items = g.items.slice().sort((x, y) => (y.avg_price || 0) - (x.avg_price || 0)).slice(0, 4);
+      submodelGroups.push(g);
+    }
+    const TIER_ORD = { high: 0, mid: 1, low: 2 };
+    submodelGroups.sort((x, y) =>
+      (TIER_ORD[x.tier] == null ? 9 : TIER_ORD[x.tier]) - (TIER_ORD[y.tier] == null ? 9 : TIER_ORD[y.tier])
+      || (y.total - x.total));
+  }
+
   const cars = raw.map(c => ({
     slug: c.slug, name_fa: c.name_fa, tier: c.tier, url: c.url, image_url: c.image_url,
     median_price: c.snapshot ? (c.snapshot.median_price || c.snapshot.avg_price) : null,
@@ -940,7 +962,7 @@ app.get('/cars', (req, res) => {
     desc: 'روند بازار خودرو ایران: میانه قیمت، کارکرد، سرعت رشد و صرفه اقتصادی خودروها بر پایه‌ی آگهی‌های واقعی بازار، با بروزرسانی هر ۱۲ ساعت.',
     path: '/cars'
   }, {
-    cars, stats, submodels, metrics, series, tiers, scatter,
+    cars, stats, submodels, submodelGroups, metrics, series, tiers, scatter,
     totalListings: cars.reduce((s, c) => s + (c.listing_count || 0), 0),
     topGain:  byMomentum[0] || null,
     topLoss:  byMomentum[byMomentum.length - 1] || null,
