@@ -1,0 +1,103 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/news">ترند اخبار ایران</a> <span>/</span>
+      <a href="/news/archive">بایگانی</a> <span>/</span>
+      <span><%= crumb %></span>
+    </nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title"><%= heading %></h1>
+        <p class="page-sub"><%= subtitle %></p>
+      </div>
+      <% if (sourceInfo && sourceInfo.username) { %>
+      <a class="btn btn-sm" href="https://t.me/<%= sourceInfo.username %>" target="_blank" rel="nofollow noopener">کانال تلگرام ↗</a>
+      <% } %>
+    </div>
+
+    <% if (intro) { %><blockquote class="desc"><%= intro %></blockquote><% } %>
+
+    <!-- ══ جستجوی درون‌صفحه ══ -->
+    <section class="panel mb4">
+      <div class="panel-body-pad">
+        <form method="GET" action="/news/archive" class="search-form">
+          <input class="input" type="search" name="q" value="<%= q || '' %>" minlength="2" maxlength="80"
+                 placeholder="جستجو در همه‌ی اخبار بایگانی…" aria-label="جستجو در متن اخبار">
+          <% if (sourceInfo && sourceInfo.username) { %>
+          <input type="hidden" name="source" value="<%= sourceInfo.username %>">
+          <% } %>
+          <button class="btn btn-acc" type="submit">جستجو</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ══ پیمایش روز به روز ══ -->
+    <% if (prevDay || nextDay) { %>
+    <div class="day-nav mb4">
+      <% if (nextDay) { %><a class="btn btn-sm" href="/news/archive/<%= nextDay.day %>">→ <%= nextDay.faDay %></a><% } else { %><span></span><% } %>
+      <a class="btn btn-sm" href="/news/archive">همه‌ی روزها</a>
+      <% if (prevDay) { %><a class="btn btn-sm" href="/news/archive/<%= prevDay.day %>"><%= prevDay.faDay %> ←</a><% } else { %><span></span><% } %>
+    </div>
+    <% } %>
+
+    <% if (!news.length) { %>
+      <section class="panel">
+        <div class="panel-body-pad center">
+          <p class="dim">خبری با این مشخصات پیدا نشد.</p>
+          <p class="dim" style="font-size:var(--fs-sm);margin-top:var(--s2);">
+            می‌توانید عبارت دیگری امتحان کنید یا به <a class="accent" href="/news/archive">فهرست روزها</a> برگردید.
+          </p>
+        </div>
+      </section>
+    <% } else { %>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title"><%= fa(num(total)) %> خبر</h2>
+        <% if (pages > 1) { %><span class="panel-link">صفحه‌ی <%= fa(page) %> از <%= fa(pages) %></span><% } %>
+      </div>
+      <div class="panel-body-flush">
+        <% news.forEach(function (n) { %>
+          <%- include('../partials/news-row', { n: n, fa: fa, timeAgo: timeAgo, mediaOf: mediaOf, excerpt: excerpt }) %>
+        <% }); %>
+      </div>
+    </section>
+
+    <% if (pages > 1) { %>
+    <nav class="pager" aria-label="صفحه‌بندی">
+      <% if (page > 1) { %><a class="btn btn-sm" href="<%= pageUrl(page - 1) %>" rel="prev">صفحه‌ی قبل</a><% } %>
+      <% pageList.forEach(function (p) { %>
+        <% if (p === '…') { %><span class="pager-gap">…</span>
+        <% } else if (p === page) { %><span class="pager-cur"><%= fa(p) %></span>
+        <% } else { %><a class="btn btn-sm" href="<%= pageUrl(p) %>"><%= fa(p) %></a><% } %>
+      <% }); %>
+      <% if (page < pages) { %><a class="btn btn-sm" href="<%= pageUrl(page + 1) %>" rel="next">صفحه‌ی بعد</a><% } %>
+    </nav>
+    <% } %>
+
+    <% } %>
+
+    <!-- ══ پیوند به بقیه‌ی بایگانی ══ -->
+    <% if (alsoDays && alsoDays.length) { %>
+    <div class="sec-head mt6"><h2 class="sec-title">روزهای دیگر</h2></div>
+    <div class="filters">
+      <% alsoDays.forEach(function (d) { %>
+      <a class="filt" href="/news/archive/<%= d.day %>"><%= d.faDay %> <span class="dim">(<%= fa(num(d.c)) %>)</span></a>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (alsoSources && alsoSources.length) { %>
+    <div class="sec-head mt6"><h2 class="sec-title">منابع دیگر</h2></div>
+    <div class="filters">
+      <% alsoSources.forEach(function (s) { %>
+      <a class="filt" href="/news/source/<%= s.username %>"><%= s.title || s.username %> <span class="dim">(<%= fa(num(s.c)) %>)</span></a>
+      <% }); %>
+    </div>
+    <% } %>
+
+  </div>
+</main>

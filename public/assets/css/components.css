@@ -807,6 +807,51 @@ tbody tr:hover { background: var(--card-hover); }
   .scatter-ax-r, .scatter-ax-l { display: none; }
 }
 
+/* ══════════════ بایگانی اخبار ══════════════ */
+
+.search-form { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.search-form .input { flex: 3 1 240px; width: auto; }
+.search-form .select { flex: 1 1 160px; width: auto; }
+.search-form .btn { flex-shrink: 0; }
+
+/* کارت روز — هدف اصلی‌اش ساختن مسیر خزش به اخبار آن روز است */
+.day-card {
+  display: block; text-align: center;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: var(--s3);
+  transition: all var(--dur) var(--ease);
+}
+.day-card:hover { border-color: var(--accent); background: var(--card-hover); transform: translateY(-1px); }
+.day-name { font-size: var(--fs-sm); color: var(--muted); margin-bottom: 6px; }
+.day-count { font-size: var(--fs-xl); font-weight: var(--fw-medium); color: var(--text); }
+.day-note { font-size: var(--fs-xs); color: var(--faint); margin-top: 2px; }
+
+.src-card {
+  display: flex; align-items: center; gap: var(--s3);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: var(--s3);
+  transition: all var(--dur) var(--ease);
+}
+.src-card:hover { border-color: var(--accent); background: var(--card-hover); }
+.src-name { font-size: var(--fs-md); color: var(--text); font-weight: var(--fw-medium);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.src-meta { font-size: var(--fs-xs); color: var(--dim); margin-top: 3px; }
+
+.day-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+
+.pager {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 6px; margin-top: var(--s4);
+}
+.pager-cur {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 32px; height: 30px; padding: 0 9px;
+  border-radius: var(--r-sm);
+  background: var(--accent); color: #fff;
+  font-size: var(--fs-sm); font-weight: var(--fw-medium);
+}
+.pager-gap { color: var(--faint); padding: 0 4px; }
+
 /* ══════════════ پلتفرم‌های طلا ══════════════ */
 .gold-logo {
   width: 40px; height: 40px; border-radius: 8px;

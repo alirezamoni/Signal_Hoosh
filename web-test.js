@@ -1575,6 +1575,180 @@ app.get('/news/more', (req, res) => {
   });
 });
 
+// ════════════ بایگانی اخبار ════════════
+
+const ARCH_PAGE = 40;
+
+// روزهای موجود، با تعداد خبر هر روز
+function archiveDays(limit) {
+  try {
+    return newsRO.prepare(
+      'SELECT substr(published_at,1,10) day, COUNT(*) c FROM news ' +
+      'WHERE COALESCE(blocked,0)=0 GROUP BY day ORDER BY day DESC' +
+      (limit ? ' LIMIT ' + Number(limit) : '')
+    ).all().map(d => Object.assign(d, { faDay: faDay(d.day) }));
+  } catch (e) { return []; }
+}
+
+function archiveSources(limit) {
+  try {
+    return newsRO.prepare(
+      'SELECT c.username, c.title, c.category, c.photo_url, COUNT(n.id) c2 ' +
+      'FROM channels c JOIN news n ON n.channel_id=c.id AND COALESCE(n.blocked,0)=0 ' +
+      'WHERE c.active=1 AND c.username IS NOT NULL AND c.username <> \'\' ' +
+      'GROUP BY c.id ORDER BY c2 DESC' + (limit ? ' LIMIT ' + Number(limit) : '')
+    ).all().map(s => ({ username: s.username, title: s.title, category: s.category, photo_url: s.photo_url, c: s.c2 }));
+  } catch (e) { return []; }
+}
+
+// شماره‌ی صفحات با «…» برای فهرست‌های طولانی
+function pageList(pg, pages) {
+  const out = [];
+  const push = p => { if (out[out.length - 1] !== p) out.push(p); };
+  push(1);
+  if (pg - 2 > 2) push('…');
+  for (let p = Math.max(2, pg - 1); p <= Math.min(pages - 1, pg + 1); p++) push(p);
+  if (pg + 2 < pages - 1) push('…');
+  if (pages > 1) push(pages);
+  return out;
+}
+
+function archiveQuery(where, params, pg) {
+  const offset = (pg - 1) * ARCH_PAGE;
+  let total = 0, rows = [];
+  try {
+    total = newsRO.prepare(
+      'SELECT COUNT(*) c FROM news n JOIN channels c ON c.id=n.channel_id WHERE ' + where
+    ).get(...params).c;
+    rows = newsRO.prepare(
+      'SELECT n.*, c.title channel_title, c.username channel_username, c.photo_url channel_photo, ' +
+      'c.category channel_category FROM news n JOIN channels c ON c.id=n.channel_id WHERE ' + where +
+      ' ORDER BY n.published_at DESC LIMIT ? OFFSET ?'
+    ).all(...params, ARCH_PAGE, offset);
+  } catch (e) { console.warn('[archive]', e.message); }
+  rows.forEach(r => { r.isNew = false; r.hot = false; });
+  return { total, rows, pages: Math.max(1, Math.ceil(total / ARCH_PAGE)) };
+}
+
+// ── هاب بایگانی، و جستجو ──
+app.get('/news/archive', (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 80);
+  const source = String(req.query.source || '').trim().slice(0, 60);
+  const pg = Math.max(1, Math.min(parseInt(req.query.page, 10) || 1, 500));
+
+  // بدون عبارت جستجو: صفحه‌ی هاب که مسیر خزش به همه‌ی روزها و منابع می‌سازد
+  if (q.length < 2) {
+    const days = archiveDays(null);
+    const sources = archiveSources(null);
+    let cats = [];
+    try {
+      cats = newsRO.prepare(
+        'SELECT c.category, COUNT(n.id) c2 FROM channels c JOIN news n ON n.channel_id=c.id ' +
+        'AND COALESCE(n.blocked,0)=0 WHERE c.category IS NOT NULL AND c.category <> \'\' ' +
+        'GROUP BY c.category ORDER BY c2 DESC'
+      ).all().map(r => ({ category: r.category, c: r.c2 }));
+    } catch (e) {}
+
+    const total = days.reduce((s, d) => s + d.c, 0);
+    return page(res, 'archive-hub', '/news', {
+      title: 'بایگانی اخبار ایران | جستجو در ' + fa(num(total)) + ' خبر — سیگنال هوش',
+      desc: 'بایگانی کامل اخبار جمع‌آوری‌شده از ' + fa(sources.length) + ' خبرگزاری و کانال تلگرام، به تفکیک روز و منبع، همراه با جستجو در متن اخبار.',
+      path: '/news/archive'
+    }, {
+      q: '', days, sources, cats,
+      stats: {
+        total, sources: sources.length,
+        firstDay: days.length ? days[days.length - 1].day : null,
+        lastDay: days.length ? days[0].day : null,
+      }
+    });
+  }
+
+  // با عبارت جستجو: نتایج noindex می‌شوند — صفحه‌ی نتایج جستجو محتوای
+  // یکتا تولید نمی‌کند و ایندکس شدنشان فقط بودجه‌ی خزش را هدر می‌دهد.
+  const where = ['COALESCE(n.blocked,0)=0', '(n.text_fa LIKE ? OR n.text LIKE ?)'];
+  const like = '%' + q + '%';
+  const params = [like, like];
+  if (source) { where.push('c.username = ?'); params.push(source); }
+
+  const r = archiveQuery(where.join(' AND '), params, pg);
+  const qs = u => '/news/archive?q=' + encodeURIComponent(q) + (source ? '&source=' + encodeURIComponent(source) : '') + (u > 1 ? '&page=' + u : '');
+
+  page(res, 'archive-list', '/news', {
+    title: 'جستجوی «' + q + '» در بایگانی اخبار | سیگنال هوش',
+    desc: 'نتایج جستجوی «' + q + '» در بایگانی اخبار سیگنال هوش.',
+    path: '/news/archive', noindex: true
+  }, {
+    news: r.rows, total: r.total, page: pg, pages: r.pages, pageList: pageList(pg, r.pages),
+    pageUrl: qs, q, crumb: 'جستجو',
+    heading: 'نتایج جستجوی «' + q + '»',
+    subtitle: fa(num(r.total)) + ' خبر پیدا شد' + (source ? ' در منبع ' + source : ''),
+    intro: null, prevDay: null, nextDay: null, sourceInfo: null,
+    alsoDays: archiveDays(14), alsoSources: archiveSources(12),
+  });
+});
+
+// ── یک روز مشخص ──
+app.get('/news/archive/:date', (req, res, next) => {
+  const date = String(req.params.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return next();
+  const pg = Math.max(1, Math.min(parseInt(req.query.page, 10) || 1, 500));
+
+  const r = archiveQuery("COALESCE(n.blocked,0)=0 AND substr(n.published_at,1,10)=?", [date], pg);
+  if (!r.total) return next();
+
+  const days = archiveDays(null);
+  const idx = days.findIndex(d => d.day === date);
+  const nextDay = idx > 0 ? days[idx - 1] : null;        // روز جدیدتر
+  const prevDay = idx >= 0 && idx < days.length - 1 ? days[idx + 1] : null;
+
+  const fd = faDay(date);
+  page(res, 'archive-list', '/news', {
+    title: 'اخبار ' + fd + ' | بایگانی ' + fa(num(r.total)) + ' خبر — سیگنال هوش',
+    desc: 'همه‌ی ' + fa(num(r.total)) + ' خبر منتشرشده در ' + fd + ' از خبرگزاری‌ها و کانال‌های خبری، در بایگانی سیگنال هوش.',
+    path: '/news/archive/' + date + (pg > 1 ? '?page=' + pg : '')
+  }, {
+    news: r.rows, total: r.total, page: pg, pages: r.pages, pageList: pageList(pg, r.pages),
+    pageUrl: p => '/news/archive/' + date + (p > 1 ? '?page=' + p : ''),
+    q: '', crumb: fd,
+    heading: 'اخبار ' + fd,
+    subtitle: fa(num(r.total)) + ' خبر از ' + '\u200f' + 'خبرگزاری‌ها و کانال‌های رصد‌شده',
+    intro: 'همه‌ی اخبار این روز به ترتیب زمان انتشار، از تازه به قدیم. اخبار غیرفارسی هنگام جمع‌آوری خودکار ترجمه شده‌اند.',
+    prevDay, nextDay, sourceInfo: null,
+    alsoDays: null, alsoSources: archiveSources(12),
+  });
+});
+
+// ── یک منبع مشخص ──
+app.get('/news/source/:username', (req, res, next) => {
+  const u = String(req.params.username || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 60);
+  if (!u) return next();
+  const pg = Math.max(1, Math.min(parseInt(req.query.page, 10) || 1, 500));
+
+  let ch = null;
+  try { ch = newsRO.prepare('SELECT * FROM channels WHERE username=? COLLATE NOCASE').get(u); } catch (e) {}
+  if (!ch) return next();
+
+  const r = archiveQuery('COALESCE(n.blocked,0)=0 AND n.channel_id=?', [ch.id], pg);
+  if (!r.total) return next();
+
+  const name = ch.title || ch.username;
+  page(res, 'archive-list', '/news', {
+    title: 'اخبار ' + name + ' | بایگانی ' + fa(num(r.total)) + ' خبر — سیگنال هوش',
+    desc: 'بایگانی ' + fa(num(r.total)) + ' خبر منتشرشده از ' + name + '، به ترتیب زمان انتشار، در سیگنال هوش.',
+    path: '/news/source/' + ch.username + (pg > 1 ? '?page=' + pg : '')
+  }, {
+    news: r.rows, total: r.total, page: pg, pages: r.pages, pageList: pageList(pg, r.pages),
+    pageUrl: p => '/news/source/' + ch.username + (p > 1 ? '?page=' + p : ''),
+    q: '', crumb: name,
+    heading: 'اخبار ' + name,
+    subtitle: fa(num(r.total)) + ' خبر' + (ch.category ? ' · ' + ch.category : ''),
+    intro: 'همه‌ی اخبار جمع‌آوری‌شده از این منبع. سیگنال هوش ناشر این محتوا نیست و آن را از کانال عمومی این خبرگزاری جمع‌آوری می‌کند.',
+    prevDay: null, nextDay: null, sourceInfo: ch,
+    alsoDays: archiveDays(14), alsoSources: archiveSources(12),
+  });
+});
+
 // ── robots و sitemap ──
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(
@@ -1594,6 +1768,7 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/', pri: '1.0', freq: 'hourly' },
     { loc: '/trends', pri: '0.9', freq: 'hourly' },
     { loc: '/news', pri: '0.9', freq: 'hourly' },
+    { loc: '/news/archive', pri: '0.8', freq: 'daily' },
     { loc: '/finance', pri: '0.9', freq: 'hourly' },
     { loc: '/cars', pri: '0.8', freq: 'daily' },
     { loc: '/market', pri: '0.8', freq: 'daily' },
@@ -1604,6 +1779,17 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/disclaimer', pri: '0.4', freq: 'monthly' }
   ];
   let items = '';
+
+  // صفحات روز و منبع — این‌ها مسیر خزش به تک‌تک اخبار می‌سازند
+  try {
+    for (const d of archiveDays(null)) {
+      items += `<url><loc>${SITE}/news/archive/${d.day}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    }
+    for (const s of archiveSources(null)) {
+      items += `<url><loc>${SITE}/news/source/${s.username}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    }
+  } catch (e) {}
+
   try {
     // خبرِ کوتاه برای گوگل «محتوای نازک» است. از ۷۹ هزار خبر، حدود
     // ۲۵ هزارتا زیر ۱۲۰ نویسه‌اند؛ ایندکس شدن انبوهشان اعتبار کل دامنه

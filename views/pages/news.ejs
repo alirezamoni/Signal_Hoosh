@@ -23,6 +23,14 @@
       <div class="kpi"><div class="kpi-label">پرکارترین منبع</div><div class="kpi-val fa"><%= stats.topChannel || '—' %></div><div class="kpi-note"><%= fa(stats.topChannelCount || 0) %> خبر</div></div>
     </div>
 
+    <div class="row wrap mb3" style="gap:var(--s2);">
+      <a class="btn btn-acc btn-sm" href="/news/archive">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8M10 12h4"/></svg>
+        بایگانی و جستجوی اخبار
+      </a>
+      <span class="dim" style="font-size:var(--fs-sm);align-self:center;">جستجو در متن همه‌ی اخبار، به تفکیک روز و منبع</span>
+    </div>
+
     <div class="filters">
       <span class="filters-label">دسته‌بندی:</span>
       <a class="filt<%= (!curCat && !current) ? ' on' : '' %>" href="/news">همه</a>

@@ -1,0 +1,96 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <a href="/news">ترند اخبار ایران</a> <span>/</span> <span>بایگانی</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">بایگانی اخبار</h1>
+      <p class="page-sub">
+        <%= fa(num(stats.total)) %> خبر بایگانی‌شده از <%= fa(stats.sources) %> منبع ·
+        از <%= faDay(stats.firstDay) %> تا <%= faDay(stats.lastDay) %>
+      </p>
+    </div>
+
+    <blockquote class="desc">
+      همه‌ی اخبار جمع‌آوری‌شده به تفکیک روز و منبع نگه‌داری می‌شوند. می‌توانید در متن اخبار جستجو کنید،
+      یک روز مشخص را ببینید، یا همه‌ی اخبار یک خبرگزاری را دنبال کنید. اخبار غیرفارسی هنگام
+      جمع‌آوری خودکار ترجمه می‌شوند و متن ترجمه‌شده هم در جستجو دیده می‌شود.
+    </blockquote>
+
+    <!-- ══ جستجو ══ -->
+    <section class="panel mb6">
+      <div class="panel-head">
+        <h2 class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          جستجو در اخبار
+        </h2>
+      </div>
+      <div class="panel-body-pad">
+        <form method="GET" action="/news/archive" class="search-form">
+          <input class="input" type="search" name="q" value="<%= q || '' %>" minlength="2" maxlength="80"
+                 placeholder="مثلاً: دلار، انتخابات، نفت…" aria-label="جستجو در متن اخبار">
+          <select class="select" name="source" aria-label="منبع">
+            <option value="">همه‌ی منابع</option>
+            <% sources.forEach(function (s) { %>
+            <option value="<%= s.username %>"><%= s.title || s.username %></option>
+            <% }); %>
+          </select>
+          <button class="btn btn-acc" type="submit">جستجو</button>
+        </form>
+        <div class="hint">جستجو در متن فارسی و اصل خبر انجام می‌شود. حداقل دو نویسه.</div>
+      </div>
+    </section>
+
+    <!-- ══ روزها ══ -->
+    <div class="sec-head between wrap">
+      <h2 class="sec-title">اخبار به تفکیک روز</h2>
+      <span class="tag"><%= fa(days.length) %> روز</span>
+    </div>
+
+    <div class="grid g4 mb6">
+      <% days.forEach(function (d) { %>
+      <a class="day-card" href="/news/archive/<%= d.day %>">
+        <div class="day-name"><%= d.faDay %></div>
+        <div class="day-count"><%= fa(num(d.c)) %></div>
+        <div class="day-note">خبر</div>
+      </a>
+      <% }); %>
+    </div>
+
+    <!-- ══ منابع ══ -->
+    <div class="sec-head between wrap">
+      <h2 class="sec-title">اخبار به تفکیک منبع</h2>
+      <span class="tag"><%= fa(sources.length) %> خبرگزاری</span>
+    </div>
+
+    <div class="grid g3 mb6">
+      <% sources.forEach(function (s) { %>
+      <a class="src-card" href="/news/source/<%= s.username %>">
+        <% if (s.photo_url) { %>
+          <img class="avatar avatar-lg" src="<%= s.photo_url %>" alt="<%= s.title || s.username %>" loading="lazy" width="48" height="48">
+        <% } else { %>
+          <span class="avatar avatar-lg avatar-ph"><%= (s.title || s.username || '?').trim().charAt(0) %></span>
+        <% } %>
+        <div style="min-width:0;flex:1;">
+          <div class="src-name"><%= s.title || s.username %></div>
+          <div class="src-meta">
+            <%= fa(num(s.c)) %> خبر
+            <% if (s.category) { %> · <span class="tag"><%= s.category %></span><% } %>
+          </div>
+        </div>
+      </a>
+      <% }); %>
+    </div>
+
+    <!-- ══ دسته‌ها ══ -->
+    <% if (cats.length) { %>
+    <div class="sec-head"><h2 class="sec-title">دسته‌بندی موضوعی</h2></div>
+    <div class="filters mb6">
+      <% cats.forEach(function (c) { %>
+      <a class="filt" href="/news?cat=<%= encodeURIComponent(c.category) %>"><%= c.category %> <span class="dim">(<%= fa(num(c.c)) %>)</span></a>
+      <% }); %>
+    </div>
+    <% } %>
+
+  </div>
+</main>
