@@ -21,51 +21,130 @@ const MAX_INTERVAL_MIN = 120;
 const DEFAULT_INTERVAL_MIN = 10;
 
 /**
- * فهرست کوتاه‌شده — فقط نمادهایی که برای کاربر فارسی‌زبان معنا دارند.
- * منبع ۹۸ ردیف می‌دهد؛ نگه‌داشتن همه فایده‌ای ندارد و صفحه را شلوغ می‌کند.
- * scale برای کالاهایی که به «سنت» قیمت‌گذاری می‌شوند (USd) به کار می‌رود
- * تا در نمایش به دلار کامل تبدیل شوند.
+ * فهرست کالاها — تقریباً همه‌ی ۹۸ نمادی که منبع می‌دهد، با برچسب فارسی
+ * و واحد ترجمه‌شده. چند مورد کاملاً تکراری کنار گذاشته شدند (مثل
+ * iron-ore-cny که همان iron-ore با واحد دیگر است).
+ * scale برای کالاهایی که منبع به «سنت» قیمت‌گذاری می‌کند (USd) به کار
+ * می‌رود تا در نمایش به دلار کامل تبدیل شوند.
  */
 const CURATED = {
-  'crude-oil':        { fa: 'نفت خام WTI',    cat: 'energy',    unitFa: 'دلار به بشکه',          scale: 1 },
-  'brent-crude-oil':  { fa: 'نفت برنت',       cat: 'energy',    unitFa: 'دلار به بشکه',          scale: 1 },
-  'natural-gas':      { fa: 'گاز طبیعی',      cat: 'energy',    unitFa: 'دلار به میلیون بی‌تی‌یو', scale: 1 },
-  'gasoline':         { fa: 'بنزین آمریکا',   cat: 'energy',    unitFa: 'دلار به گالن',          scale: 1 },
+  // ── انرژی ──
+  'crude-oil':        { fa: 'نفت خام WTI',      cat: 'energy', unitFa: 'دلار به بشکه',              scale: 1 },
+  'brent-crude-oil':  { fa: 'نفت برنت',         cat: 'energy', unitFa: 'دلار به بشکه',              scale: 1 },
+  'urals-oil':        { fa: 'نفت اورال روسیه',  cat: 'energy', unitFa: 'دلار به بشکه',              scale: 1 },
+  'natural-gas':      { fa: 'گاز طبیعی آمریکا', cat: 'energy', unitFa: 'دلار به میلیون بی‌تی‌یو',   scale: 1 },
+  'eu-natural-gas':   { fa: 'گاز طبیعی اروپا',  cat: 'energy', unitFa: 'یورو به مگاوات‌ساعت',       scale: 1 },
+  'uk-natural-gas':   { fa: 'گاز طبیعی انگلیس', cat: 'energy', unitFa: 'پنس به ترم',                scale: 1 },
+  'germany-natural-gas-the': { fa: 'گاز طبیعی آلمان', cat: 'energy', unitFa: 'یورو به مگاوات‌ساعت', scale: 1 },
+  'liquefied-natural-gas-japan-korea': { fa: 'ال‌ان‌جی ژاپن-کره', cat: 'energy', unitFa: 'دلار به میلیون بی‌تی‌یو', scale: 1 },
+  'gasoline':         { fa: 'بنزین آمریکا',     cat: 'energy', unitFa: 'دلار به گالن',              scale: 1 },
+  'heating-oil':      { fa: 'گازوئیل حرارتی',   cat: 'energy', unitFa: 'دلار به گالن',              scale: 1 },
+  'propane':          { fa: 'پروپان',           cat: 'energy', unitFa: 'دلار به گالن',              scale: 1 },
+  'ethanol':          { fa: 'اتانول',           cat: 'energy', unitFa: 'دلار به گالن',              scale: 1 },
+  'naphtha':          { fa: 'نفتا',             cat: 'energy', unitFa: 'دلار به تن',                scale: 1 },
+  'coal':             { fa: 'زغال‌سنگ',         cat: 'energy', unitFa: 'دلار به تن',                scale: 1 },
+  'coking-coal':      { fa: 'زغال‌سنگ کک‌شو',   cat: 'energy', unitFa: 'دلار به تن',                scale: 1 },
+  'uranium':          { fa: 'اورانیوم',         cat: 'energy', unitFa: 'دلار به پوند',              scale: 1 },
 
-  'gold':             { fa: 'طلا (انس جهانی)', cat: 'precious',  unitFa: 'دلار به اونس',          scale: 1 },
-  'silver':           { fa: 'نقره',           cat: 'precious',  unitFa: 'دلار به اونس',          scale: 1 },
-  'platinum':         { fa: 'پلاتین',         cat: 'precious',  unitFa: 'دلار به اونس',          scale: 1 },
-  'palladium':        { fa: 'پالادیوم',       cat: 'precious',  unitFa: 'دلار به اونس',          scale: 1 },
+  // ── فلزات گران‌بها ──
+  'gold':             { fa: 'طلا (انس جهانی)',  cat: 'precious', unitFa: 'دلار به اونس', scale: 1 },
+  'silver':           { fa: 'نقره',             cat: 'precious', unitFa: 'دلار به اونس', scale: 1 },
+  'platinum':         { fa: 'پلاتین',           cat: 'precious', unitFa: 'دلار به اونس', scale: 1 },
+  'palladium':        { fa: 'پالادیوم',         cat: 'precious', unitFa: 'دلار به اونس', scale: 1 },
+  'rhodium':          { fa: 'رودیوم',           cat: 'precious', unitFa: 'دلار به اونس', scale: 1 },
 
-  'copper':           { fa: 'مس',             cat: 'base',      unitFa: 'دلار به پوند',          scale: 1 },
-  'aluminum':         { fa: 'آلومینیوم',      cat: 'base',      unitFa: 'دلار به تن',            scale: 1 },
-  'zinc':             { fa: 'روی',            cat: 'base',      unitFa: 'دلار به تن',            scale: 1 },
-  'nickel':           { fa: 'نیکل',           cat: 'base',      unitFa: 'دلار به تن',            scale: 1 },
-  'lead':             { fa: 'سرب',            cat: 'base',      unitFa: 'دلار به تن',            scale: 1 },
-  'tin':              { fa: 'قلع',            cat: 'base',      unitFa: 'دلار به تن',            scale: 1 },
-  'lithium':          { fa: 'لیتیوم',         cat: 'base',      unitFa: 'یوان به تن',            scale: 1 },
-  'iron-ore':         { fa: 'سنگ‌آهن',        cat: 'base',      unitFa: 'دلار به تن',            scale: 1 },
+  // ── فلزات پایه ──
+  'copper':           { fa: 'مس',               cat: 'base', unitFa: 'دلار به پوند',   scale: 1 },
+  'aluminum':         { fa: 'آلومینیوم',        cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'zinc':             { fa: 'روی',              cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'nickel':           { fa: 'نیکل',             cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'lead':             { fa: 'سرب',              cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'tin':              { fa: 'قلع',              cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'cobalt':           { fa: 'کبالت',            cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'cobalt-hydroxide': { fa: 'هیدروکسید کبالت',  cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'lithium':          { fa: 'لیتیوم',           cat: 'base', unitFa: 'یوان به تن',     scale: 1 },
+  'iron-ore':         { fa: 'سنگ‌آهن',          cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'steel':            { fa: 'فولاد (چین)',      cat: 'base', unitFa: 'یوان به تن',     scale: 1 },
+  'hrc-steel':        { fa: 'فولاد گرم‌نورد',    cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'scrap-steel':      { fa: 'قراضه‌ی فولاد',    cat: 'base', unitFa: 'دلار به تن',     scale: 1 },
+  'scrap-aluminum':   { fa: 'قراضه‌ی آلومینیوم', cat: 'base', unitFa: 'دلار به تن',    scale: 1 },
+  'aluminum-alloy':   { fa: 'آلیاژ آلومینیوم',  cat: 'base', unitFa: 'یوان به تن',     scale: 1 },
+  'silicon':          { fa: 'سیلیکون',          cat: 'base', unitFa: 'یوان به تن',     scale: 1 },
+  'titanium':         { fa: 'تیتانیوم',         cat: 'base', unitFa: 'یوان به کیلوگرم', scale: 1 },
+  'molybden':         { fa: 'مولیبدن',          cat: 'base', unitFa: 'یوان به کیلوگرم', scale: 1 },
+  'manganese':        { fa: 'منگنز',            cat: 'base', unitFa: 'یوان به واحد',    scale: 1 },
+  'gallium':          { fa: 'گالیوم',           cat: 'base', unitFa: 'یوان به کیلوگرم', scale: 1 },
+  'germanium':        { fa: 'ژرمانیوم',         cat: 'base', unitFa: 'یوان به کیلوگرم', scale: 1 },
+  'indium':           { fa: 'ایندیوم',          cat: 'base', unitFa: 'یوان به کیلوگرم', scale: 1 },
+  'magnesium':        { fa: 'منیزیم',           cat: 'base', unitFa: 'یوان به تن',      scale: 1 },
+  'neodymium':        { fa: 'نئودیمیوم',        cat: 'base', unitFa: 'یوان به تن',      scale: 1 },
+  'tellurium':        { fa: 'تلوریوم',          cat: 'base', unitFa: 'یوان به کیلوگرم', scale: 1 },
 
-  'wheat':            { fa: 'گندم',           cat: 'agri',      unitFa: 'دلار به بوشل',          scale: 0.01 },
-  'corn':             { fa: 'ذرت',            cat: 'agri',      unitFa: 'دلار به بوشل',          scale: 0.01 },
-  'soybeans':         { fa: 'سویا',           cat: 'agri',      unitFa: 'دلار به بوشل',          scale: 0.01 },
-  'coffee':           { fa: 'قهوه',           cat: 'agri',      unitFa: 'دلار به پوند',          scale: 0.01 },
-  'sugar':            { fa: 'شکر',            cat: 'agri',      unitFa: 'دلار به پوند',          scale: 0.01 },
-  'cotton':           { fa: 'پنبه',           cat: 'agri',      unitFa: 'دلار به پوند',          scale: 0.01 },
-  'cocoa':            { fa: 'کاکائو',         cat: 'agri',      unitFa: 'دلار به تن',            scale: 1 },
-  'rice':             { fa: 'برنج',           cat: 'agri',      unitFa: 'دلار به صد پوند',        scale: 1 },
+  // ── محصولات کشاورزی ──
+  'wheat':             { fa: 'گندم',        cat: 'agri', unitFa: 'دلار به بوشل',       scale: 0.01 },
+  'corn':               { fa: 'ذرت',         cat: 'agri', unitFa: 'دلار به بوشل',       scale: 0.01 },
+  'soybeans':           { fa: 'سویا',        cat: 'agri', unitFa: 'دلار به بوشل',       scale: 0.01 },
+  'oat':                { fa: 'جو دوسر',     cat: 'agri', unitFa: 'دلار به بوشل',       scale: 0.01 },
+  'canola':             { fa: 'کانولا',      cat: 'agri', unitFa: 'دلار کانادا به تن',  scale: 1 },
+  'rapeseed-oil':       { fa: 'روغن کلزا',   cat: 'agri', unitFa: 'یورو به تن',         scale: 1 },
+  'sunflower-oil':      { fa: 'روغن آفتابگردان', cat: 'agri', unitFa: 'روپیه هند به ده کیلوگرم', scale: 1 },
+  'palm-oil':           { fa: 'روغن نخل',    cat: 'agri', unitFa: 'رینگیت مالزی به تن', scale: 1 },
+  'coffee':             { fa: 'قهوه',        cat: 'agri', unitFa: 'دلار به پوند',       scale: 0.01 },
+  'cocoa':               { fa: 'کاکائو',     cat: 'agri', unitFa: 'دلار به تن',         scale: 1 },
+  'tea':                 { fa: 'چای',        cat: 'agri', unitFa: 'روپیه هند به کیلوگرم', scale: 1 },
+  'sugar':               { fa: 'شکر',        cat: 'agri', unitFa: 'دلار به پوند',       scale: 0.01 },
+  'cotton':              { fa: 'پنبه',       cat: 'agri', unitFa: 'دلار به پوند',       scale: 0.01 },
+  'rice':                { fa: 'برنج',       cat: 'agri', unitFa: 'دلار به صد پوند',    scale: 1 },
+  'barley':              { fa: 'جو',         cat: 'agri', unitFa: 'روپیه هند به تن',    scale: 1 },
+  'orange-juice':        { fa: 'آب‌پرتقال',  cat: 'agri', unitFa: 'دلار به پوند',       scale: 0.01 },
+  'lumber':              { fa: 'الوار',      cat: 'agri', unitFa: 'دلار به هزار فوت تخته', scale: 1 },
+  'rubber':              { fa: 'لاستیک طبیعی', cat: 'agri', unitFa: 'دلار به کیلوگرم', scale: 0.01 },
+  'wool':                { fa: 'پشم',        cat: 'agri', unitFa: 'دلار استرالیا به صد کیلوگرم', scale: 1 },
+  'cheese':              { fa: 'پنیر',       cat: 'agri', unitFa: 'دلار به پوند',       scale: 1 },
+  'milk':                { fa: 'شیر',        cat: 'agri', unitFa: 'دلار به صد پوند',    scale: 1 },
+  'butter':              { fa: 'کره',        cat: 'agri', unitFa: 'یورو به تن',         scale: 1 },
 
-  'live-cattle':      { fa: 'گاو زنده',       cat: 'livestock', unitFa: 'دلار به پوند',          scale: 0.01 },
-  'lean-hogs':        { fa: 'گوشت خوک',       cat: 'livestock', unitFa: 'دلار به پوند',          scale: 0.01 },
+  // ── صنعتی و مواد اولیه شیمیایی ──
+  'methanol':          { fa: 'متانول',        cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'bitumen':           { fa: 'قیر',           cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'polyethylene':      { fa: 'پلی‌اتیلن',     cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'polyvinyl':         { fa: 'پی‌وی‌سی',       cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'polypropylene':     { fa: 'پلی‌پروپیلن',   cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'synthetic-rubber':  { fa: 'لاستیک مصنوعی', cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'soda-ash':          { fa: 'سود اش',        cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'styrene':           { fa: 'استایرن',       cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'sulfur':            { fa: 'گوگرد',         cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'urea':              { fa: 'اوره',          cat: 'industrial', unitFa: 'دلار به تن',      scale: 1 },
+  'di-ammonium':       { fa: 'دی‌آمونیوم فسفات', cat: 'industrial', unitFa: 'دلار به تن',   scale: 1 },
+  'phosphorus':        { fa: 'فسفر',          cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
+  'kraft-pulp':        { fa: 'خمیر کرافت',    cat: 'industrial', unitFa: 'یوان به تن',      scale: 1 },
 
-  'crb':              { fa: 'شاخص CRB',       cat: 'index',     unitFa: 'واحد شاخص',            scale: 1 },
-  'gsci':             { fa: 'شاخص GSCI',      cat: 'index',     unitFa: 'واحد شاخص',            scale: 1 },
+  // ── دام و پروتئین ──
+  'live-cattle':   { fa: 'گاو زنده',      cat: 'livestock', unitFa: 'دلار به پوند',        scale: 0.01 },
+  'feeder-cattle': { fa: 'گوساله‌ی پرواری', cat: 'livestock', unitFa: 'دلار به پوند',      scale: 0.01 },
+  'lean-hogs':     { fa: 'گوشت خوک',       cat: 'livestock', unitFa: 'دلار به پوند',        scale: 0.01 },
+  'beef':          { fa: 'گوشت گاو',       cat: 'livestock', unitFa: 'رئال برزیل به ۱۵ کیلوگرم', scale: 1 },
+  'poultry':       { fa: 'مرغ',            cat: 'livestock', unitFa: 'رئال برزیل به کیلوگرم', scale: 1 },
+  'eggs-us':       { fa: 'تخم‌مرغ آمریکا', cat: 'livestock', unitFa: 'دلار به دوجین',       scale: 1 },
+  'eggs-ch':       { fa: 'تخم‌مرغ چین',    cat: 'livestock', unitFa: 'یوان به تن',          scale: 1 },
+  'salmon':        { fa: 'ماهی سالمون',    cat: 'livestock', unitFa: 'کرون نروژ به کیلوگرم', scale: 1 },
+
+  // ── شاخص‌های ترکیبی ──
+  'crb':                          { fa: 'شاخص CRB',                cat: 'index', unitFa: 'واحد شاخص', scale: 1 },
+  'gsci':                         { fa: 'شاخص GSCI',               cat: 'index', unitFa: 'واحد شاخص', scale: 1 },
+  'consume-commodity-index':      { fa: 'شاخص کالای بورس شانگهای', cat: 'index', unitFa: 'واحد شاخص', scale: 1 },
+  'containerized-freight-index':  { fa: 'شاخص کرایه‌ی کانتینر',    cat: 'index', unitFa: 'واحد شاخص', scale: 1 },
+  'carbon':                       { fa: 'مجوز کربن اروپا',         cat: 'index', unitFa: 'یورو',      scale: 1 },
+  'wind':                         { fa: 'شاخص انرژی بادی',         cat: 'index', unitFa: 'دلار',      scale: 1 },
+  'nuclear':                      { fa: 'شاخص انرژی هسته‌ای',      cat: 'index', unitFa: 'دلار',      scale: 1 },
+  'solar':                        { fa: 'شاخص انرژی خورشیدی',      cat: 'index', unitFa: 'دلار',      scale: 1 },
 };
 
-const CAT_ORDER = ['energy', 'precious', 'base', 'agri', 'livestock', 'index'];
+const CAT_ORDER = ['energy', 'precious', 'base', 'agri', 'industrial', 'livestock', 'index'];
 const CAT_FA = {
   energy: 'انرژی', precious: 'فلزات گران‌بها', base: 'فلزات پایه',
-  agri: 'محصولات کشاورزی', livestock: 'دام', index: 'شاخص‌های ترکیبی',
+  agri: 'محصولات کشاورزی', industrial: 'صنعتی و مواد اولیه',
+  livestock: 'دام و پروتئین', index: 'شاخص‌های ترکیبی',
 };
 
 let crawling = false;

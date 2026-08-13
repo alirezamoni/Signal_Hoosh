@@ -159,8 +159,9 @@
       </span>
     </div>
     <blockquote class="desc desc-sm">
-      قیمت لحظه‌ای نفت، فلزات و محصولات کشاورزی در بازارهای جهانی، به دلار — برای مقایسه‌ی
-      روند بازار داخلی با قیمت پایه‌ی جهانی همان کالا.
+      قیمت لحظه‌ای نزدیک به ۱۰۰ کالای جهانی — انرژی، فلزات، محصولات کشاورزی، مواد اولیه‌ی
+      صنعتی، دام و شاخص‌های ترکیبی — برای مقایسه‌ی بازار داخلی با قیمت پایه‌ی جهانی همان کالا.
+      نمودار کوچک کنار هر ردیف روند ۷۲ ساعت اخیر را نشان می‌دهد و با هر کرال کامل‌تر می‌شود.
     </blockquote>
 
     <div class="grid g3 mb6">
@@ -170,21 +171,41 @@
           <h3 class="panel-title"><%= g.label %></h3>
           <span class="panel-link"><%= fa(g.items.length) %></span>
         </div>
-        <div class="panel-body">
-          <% g.items.forEach(function (c) { %>
-          <div class="drow">
-            <div class="drow-main">
-              <span class="drow-name"><%= c.nameFa %></span>
-              <span class="drow-sub"><%= c.unit %></span>
-            </div>
-            <div class="drow-val">
-              <span><%= fa(c.priceText) %></span>
-              <% if (c.change_pct != null) { %>
-              <span class="badge <%= c.change_pct > 0 ? 'badge-up' : (c.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.change_pct) %></span>
+        <div class="panel-body-pad">
+          <% var comFirst = g.items.slice(0, 6), comRest = g.items.slice(6); %>
+          <div class="sm-grid" style="grid-template-columns:1fr;">
+            <% comFirst.forEach(function (c) { %>
+            <div class="sm-row">
+              <span class="sm-name"><%= c.nameFa %></span>
+              <% if (c.hist && c.hist.length > 1) { %>
+              <svg class="spark" viewBox="0 0 64 20"><polyline points="<%= c.sparkPoly %>" fill="none" stroke="<%= c.change_pct >= 0 ? 'var(--up)' : 'var(--down)' %>" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
               <% } %>
+              <span class="sm-num">
+                <span class="sm-price"><%= fa(c.priceText) %><% if (c.change_pct != null) { %> <b class="<%= c.change_pct > 0 ? 'up' : (c.change_pct < 0 ? 'down' : '') %>"><%= pct(c.change_pct) %></b><% } %></span>
+                <span class="sm-km"><%= c.unit %></span>
+              </span>
             </div>
+            <% }); %>
           </div>
-          <% }); %>
+          <% if (comRest.length) { %>
+          <details class="sm-more">
+            <summary><span class="sm-more-open">نمایش <%= fa(comRest.length) %> کالای دیگر</span><span class="sm-more-close">بستن فهرست</span></summary>
+            <div class="sm-grid mt3" style="grid-template-columns:1fr;">
+              <% comRest.forEach(function (c) { %>
+              <div class="sm-row">
+                <span class="sm-name"><%= c.nameFa %></span>
+                <% if (c.hist && c.hist.length > 1) { %>
+                <svg class="spark" viewBox="0 0 64 20"><polyline points="<%= c.sparkPoly %>" fill="none" stroke="<%= c.change_pct >= 0 ? 'var(--up)' : 'var(--down)' %>" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+                <% } %>
+                <span class="sm-num">
+                  <span class="sm-price"><%= fa(c.priceText) %><% if (c.change_pct != null) { %> <b class="<%= c.change_pct > 0 ? 'up' : (c.change_pct < 0 ? 'down' : '') %>"><%= pct(c.change_pct) %></b><% } %></span>
+                  <span class="sm-km"><%= c.unit %></span>
+                </span>
+              </div>
+              <% }); %>
+            </div>
+          </details>
+          <% } %>
         </div>
       </section>
       <% }); %>

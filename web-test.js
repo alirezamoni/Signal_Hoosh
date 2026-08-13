@@ -887,11 +887,17 @@ app.get('/finance', (req, res) => {
     commodityGroups = commodityCrawler.CAT_ORDER
       .map(key => ({
         key, label: commodityCrawler.CAT_FA[key],
-        items: all.filter(r => r.category === key).map(r => Object.assign({}, r, {
-          curated: commodityCrawler.CURATED[r.slug] || {},
-          nameFa: (commodityCrawler.CURATED[r.slug] || {}).fa || r.slug,
-          priceText: finText(r.price),
-        })),
+        items: all.filter(r => r.category === key).map(r => {
+          let hist = [];
+          try { hist = (commodityDB.getSeries(r.slug, 72) || []).map(x => x.price).filter(v => v != null); } catch (e) {}
+          return Object.assign({}, r, {
+            curated: commodityCrawler.CURATED[r.slug] || {},
+            nameFa: (commodityCrawler.CURATED[r.slug] || {}).fa || r.slug,
+            priceText: finText(r.price),
+            hist,
+            sparkPoly: hist.length > 1 ? sparkPoints(hist, 64, 20) : '',
+          });
+        }),
       }))
       .filter(g => g.items.length);
   } catch (e) { console.warn('[finance/commodity]', e.message); }
