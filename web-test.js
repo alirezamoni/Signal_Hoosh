@@ -22,6 +22,8 @@ const polyDB    = require('./polymarket-db');
 const trendDB   = require('./trend-db');
 const goldDB    = require('./gold-db');
 const propDB    = require('./property-db');
+const commodityDB = require('./commodity-db');
+const commodityCrawler = require('./commodity-crawler');
 const insightsDB = require('./insights-db');
 const tlSkill    = require('./timeline-skill');
 const txt       = require('./lib/clean-text');
@@ -877,11 +879,29 @@ app.get('/finance', (req, res) => {
     }
   } catch (e) { console.warn('[gold/chart]', e.message); }
 
+  // ── قیمت جهانی کالا (نفت، فلزات، محصولات کشاورزی) ──
+  let commodityGroups = [], commodityStatus = null;
+  try {
+    const all = commodityDB.getLatestAll() || [];
+    commodityStatus = commodityDB.getStatus();
+    commodityGroups = commodityCrawler.CAT_ORDER
+      .map(key => ({
+        key, label: commodityCrawler.CAT_FA[key],
+        items: all.filter(r => r.category === key).map(r => Object.assign({}, r, {
+          curated: commodityCrawler.CURATED[r.slug] || {},
+          nameFa: (commodityCrawler.CURATED[r.slug] || {}).fa || r.slug,
+          priceText: finText(r.price),
+        })),
+      }))
+      .filter(g => g.items.length);
+  } catch (e) { console.warn('[finance/commodity]', e.message); }
+
   page(res, 'finance', '/finance', {
     title: 'ترند بازارهای مالی | قیمت لحظه‌ای دلار، طلا، سکه و انس — سیگنال هوش',
     desc: 'رصد لحظه‌ای بازارهای موازی ایران: دلار آزاد، طلای ۱۸ عیار، سکه امامی و انس جهانی طلا، همراه با جریان اخبار مالی کانال‌های تلگرام.',
     path: '/finance'
-  }, { rows, kpi: rows.slice(0, 4), messages, channels, goldRows, goldChart, goldUpdated, goldSpread });
+  }, { rows, kpi: rows.slice(0, 4), messages, channels, goldRows, goldChart, goldUpdated, goldSpread,
+       commodityGroups, commodityStatus });
 });
 
 app.get('/cars', (req, res) => {
@@ -1301,7 +1321,7 @@ const DB_LABELS = {
   'market.db': 'کالا', 'jobs.db': 'بازار کار', 'job.db': 'بازار کار',
   'polymarket.db': 'پلی‌مارکت', 'timeline.db': 'ترند آینده',
   'messages.db': 'پیام‌های تماس', 'users.db': 'کاربران',
-  'property.db': 'ملک تهران', 'gold.db': 'پلتفرم‌های طلا',
+  'property.db': 'ملک تهران', 'gold.db': 'پلتفرم‌های طلا', 'commodity.db': 'کالای جهانی',
 };
 
 // آستانه‌ی «قدیمی» برای بخش‌هایی که عمداً کم‌تکرار بروز می‌شوند
@@ -1389,7 +1409,7 @@ function systemInfo(dbs) {
   };
 }
 
-const ADMIN_SECS = ['overview', 'users', 'channels', 'gold', 'ai', 'messages', 'spam', 'blocked', 'system'];
+const ADMIN_SECS = ['overview', 'users', 'channels', 'gold', 'commodity', 'ai', 'messages', 'spam', 'blocked', 'system'];
 
 function adminPage(req, res, extra) {
   const q = (sql, d) => { try { return newsRO.prepare(sql).get(); } catch (e) { return d; } };
@@ -1423,6 +1443,16 @@ function adminPage(req, res, extra) {
 
   let goldPlatforms = [];
   try { goldPlatforms = goldDB.getAllWithStatus() || []; } catch (e) {}
+
+  let commodityAdminRows = [], commodityAdminStatus = null, commodityIntervalMin = commodityCrawler.getIntervalMin();
+  try {
+    commodityAdminStatus = commodityDB.getStatus();
+    commodityAdminRows = (commodityDB.getLatestAll() || []).map(r => Object.assign({}, r, {
+      nameFa: (commodityCrawler.CURATED[r.slug] || {}).fa || r.slug,
+      catFa: commodityCrawler.CAT_FA[r.category] || r.category,
+      priceText: finText(r.price),
+    }));
+  } catch (e) { console.warn('[admin/commodity]', e.message); }
 
   let chNews = [], chFin = [];
   try { chNews = newsDB.getChannels() || []; } catch (e) {}
@@ -1458,6 +1488,8 @@ function adminPage(req, res, extra) {
     title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
   }, Object.assign({
     rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec, goldPlatforms,
+    commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
+    COMMODITY_MIN: commodityCrawler.MIN_INTERVAL_MIN, COMMODITY_MAX: commodityCrawler.MAX_INTERVAL_MIN,
     sys: systemInfo(dbs),
     stats: {
       news, blocked: blockedN, visible: news - blockedN,
@@ -1480,6 +1512,7 @@ function backFrom(req, res, ok, err) {
   else if (p.indexOf('/messages') !== -1) sec = 'messages';
   else if (p.indexOf('/spam') !== -1)     sec = 'spam';
   else if (p.indexOf('/news') !== -1)     sec = 'blocked';
+  else if (p.indexOf('/commodity') !== -1) sec = 'commodity';
   const qs = ['sec=' + sec];
   if (ok)  qs.push('ok=' + encodeURIComponent(ok));
   if (err) qs.push('err=' + encodeURIComponent(err));
@@ -1643,6 +1676,19 @@ app.post('/admin/channels/:id/delete', adminGuard, (req, res) => {
 // ══ پلتفرم‌های طلا ══
 // غیرفعال‌سازی جمع‌آوری را متوقف می‌کند ولی تاریخچه می‌ماند؛ حذف کامل
 // تاریخچه را هم می‌برد و نمودار گذشته سوراخ می‌شود.
+
+app.post('/admin/commodity/save', adminGuard, (req, res) => {
+  try {
+    const raw = String(req.body.commodity_interval_min || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    const min = parseInt(raw, 10);
+    if (isNaN(min)) return backFrom(req, res, null, 'عدد وارد نشد.');
+    if (min < commodityCrawler.MIN_INTERVAL_MIN || min > commodityCrawler.MAX_INTERVAL_MIN) {
+      return backFrom(req, res, null, 'بازه باید بین ' + commodityCrawler.MIN_INTERVAL_MIN + ' تا ' + commodityCrawler.MAX_INTERVAL_MIN + ' دقیقه باشد.');
+    }
+    settingsDB.set('commodity_interval_min', min);
+    backFrom(req, res, 'بازه‌ی کرال روی ' + min + ' دقیقه تنظیم شد و از چرخه‌ی بعدی اعمال می‌شود.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
 
 app.post('/admin/gold/:id/toggle', adminGuard, (req, res) => {
   try {

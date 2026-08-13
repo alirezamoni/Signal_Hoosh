@@ -570,6 +570,8 @@ app.listen(PORT, HOST, () => {
   startPolymarketScheduler();
   require('./gold-crawler').startGoldScheduler(10);
   require('./property-crawler').startPropertyScheduler(24);
+  // بدون Puppeteer، پس تأخیر اولیه‌ی کوتاه کافی است — با هجوم کرالرهای مرورگردار لحظه‌ی بوت تصادف نمی‌کند
+  require('./commodity-crawler').startCommodityScheduler(90 * 1000);
   require('./insights-brief').startBriefScheduler(6);
   // تحلیل همبستگی سنگین است و داده‌اش روزانه عوض می‌شود — شبی یک‌بار کافی است
   setTimeout(() => { try { require('./insights-leadlag').run(); } catch (e) { console.warn('[leadlag]', e.message); } }, 8 * 60 * 1000);

@@ -150,6 +150,47 @@
     </div>
     <% } %>
 
+    <!-- ══ قیمت جهانی کالا ══ -->
+    <% if (commodityGroups.length) { %>
+    <div class="page-head between wrap">
+      <h2 class="sec-title">قیمت جهانی کالا</h2>
+      <span class="dim" style="font-size:var(--fs-xs);">
+        <% if (commodityStatus && commodityStatus.last_ok) { %>بروزرسانی <%= timeAgo(commodityStatus.last_ok) %><% } %>
+      </span>
+    </div>
+    <blockquote class="desc desc-sm">
+      قیمت لحظه‌ای نفت، فلزات و محصولات کشاورزی در بازارهای جهانی، به دلار — برای مقایسه‌ی
+      روند بازار داخلی با قیمت پایه‌ی جهانی همان کالا.
+    </blockquote>
+
+    <div class="grid g3 mb6">
+      <% commodityGroups.forEach(function (g) { %>
+      <section class="panel">
+        <div class="panel-head">
+          <h3 class="panel-title"><%= g.label %></h3>
+          <span class="panel-link"><%= fa(g.items.length) %></span>
+        </div>
+        <div class="panel-body">
+          <% g.items.forEach(function (c) { %>
+          <div class="drow">
+            <div class="drow-main">
+              <span class="drow-name"><%= c.nameFa %></span>
+              <span class="drow-sub"><%= c.unit %></span>
+            </div>
+            <div class="drow-val">
+              <span><%= fa(c.priceText) %></span>
+              <% if (c.change_pct != null) { %>
+              <span class="badge <%= c.change_pct > 0 ? 'badge-up' : (c.change_pct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.change_pct) %></span>
+              <% } %>
+            </div>
+          </div>
+          <% }); %>
+        </div>
+      </section>
+      <% }); %>
+    </div>
+    <% } %>
+
     <section class="panel">
       <div class="panel-head">
         <h2 class="panel-title">

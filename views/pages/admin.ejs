@@ -41,6 +41,9 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1.5"/></svg>
           کانال‌ها <span class="tag" style="margin-right:auto;"><%= fa(chNews.length + chFin.length) %></span>
         </a>
+        <a href="#" data-sec="sec-commodity" class="<%= sec === 'commodity' ? 'on' : '' %>">
+          کالای جهانی <span class="tag" style="margin-right:auto;"><%= fa(commodityIntervalMin) %> د</span>
+        </a>
         <a href="#" data-sec="sec-gold" class="<%= sec === 'gold' ? 'on' : '' %>">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 8l4-4h10l4 4-9 12z"/><path d="M7 4l5 16 5-16"/></svg>
           پلتفرم‌های طلا <span class="tag" style="margin-right:auto;"><%= fa(goldPlatforms.filter(function(p){return p.ok}).length) %>/<%= fa(goldPlatforms.length) %></span>
@@ -252,6 +255,61 @@
             </div>
           </section>
           <% }); %>
+        </section>
+
+        <!-- ══════════ کالای جهانی ══════════ -->
+        <section class="admin-sec <%= sec === 'commodity' ? 'on' : '' %>" id="sec-commodity">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">قیمت جهانی کالا</h2>
+            <span class="tag">
+              <% if (commodityAdminStatus && commodityAdminStatus.ok) { %>سالم<% } else if (commodityAdminStatus) { %>ناموفق<% } else { %>هنوز اجرا نشده<% } %>
+            </span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            منبع نفت، فلزات و محصولات کشاورزی را در یک درخواست می‌دهد — نه هر نماد را جدا،
+            پس وضعیت یک ردیف کلی است. این منبع فروشنده‌ی تجاری داده است و سیستم تشخیص ربات دارد؛
+            بازه را کمتر از <%= fa(COMMODITY_MIN) %> دقیقه نگذارید تا احتمال مسدود شدن پایین بماند.
+          </blockquote>
+
+          <section class="panel mb4">
+            <div class="panel-head"><h3 class="panel-title">بازه‌ی کرال</h3></div>
+            <div class="panel-body-pad">
+              <form method="POST" action="/admin/commodity/save" class="row wrap" style="gap:var(--s3);">
+                <label class="field" style="margin-bottom:0;">
+                  <span class="label">هر چند دقیقه یک‌بار</span>
+                  <input class="input" type="number" name="commodity_interval_min" min="<%= COMMODITY_MIN %>" max="<%= COMMODITY_MAX %>"
+                         value="<%= commodityIntervalMin %>" style="width:110px;">
+                </label>
+                <button class="btn btn-acc" type="submit" style="align-self:flex-end;">ذخیره</button>
+                <span class="hint" style="align-self:flex-end;">بین <%= fa(COMMODITY_MIN) %> تا <%= fa(COMMODITY_MAX) %> دقیقه · پیش‌فرض ۱۰</span>
+              </form>
+            </div>
+            <div class="panel-foot">
+              <% if (commodityAdminStatus && commodityAdminStatus.last_ok) { %>آخرین موفقیت: <%= timeAgo(commodityAdminStatus.last_ok) %><% } %>
+              <% if (commodityAdminStatus && commodityAdminStatus.error) { %> · خطای آخرین تلاش: <%= commodityAdminStatus.error %><% } %>
+              <% if (commodityAdminStatus && commodityAdminStatus.fail_streak > 1) { %> · <%= fa(commodityAdminStatus.fail_streak) %> شکست پیاپی<% } %>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>کالا</th><th class="ta-l">دسته</th><th class="ta-l">قیمت</th><th class="ta-l">تغییر</th></tr></thead>
+                <tbody>
+                  <% commodityAdminRows.forEach(function (c) { %>
+                  <tr>
+                    <td><%= c.nameFa %></td>
+                    <td class="ta-l"><span class="tag"><%= c.catFa %></span></td>
+                    <td class="ta-l"><%= fa(c.priceText) %> <span class="dim" style="font-size:var(--fs-xs);"><%= c.unit %></span></td>
+                    <td class="ta-l"><% if (c.change_pct != null) { %><span class="<%= c.change_pct > 0 ? 'up' : (c.change_pct < 0 ? 'down' : '') %>"><%= pct(c.change_pct) %></span><% } else { %>—<% } %></td>
+                  </tr>
+                  <% }); %>
+                  <% if (!commodityAdminRows.length) { %><tr><td colspan="4" class="dim center">هنوز داده‌ای جمع‌آوری نشده</td></tr><% } %>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <!-- ══════════ پلتفرم‌های طلا ══════════ -->
