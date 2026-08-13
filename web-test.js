@@ -178,15 +178,15 @@ function mediaOf(media_url) {
 
 const TABS = [
   { href: '/',           label: 'خانه' },
-  { href: '/trends',     label: 'ترند سرچ ایران' },
-  { href: '/news',       label: 'ترند اخبار ایران' },
-  { href: '/finance',    label: 'ترند بازارهای مالی' },
+  { href: '/trends',     label: 'ترند سرچ' },
+  { href: '/news',       label: 'ترند اخبار' },
+  { href: '/finance',    label: 'ترند مالی' },
   { href: '/property',   label: 'ترند ملک' },
-  { href: '/cars',       label: 'ترند خودرو ایران' },
-  { href: '/market',     label: 'ترند کالای ایران' },
-  { href: '/jobs',       label: 'مارکت کار ایران' },
-  { href: '/polymarket', label: 'ترند های پلی مارکت' },
-  { href: '/future',     label: 'ترند آینده' }
+  { href: '/cars',       label: 'ترند خودرو' },
+  { href: '/market',     label: 'ترند کالا' },
+  { href: '/jobs',       label: 'ترند بازار کار' },
+  { href: '/polymarket', label: 'ترند پلی‌مارکت' },
+  { href: '/future',     label: 'پیش‌بینی ترند' }
 ];
 
 function usd(n) {
