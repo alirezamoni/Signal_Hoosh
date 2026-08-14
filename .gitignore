@@ -2,9 +2,9 @@ node_modules/
 venv/
 data/
 
-# نسخه قدیمی/بلااستفاده که هنوز کلید قدیمی OpenRouter را دارد و توسط Express سرو نمی‌شود
-# (public/index.html نسخه واقعی است). قبل از push عمومی حذفش نکردیم چون تصمیم حذف با کاربر است.
-/index.html
+# پنل/فرانت قدیمی — بازنشسته شد؛ نسخه‌ی زنده /admin و صفحات SSR است.
+# فایل هنوز روی سرور می‌ماند (server.js به آن sendFile می‌کند) ولی در ریپوی پابلیک لازم نیست.
+public/index.html
 *.db
 *.db-shm
 *.db-wal
