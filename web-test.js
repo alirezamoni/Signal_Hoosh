@@ -309,6 +309,7 @@ function assetVersion(rel) {
   } catch (e) { return String(Date.now()); }
 }
 const ASSETS = {
+  og_default: '/og-default.png?v=' + assetVersion('og-default.png'),
   tokens:     '/assets/css/tokens.css?v='     + assetVersion('assets/css/tokens.css'),
   base:       '/assets/css/base.css?v='       + assetVersion('assets/css/base.css'),
   components: '/assets/css/components.css?v=' + assetVersion('assets/css/components.css'),
