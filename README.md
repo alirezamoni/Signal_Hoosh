@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://signalhoosh.site/og-default.png" alt="سیگنال هوش" width="600"/>
+<img src="https://signalhoosh.site/og-default.png?v=1786701413420" alt="سیگنال هوش" width="600"/>
 
 # سیگنال هوش
 
