@@ -143,6 +143,16 @@ function getMeteors(limit = 15) {
   `).all(limit);
 }
 
+// سری زمانی خام یک کلیدواژه در یک بازه (۴ ساعته/۲۴ ساعته) — برای اسپارک‌لاین کارت‌های ترند
+function getKeywordSeries(keyword, window, hours = 24) {
+  return db.prepare(`
+    SELECT captured_at, vol
+    FROM trend_snapshots
+    WHERE keyword = ? AND window = ? AND captured_at >= datetime('now', ?)
+    ORDER BY captured_at ASC
+  `).all(String(keyword || '').trim(), window, `-${parseInt(hours)} hours`);
+}
+
 // تایم‌لاین یک کلیدواژه برای نمودار
 function getKeywordTimeline(keyword, days = 30) {
   return db.prepare(`
@@ -196,7 +206,7 @@ function cleanup() {
 
 module.exports = {
   saveSnapshot, getCachedCat, setCachedCat, setCachedCatBulk,
-  getHallOfFame, getMostPersistent, getMeteors, getKeywordTimeline,
+  getHallOfFame, getMostPersistent, getMeteors, getKeywordTimeline, getKeywordSeries,
   getCategoryShare, getActivityHeatmap, getStats, cleanup,
   _db: db,
 };

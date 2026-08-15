@@ -678,8 +678,42 @@ tbody tr:hover { background: var(--card-hover); }
 .hot-card:hover { border-color: var(--border-strong); }
 .hot-rank { font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
 .hot-kw { font-size: var(--fs-base); margin-block: 6px 8px; line-height: 1.6; color: var(--text); display: flex; align-items: center; gap: 5px; }
+.hot-spark { display: block; width: 100%; height: 40px; margin-bottom: 8px; }
+.hot-breakdown { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.hot-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-bottom: 8px; }
+.chip-sm {
+  display: inline-flex; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px; font-size: var(--fs-xs);
+  background: var(--inset); color: var(--faint); border: 1px solid var(--border);
+}
+.chip-sm.chip-more { color: var(--muted); }
 .hot-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
-.hot-vol { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.hot-vol { font-size: var(--fs-sm); color: var(--down); font-variant-numeric: tabular-nums; }
+
+/* ══════════════ فهرست ترند (رتبه‌های ۱۱ به بعد) ══════════════ */
+
+.trend-list {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow);
+}
+.trend-row {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--pad-row) var(--pad-panel);
+  border-bottom: 1px solid var(--border);
+  transition: background var(--dur) var(--ease);
+}
+.trend-row:last-child { border-bottom: none; }
+.trend-row:hover { background: var(--card-hover); }
+.tr-rank { font-size: var(--fs-xs); color: var(--faint); width: 20px; flex-shrink: 0; text-align: center; font-variant-numeric: tabular-nums; }
+.tr-name { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-bd { flex-shrink: 0; font-size: var(--fs-xs); color: var(--faint); }
+.tr-spark { flex-shrink: 0; display: block; width: 56px; height: 20px; }
+.tr-vol { flex-shrink: 0; font-size: var(--fs-sm); color: var(--down); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .tr-bd { display: none; }
+  .tr-spark { width: 40px; }
+}
 
 /* ══════════════ کارت AI ══════════════ */
 

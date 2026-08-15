@@ -787,11 +787,29 @@ app.get('/news/:id', (req, res, next) => {
 
 // ════════════ بقیه‌ی تب‌ها ════════════
 
+// نمودار میل به جستجو برای هر ترند — گوگل خودش این نمودار را روی صفحه‌اش با
+// جاوااسکریپت رندر می‌کند و در HTML خام هیچ داده‌ای برایش نمی‌فرستد (بارها با
+// اسکرول/هاور/رصد شبکه تست و تأیید شد)، پس همان شکل را از تاریخچه‌ی خودمان
+// (هر کرال یک snapshot در trend_snapshots) می‌سازیم — دقیقاً با الگوی sparkPath/Area
+// که برای طلا و کالای جهانی هم استفاده شده.
+const TREND_SPARK_HOURS = 24;
+function withSpark(list, window) {
+  return list.map(t => {
+    let hist = [];
+    try { hist = (trendDB.getKeywordSeries(t.keyword, window, TREND_SPARK_HOURS) || []).map(r => r.vol); }
+    catch (e) {}
+    return Object.assign({}, t, {
+      sparkP: hist.length > 1 ? sparkPath(hist, 128, 48, 3) : '',
+      sparkA: hist.length > 1 ? sparkArea(hist, 128, 48, 3) : '',
+    });
+  });
+}
+
 app.get('/trends', (req, res) => {
   const j4  = readJson('h4.json', {});
   const j24 = readJson('h24.json', {});
-  const h4  = Array.isArray(j4.trends) ? j4.trends : [];
-  const h24 = Array.isArray(j24.trends) ? j24.trends : [];
+  const h4  = withSpark(Array.isArray(j4.trends) ? j4.trends : [], '4h');
+  const h24 = withSpark(Array.isArray(j24.trends) ? j24.trends : [], '24h');
   let stats = {}, hall = [], persistent = [], meteors = [];
   try { stats      = trendDB.getStats() || {}; } catch (e) {}
   try { hall       = trendDB.getHallOfFame(6) || []; } catch (e) {}

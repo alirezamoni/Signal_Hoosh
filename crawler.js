@@ -138,13 +138,19 @@ async function scrapeTrends(url, label) {
           const combinedText = kwTdText + '\n' + volTdText;
           const statusText = (tds[3]?.innerText||'').trim();
 
-          const subEls = tds[1]?.querySelectorAll('a') || [];
-          const subs = Array.from(subEls)
-            .map(el=>el.innerText.trim())
-            .filter(s=>s && !s.includes('مورد') && !s.includes('more') && s.length>1)
-            .slice(0,4);
+          // Trend breakdown: عبارت‌های جستجوی مرتبط که گوگل روی دکمه‌های داخل ردیف
+          // به‌صورت data-term نگه می‌دارد (روی row اصلی، نه clone — چون clone دکمه‌ها را حذف کرده)
+          const termEls = row.querySelectorAll('[data-term]');
+          const breakdown = [...new Set(Array.from(termEls)
+            .map(el => (el.getAttribute('data-term')||'').trim())
+            .filter(Boolean))]
+            .filter(term => term !== keyword)
+            .slice(0, 6);
+          const moreBtn = row.querySelector('.Gwdjic');
+          const moreMatch = moreBtn ? (moreBtn.textContent||'').match(/\d+/) : null;
+          const breakdownMore = moreMatch ? parseInt(moreMatch[0]) : 0;
 
-          results.push({ rank, keyword, combinedText, statusText, subs });
+          results.push({ rank, keyword, combinedText, statusText, breakdown, breakdownMore });
         } catch(e) {}
       });
       return results;
@@ -163,7 +169,7 @@ async function scrapeTrends(url, label) {
         keyword: t.keyword,
         vol, unit: fmtUnit(vol), growth,
         active, lasted: !active ? t.statusText.trim() : null,
-        cat: '', subs: t.subs, time,
+        cat: '', breakdown: t.breakdown || [], breakdownMore: t.breakdownMore || 0, time,
       };
     });
 

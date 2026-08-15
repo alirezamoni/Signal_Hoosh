@@ -1,0 +1,26 @@
+<a class="hot-card" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
+  <div class="hot-rank"><%= fa(String(rank).padStart(2, '0')) %></div>
+  <div class="hot-kw"><%= t.keyword %></div>
+  <% if (t.sparkP) { %>
+  <svg class="hot-spark" viewBox="0 0 128 48" preserveAspectRatio="none" aria-hidden="true">
+    <path d="<%= t.sparkA %>" fill="var(--accent)" opacity=".16"></path>
+    <path d="<%= t.sparkP %>" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"></path>
+  </svg>
+  <% } %>
+  <% if (t.breakdown && t.breakdown.length) { %>
+  <div class="hot-breakdown">
+    <% t.breakdown.slice(0, 3).forEach(function (b) { %><span class="chip-sm"><%= b %></span><% }); %>
+    <% if (t.breakdownMore) { %><span class="chip-sm chip-more">+<%= fa(t.breakdownMore) %></span><% } %>
+  </div>
+  <% } %>
+  <% if (t.cat || !t.active) { %>
+  <div class="hot-tags">
+    <% if (t.cat) { %><span class="tag"><%= t.cat %></span><% } %>
+    <% if (!t.active) { %><span class="badge badge-flat">پایان‌یافته</span><% } %>
+  </div>
+  <% } %>
+  <div class="hot-meta">
+    <span class="hot-vol"><%= fa(t.vol || 0) %><%= t.unit || '' %></span>
+    <% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } %>
+  </div>
+</a>

@@ -37,59 +37,45 @@
     </div>
 
     <div class="hot-grid mb4">
-      <% h4.slice(0, 8).forEach(function (t, i) { %>
-      <a class="hot-card" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
-        <div class="hot-rank"><%= fa(String(i + 1).padStart(2, '0')) %></div>
-        <div class="hot-kw"><%= t.keyword %></div>
-        <div class="hot-meta">
-          <span class="hot-vol"><%= fa(t.vol || 0) %><%= t.unit || '' %></span>
-          <% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } %>
-        </div>
-      </a>
+      <% h4.slice(0, 10).forEach(function (t, i) { %>
+        <%- include('../partials/trend-card', { t: t, rank: i + 1, fa: fa }) %>
       <% }); %>
     </div>
 
-    <div class="tbl-wrap mb6">
-      <table>
-        <thead><tr><th class="rank-cell">#</th><th>کلیدواژه</th><th class="ta-l">حجم جستجو</th><th class="ta-l">رشد</th><th class="ta-l">وضعیت</th><th class="ta-l">دسته</th><th class="ta-l">جستجو</th></tr></thead>
-        <tbody>
-          <% h4.forEach(function (t, i) { %>
-          <tr>
-            <td class="rank-cell"><%= fa(i + 1) %></td>
-            <td class="td-name"><%= t.keyword %></td>
-            <td class="ta-l"><%= fa(t.vol || 0) %><%= t.unit || '' %></td>
-            <td class="ta-l"><% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } else { %><span class="badge badge-flat">—</span><% } %></td>
-            <td class="ta-l"><span class="badge <%= t.active ? 'badge-up' : 'badge-flat' %>"><%= t.active ? 'فعال' : 'پایان‌یافته' %></span></td>
-            <td class="ta-l"><% if (t.cat) { %><span class="tag"><%= t.cat %></span><% } %></td>
-            <td class="ta-l"><a class="btn btn-sm" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">گوگل ↗</a></td>
-          </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
+    <% var h4Rest = h4.slice(10); %>
+    <% if (h4Rest.length) { %>
+    <details class="sm-more mb6">
+      <summary><span class="sm-more-open">نمایش <%= fa(h4Rest.length) %> ترند دیگر</span><span class="sm-more-close">بستن فهرست</span></summary>
+      <div class="trend-list mt3">
+        <% h4Rest.forEach(function (t, i) { %>
+          <%- include('../partials/trend-row', { t: t, rank: i + 11, fa: fa }) %>
+        <% }); %>
+      </div>
+    </details>
+    <% } %>
 
     <div class="page-head between wrap">
       <h2 class="sec-title">ترندهای ۲۴ ساعت اخیر</h2>
       <span class="tag"><%= fa(h24.length) %> کلیدواژه</span>
     </div>
 
-    <div class="tbl-wrap mb6">
-      <table>
-        <thead><tr><th class="rank-cell">#</th><th>کلیدواژه</th><th class="ta-l">حجم جستجو</th><th class="ta-l">رشد</th><th class="ta-l">وضعیت</th><th class="ta-l">جستجو</th></tr></thead>
-        <tbody>
-          <% h24.slice(0, 25).forEach(function (t, i) { %>
-          <tr>
-            <td class="rank-cell"><%= fa(i + 1) %></td>
-            <td class="td-name"><%= t.keyword %></td>
-            <td class="ta-l"><%= fa(t.vol || 0) %><%= t.unit || '' %></td>
-            <td class="ta-l"><% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } else { %><span class="badge badge-flat">—</span><% } %></td>
-            <td class="ta-l"><span class="badge <%= t.active ? 'badge-up' : 'badge-flat' %>"><%= t.active ? 'فعال' : 'پایان‌یافته' %></span></td>
-            <td class="ta-l"><a class="btn btn-sm" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">گوگل ↗</a></td>
-          </tr>
-          <% }); %>
-        </tbody>
-      </table>
+    <div class="hot-grid mb4">
+      <% h24.slice(0, 10).forEach(function (t, i) { %>
+        <%- include('../partials/trend-card', { t: t, rank: i + 1, fa: fa }) %>
+      <% }); %>
     </div>
+
+    <% var h24Rest = h24.slice(10); %>
+    <% if (h24Rest.length) { %>
+    <details class="sm-more mb6">
+      <summary><span class="sm-more-open">نمایش <%= fa(h24Rest.length) %> ترند دیگر</span><span class="sm-more-close">بستن فهرست</span></summary>
+      <div class="trend-list mt3">
+        <% h24Rest.forEach(function (t, i) { %>
+          <%- include('../partials/trend-row', { t: t, rank: i + 11, fa: fa }) %>
+        <% }); %>
+      </div>
+    </details>
+    <% } %>
 
     <div class="page-head"><h2 class="sec-title">تاریخچه ترند — از روز اول تا امروز</h2></div>
     <blockquote class="desc">
