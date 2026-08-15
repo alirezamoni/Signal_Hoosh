@@ -1,15 +1,21 @@
 <a class="trend-row" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
   <span class="tr-rank"><%= fa(rank) %></span>
   <span class="tr-name"><%= t.keyword %></span>
-  <% if (t.cat) { %><span class="tag"><%= t.cat %></span><% } %>
-  <% if (!t.active) { %><span class="badge badge-flat">پایان‌یافته</span><% } %>
-  <% if (t.breakdown && t.breakdown.length) { %><span class="tr-bd" title="<%= t.breakdown.join('، ') %>">+<%= fa(t.breakdown.length) %> عبارت مرتبط</span><% } %>
-  <% if (t.sparkP) { %>
-  <svg class="tr-spark" viewBox="0 0 128 48" preserveAspectRatio="none" aria-hidden="true">
-    <path d="<%= t.sparkA %>" fill="var(--accent)" opacity=".16"></path>
-    <path d="<%= t.sparkP %>" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"></path>
-  </svg>
+  <% if (t.breakdown && t.breakdown.length) { %>
+  <span class="tr-bd">
+    <% t.breakdown.slice(0, 3).forEach(function (b) { %><span class="chip-sm"><%= b %></span><% }); %>
+    <% if (t.breakdownMore) { %><span class="chip-sm chip-more">+<%= fa(t.breakdownMore) %></span><% } %>
+  </span>
   <% } %>
+  <% if (t.cat) { %><span class="tag tr-cat"><%= t.cat %></span><% } %>
+  <span class="tr-chart">
+    <% if (t.curveLine) { %>
+    <svg class="tr-spark" viewBox="0 0 128 48" preserveAspectRatio="none" role="img" aria-label="نمودار میل به جستجو">
+      <polyline points="<%= t.curveFill %>" fill="url(#trend-grad)" stroke="none"></polyline>
+      <polyline points="<%= t.curveLine %>" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+    </svg>
+    <% } %>
+  </span>
   <span class="tr-vol"><%= fa(t.vol || 0) %><%= t.unit || '' %></span>
   <% if (t.growth) { %><span class="badge badge-up">+<%= fa(t.growth) %>٪</span><% } else { %><span class="badge badge-flat">—</span><% } %>
 </a>

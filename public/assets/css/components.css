@@ -668,27 +668,55 @@ tbody tr:hover { background: var(--card-hover); }
 
 /* ══════════════ کارت ترند داغ ══════════════ */
 
-.hot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s2); }
+/* دقیقاً ۵ ستون در دسکتاپ، پس ۱۰ کارت همیشه دو ردیفِ منظم می‌شود.
+   grid-auto-rows:1fr هر دو ردیف را هم‌ارتفاع می‌کند و margin-top:auto روی
+   .hot-meta کف کارت‌ها را هم‌تراز نگه می‌دارد — مستقل از اینکه هر کارت
+   چند چیپ عبارت مرتبط یا برچسب دسته دارد. */
+.hot-grid {
+  display: grid; gap: var(--s2);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+}
 .hot-card {
+  display: flex; flex-direction: column; min-width: 0;
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--r); padding: var(--pad-panel);
   transition: border-color var(--dur) var(--ease);
   box-shadow: var(--shadow);
 }
 .hot-card:hover { border-color: var(--border-strong); }
+.hot-top { min-width: 0; }
 .hot-rank { font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
-.hot-kw { font-size: var(--fs-base); margin-block: 6px 8px; line-height: 1.6; color: var(--text); display: flex; align-items: center; gap: 5px; }
-.hot-spark { display: block; width: 100%; height: 40px; margin-bottom: 8px; }
+.hot-kw {
+  font-size: var(--fs-base); margin-block: 6px 8px; line-height: 1.6; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; word-break: break-word;
+}
+.hot-chart { margin-bottom: 8px; }
+.hot-spark { display: block; width: 100%; height: 38px; }
 .hot-breakdown { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-.hot-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-bottom: 8px; }
 .chip-sm {
-  display: inline-flex; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 2px 8px; border-radius: 999px; font-size: var(--fs-xs);
+  display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px; font-size: var(--fs-xs); line-height: 1.9;
   background: var(--inset); color: var(--faint); border: 1px solid var(--border);
 }
 .chip-sm.chip-more { color: var(--muted); }
-.hot-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.hot-meta {
+  margin-top: auto; display: flex; align-items: center;
+  justify-content: space-between; gap: var(--s2); flex-wrap: wrap;
+}
+.hot-meta-l { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .hot-vol { font-size: var(--fs-sm); color: var(--down); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1000px) { .hot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  /* دو کارت در هر ردیف؛ چیپ‌های عبارت مرتبط حذف می‌شوند تا کارت جمع‌وجور بماند */
+  .hot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hot-card { padding: 10px; }
+  .hot-kw { font-size: var(--fs-sm); margin-block: 4px 6px; }
+  .hot-breakdown { display: none; }
+  .hot-spark { height: 30px; }
+}
 
 /* ══════════════ فهرست ترند (رتبه‌های ۱۱ به بعد) ══════════════ */
 
@@ -705,14 +733,23 @@ tbody tr:hover { background: var(--card-hover); }
 .trend-row:last-child { border-bottom: none; }
 .trend-row:hover { background: var(--card-hover); }
 .tr-rank { font-size: var(--fs-xs); color: var(--faint); width: 20px; flex-shrink: 0; text-align: center; font-variant-numeric: tabular-nums; }
-.tr-name { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tr-bd { flex-shrink: 0; font-size: var(--fs-xs); color: var(--faint); }
-.tr-spark { flex-shrink: 0; display: block; width: 56px; height: 20px; }
+.tr-name { min-width: 120px; max-width: 260px; font-size: var(--fs-sm); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* عبارت‌های مرتبط فضای آزاد وسط ردیف را می‌گیرند و در تنگی جا سرریز نمی‌کنند */
+.tr-bd { flex: 1; min-width: 0; display: flex; gap: 4px; overflow: hidden; }
+.tr-bd .chip-sm { flex-shrink: 1; min-width: 0; }
+.tr-cat { flex-shrink: 0; }
+.tr-chart { flex-shrink: 0; width: 64px; margin-inline-start: auto; }
+.tr-spark { display: block; width: 100%; height: 22px; }
 .tr-vol { flex-shrink: 0; font-size: var(--fs-sm); color: var(--down); font-variant-numeric: tabular-nums; }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
+  /* عبارت‌های مرتبط فقط در دسکتاپ */
   .tr-bd { display: none; }
-  .tr-spark { width: 40px; }
+  .tr-name { flex: 1; max-width: none; }
+}
+@media (max-width: 640px) {
+  .tr-cat { display: none; }
+  .tr-chart { width: 44px; }
 }
 
 /* ══════════════ کارت AI ══════════════ */

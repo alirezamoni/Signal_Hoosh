@@ -42,6 +42,17 @@ db.exec(`
     source     TEXT NOT NULL,           -- 'ai' | 'rule'
     updated_at TEXT NOT NULL
   );
+
+  -- منحنی «میل به جستجو» هر کلیدواژه، همان چیزی که خود گوگل‌ترند رسم می‌کند.
+  -- این داده در HTML صفحه نیست و فقط از API خود گوگل می‌آید، پس کش می‌شود تا
+  -- مجبور نباشیم هر کرال دوباره بگیریمش (سهمیه‌ی گوگل خیلی زود ۴۲۹ می‌دهد).
+  CREATE TABLE IF NOT EXISTS trend_curves (
+    keyword    TEXT NOT NULL,
+    window     TEXT NOT NULL,           -- '4h' | '24h'
+    points     TEXT NOT NULL,           -- JSON: آرایه‌ی ۰..۱۰۰
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (keyword, window)
+  );
 `);
 
 // ── ذخیره یک دور کرال ──────────────────────────────────────
@@ -143,14 +154,38 @@ function getMeteors(limit = 15) {
   `).all(limit);
 }
 
-// سری زمانی خام یک کلیدواژه در یک بازه (۴ ساعته/۲۴ ساعته) — برای اسپارک‌لاین کارت‌های ترند
-function getKeywordSeries(keyword, window, hours = 24) {
-  return db.prepare(`
-    SELECT captured_at, vol
-    FROM trend_snapshots
-    WHERE keyword = ? AND window = ? AND captured_at >= datetime('now', ?)
-    ORDER BY captured_at ASC
-  `).all(String(keyword || '').trim(), window, `-${parseInt(hours)} hours`);
+// ── منحنی میل به جستجو ─────────────────────────────────────
+const _setCurve = db.prepare(`
+  INSERT INTO trend_curves (keyword, window, points, updated_at) VALUES (?,?,?,?)
+  ON CONFLICT(keyword, window) DO UPDATE SET
+    points=excluded.points, updated_at=excluded.updated_at
+`);
+
+function setCurve(keyword, window, points) {
+  const kw = String(keyword || '').trim();
+  if (!kw || !Array.isArray(points) || !points.length) return;
+  _setCurve.run(kw, window, JSON.stringify(points), new Date().toISOString());
+}
+
+// نقشه‌ی کلیدواژه → آرایه‌ی نقاط، برای رندر یک‌جای صفحه
+function getCurveMap(window) {
+  const map = new Map();
+  for (const r of db.prepare('SELECT keyword, points FROM trend_curves WHERE window=?').all(window)) {
+    try {
+      const p = JSON.parse(r.points);
+      if (Array.isArray(p) && p.length > 1) map.set(r.keyword, p);
+    } catch (e) {}
+  }
+  return map;
+}
+
+// زمان آخرین بروزرسانی هر منحنی — کرالر با این تصمیم می‌گیرد کدام را تازه کند
+function getCurveAges(window) {
+  const map = new Map();
+  for (const r of db.prepare('SELECT keyword, updated_at FROM trend_curves WHERE window=?').all(window)) {
+    map.set(r.keyword, r.updated_at);
+  }
+  return map;
 }
 
 // تایم‌لاین یک کلیدواژه برای نمودار
@@ -202,11 +237,15 @@ function getStats() {
 function cleanup() {
   const r = db.prepare(`DELETE FROM trend_snapshots WHERE snap_date < date('now','-365 days')`).run();
   if (r.changes) console.log(`[trend-db] cleanup: ${r.changes} old snapshots removed`);
+  // منحنی‌ها فقط برای ترندهای فعلی به‌درد می‌خورند؛ کهنه‌ها فضا اشغال می‌کنند
+  const c = db.prepare(`DELETE FROM trend_curves WHERE updated_at < datetime('now','-7 days')`).run();
+  if (c.changes) console.log(`[trend-db] cleanup: ${c.changes} old curves removed`);
 }
 
 module.exports = {
   saveSnapshot, getCachedCat, setCachedCat, setCachedCatBulk,
-  getHallOfFame, getMostPersistent, getMeteors, getKeywordTimeline, getKeywordSeries,
+  getHallOfFame, getMostPersistent, getMeteors, getKeywordTimeline,
+  setCurve, getCurveMap, getCurveAges,
   getCategoryShare, getActivityHeatmap, getStats, cleanup,
   _db: db,
 };

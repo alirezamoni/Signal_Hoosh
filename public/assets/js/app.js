@@ -5,6 +5,31 @@
   var faDigits = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
   function toFa(s) { return String(s).replace(/[0-9]/g, function (d) { return faDigits[+d]; }); }
 
+  /* ── فهرست‌های بازشونده‌ای که در دسکتاپ باز و در موبایل بسته‌اند ──
+     خودِ HTML با open می‌آید تا بدون جاوااسکریپت هم دسکتاپ درست باشد؛
+     اینجا فقط در نمایشگر کوچک جمعش می‌کنیم. بعد از اولین دست‌کاری کاربر
+     دیگر کاری نداریم، وگرنه تغییر جهت صفحه انتخابش را خنثی می‌کند. */
+  (function () {
+    var items = document.querySelectorAll('details[data-collapse-mobile]');
+    if (!items.length) return;
+    var touched = false;
+    // روی کلیک کاربر تکیه می‌کنیم نه رویداد toggle: toggle با تغییر برنامه‌ای
+    // هم شلیک می‌شود و آن هم به‌صورت async، که تشخیص «کاربر خودش زد» را خراب می‌کند.
+    Array.prototype.forEach.call(items, function (d) {
+      d.addEventListener('click', function (e) {
+        if (e.target && e.target.closest('summary')) touched = true;
+      });
+    });
+    var mq = window.matchMedia('(max-width: 700px)');
+    function apply() {
+      if (touched) return;
+      Array.prototype.forEach.call(items, function (d) { d.open = !mq.matches; });
+    }
+    apply();
+    if (mq.addEventListener) mq.addEventListener('change', apply);
+    else if (mq.addListener) mq.addListener(apply);
+  })();
+
   /* ── تم روشن / تیره ── */
   var root = document.documentElement;
   var saved = null;

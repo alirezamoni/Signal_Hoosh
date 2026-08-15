@@ -787,20 +787,31 @@ app.get('/news/:id', (req, res, next) => {
 
 // ════════════ بقیه‌ی تب‌ها ════════════
 
-// نمودار میل به جستجو برای هر ترند — گوگل خودش این نمودار را روی صفحه‌اش با
-// جاوااسکریپت رندر می‌کند و در HTML خام هیچ داده‌ای برایش نمی‌فرستد (بارها با
-// اسکرول/هاور/رصد شبکه تست و تأیید شد)، پس همان شکل را از تاریخچه‌ی خودمان
-// (هر کرال یک snapshot در trend_snapshots) می‌سازیم — دقیقاً با الگوی sparkPath/Area
-// که برای طلا و کالای جهانی هم استفاده شده.
-const TREND_SPARK_HOURS = 24;
-function withSpark(list, window) {
+// نمودار میل به جستجو — منحنی واقعی خود گوگل‌ترند که کرالر کش کرده است.
+// هندسه عمداً با همان قرارداد گوگل ساخته می‌شود (viewBox 0 0 128 48، x از ۲ تا ۱۲۶
+// و y از ۶ تا ۴۶) تا نمودار ما دقیقاً هم‌شکل چیزی باشد که در خود گوگل دیده می‌شود.
+function curveGeometry(points) {
+  const v = (points || []).map(Number).filter(x => !isNaN(x));
+  if (v.length < 2) return null;
+  const min = Math.min.apply(null, v), max = Math.max.apply(null, v);
+  const span = (max - min) || 1;
+  const step = 124 / (v.length - 1);
+  const pts = v.map((y, i) => {
+    const x = (2 + i * step).toFixed(0);
+    const yy = (46 - ((y - min) / span) * 40).toFixed(0);
+    return x + ',' + yy;
+  });
+  return { line: pts.join(' '), fill: '2,48 ' + pts.join(' ') + ' 126,48' };
+}
+
+function withCurve(list, window) {
+  let map = new Map();
+  try { map = trendDB.getCurveMap(window) || new Map(); } catch (e) {}
   return list.map(t => {
-    let hist = [];
-    try { hist = (trendDB.getKeywordSeries(t.keyword, window, TREND_SPARK_HOURS) || []).map(r => r.vol); }
-    catch (e) {}
+    const g = curveGeometry(map.get(t.keyword));
     return Object.assign({}, t, {
-      sparkP: hist.length > 1 ? sparkPath(hist, 128, 48, 3) : '',
-      sparkA: hist.length > 1 ? sparkArea(hist, 128, 48, 3) : '',
+      curveLine: g ? g.line : '',
+      curveFill: g ? g.fill : '',
     });
   });
 }
@@ -808,8 +819,8 @@ function withSpark(list, window) {
 app.get('/trends', (req, res) => {
   const j4  = readJson('h4.json', {});
   const j24 = readJson('h24.json', {});
-  const h4  = withSpark(Array.isArray(j4.trends) ? j4.trends : [], '4h');
-  const h24 = withSpark(Array.isArray(j24.trends) ? j24.trends : [], '24h');
+  const h4  = withCurve(Array.isArray(j4.trends) ? j4.trends : [], '4h');
+  const h24 = withCurve(Array.isArray(j24.trends) ? j24.trends : [], '24h');
   let stats = {}, hall = [], persistent = [], meteors = [];
   try { stats      = trendDB.getStats() || {}; } catch (e) {}
   try { hall       = trendDB.getHallOfFame(6) || []; } catch (e) {}

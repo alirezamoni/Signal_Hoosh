@@ -1,4 +1,15 @@
 <main id="main" class="page">
+  <!-- گرادیان مشترک همه‌ی نمودارهای این صفحه؛ یک‌بار تعریف، همه‌جا ارجاع -->
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <defs>
+      <!-- رنگ با style داده می‌شود نه اتربیوت: var() در اتربیوت‌های نمایشی SVG پارس نمی‌شود -->
+      <linearGradient id="trend-grad" gradientTransform="rotate(90)">
+        <stop offset="0%" style="stop-color:var(--accent);stop-opacity:.30"></stop>
+        <stop offset="100%" style="stop-color:var(--accent);stop-opacity:0"></stop>
+      </linearGradient>
+    </defs>
+  </svg>
+
   <div class="container">
     <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>ترند سرچ ایران</span></nav>
 
@@ -44,7 +55,7 @@
 
     <% var h4Rest = h4.slice(10); %>
     <% if (h4Rest.length) { %>
-    <details class="sm-more mb6">
+    <details class="sm-more mb6" data-collapse-mobile open>
       <summary><span class="sm-more-open">نمایش <%= fa(h4Rest.length) %> ترند دیگر</span><span class="sm-more-close">بستن فهرست</span></summary>
       <div class="trend-list mt3">
         <% h4Rest.forEach(function (t, i) { %>
@@ -67,7 +78,7 @@
 
     <% var h24Rest = h24.slice(10); %>
     <% if (h24Rest.length) { %>
-    <details class="sm-more mb6">
+    <details class="sm-more mb6" data-collapse-mobile open>
       <summary><span class="sm-more-open">نمایش <%= fa(h24Rest.length) %> ترند دیگر</span><span class="sm-more-close">بستن فهرست</span></summary>
       <div class="trend-list mt3">
         <% h24Rest.forEach(function (t, i) { %>
@@ -84,7 +95,7 @@
       جستجو را داشته، کدام‌ها روزها ماندگار بوده‌اند و کدام‌ها فقط یک روز مثل شهاب آمده‌اند و رفته‌اند.
     </blockquote>
 
-    <div class="grid g3">
+    <div class="grid g3 mb4">
       <section class="panel">
         <div class="panel-head"><h3 class="panel-title">پرحجم‌ترین‌ها (کل دوره)</h3></div>
         <div class="panel-body">

@@ -93,9 +93,9 @@ async function getBrowser() {
   });
   browser = b;
   // Backstop only — the crawl kills the browser itself when it finishes. This must stay
-  // longer than a full crawl (2 scrapes x 50s + AI), or it fires mid-scrape and the page
-  // dies with "Protocol error: Connection closed".
-  browserTimer = setTimeout(() => safeKillBrowser(), 4 * 60 * 1000);
+  // longer than a full crawl (2 scrapes x 50s + منحنی‌ها تا ۴۵ ثانیه + AI), or it fires
+  // mid-scrape and the page dies with "Protocol error: Connection closed".
+  browserTimer = setTimeout(() => safeKillBrowser(), 6 * 60 * 1000);
   return browser;
 }
 
@@ -263,7 +263,125 @@ function load(key) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-// دو اسکرپ پشت‌سرهم انجام می‌شود؛ ۲×این مقدار باید کمتر از backstop مرورگر (۴ دقیقه) بماند
+// ── منحنی «میل به جستجو» ────────────────────────────────────
+// نموداری که گوگل کنار هر ترند نشان می‌دهد در HTML صفحه نیست: تگ <svg> خالی
+// می‌آید و گوگل آن را سمت کلاینت پر می‌کند (با اسکرول/هاور/رصد کامل شبکه تست شد).
+// داده‌ی واقعی‌اش فقط از API خود گوگل‌ترند می‌آید، آن هم نه با درخواست ساده —
+// بدون کوکی سشن بلافاصله 429 می‌دهد. پس از داخل همان سشن مرورگری که برای
+// اسکرپ باز است fetch می‌کنیم (same-origin + کوکی) و نتیجه را کش می‌کنیم.
+const CURVE_TTL_MIN     = 45;     // منحنی تا این مدت تازه حساب می‌شود
+const CURVE_BUDGET      = 14;     // حداکثر کلیدواژه در هر کرال — عمداً کم، تا سهمیه نسوزد
+const CURVE_DEADLINE_MS = 45000;  // سقف زمانی کل مرحله
+const CURVE_BUCKETS     = 32;     // تعداد نقطه‌ی نهایی، هم‌اندازه‌ی نمودار خود گوگل
+const WINDOW_TIME = { '4h': 'now 4-H', '24h': 'now 1-d' };
+
+// گوگل برای بازه‌ی ۴ ساعته ~۲۴۰ نقطه می‌دهد که برای کلیدواژه‌های کم‌حجم پر از
+// صفرِ نمونه‌برداری است. میانگین‌گیری سطلی هم تعداد را به اندازه‌ی نمودار می‌رساند
+// و هم همان نویز را صاف می‌کند — نتیجه شبیه چیزی می‌شود که در خود گوگل می‌بینید.
+function downsample(values, buckets) {
+  const v = (values || []).map(x => Number(x) || 0);
+  if (v.length < 2) return null;
+  if (v.length <= buckets) return v.slice();
+  const out = [];
+  for (let i = 0; i < buckets; i++) {
+    const s = Math.floor((i * v.length) / buckets);
+    const e = Math.max(s + 1, Math.floor(((i + 1) * v.length) / buckets));
+    let sum = 0;
+    for (let k = s; k < e; k++) sum += v[k];
+    out.push(sum / (e - s));
+  }
+  // هموارسازی سبک (میانگین متحرک ۳تایی): گوگل هم منحنی صافی نشان می‌دهد، نه
+  // نمونه‌های خام دقیقه‌ای. بدون این، کلیدواژه‌های کم‌حجم فقط چند سوزن تک‌نقطه‌ای می‌شوند.
+  const sm = out.map((_, i) => {
+    const a = out[i - 1] == null ? out[i] : out[i - 1];
+    const c = out[i + 1] == null ? out[i] : out[i + 1];
+    return (a + out[i] + c) / 3;
+  });
+  const max = Math.max.apply(null, sm);
+  if (!max) return null;
+  return sm.map(x => Math.round((x / max) * 100));
+}
+
+// کدام کلیدواژه‌ها منحنی تازه ندارند؟ اول آن‌هایی که اصلاً منحنی ندارند و
+// رتبه‌شان بالاتر است — یعنی همان ۱۰ کارت بالای صفحه زودتر از همه پر می‌شوند.
+function pickCurveTargets(trends, window) {
+  if (!trendDB) return [];
+  let ages;
+  try { ages = trendDB.getCurveAges(window); } catch (e) { return []; }
+  const fresh = Date.now() - CURVE_TTL_MIN * 60 * 1000;
+  const missing = [], stale = [];
+  trends.forEach((t, i) => {
+    const at = ages.get(t.keyword);
+    if (!at) { missing.push({ keyword: t.keyword, window, rank: i }); return; }
+    const ts = new Date(at).getTime();
+    if (!(ts > fresh)) stale.push({ keyword: t.keyword, window, rank: i, ts });
+  });
+  missing.sort((a, b) => a.rank - b.rank);
+  stale.sort((a, b) => a.ts - b.ts);
+  return missing.concat(stale);
+}
+
+async function fetchCurves(targets) {
+  if (!targets.length || !trendDB) return 0;
+  const b = await getBrowser();
+  const page = await b.newPage();
+  let saved = 0;
+  try {
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'fa-IR,fa;q=0.9' });
+    await page.goto('https://trends.google.com/trending?geo=IR&hl=fa', {
+      waitUntil: 'domcontentloaded', timeout: CONFIG.timeout,
+    });
+    await new Promise(r => setTimeout(r, 1500));
+
+    const jobs = targets.map(t => ({ keyword: t.keyword, window: t.window, time: WINDOW_TIME[t.window] }));
+    const results = await page.evaluate(async (jobs, deadlineMs) => {
+      const strip = s => { const i = s.indexOf('{'); return i >= 0 ? s.slice(i) : s; };
+      const started = Date.now();
+      const out = [];
+      for (const j of jobs) {
+        if (Date.now() - started > deadlineMs) break;
+        try {
+          const req = JSON.stringify({
+            comparisonItem: [{ keyword: j.keyword, geo: 'IR', time: j.time }],
+            category: 0, property: '',
+          });
+          const r1 = await fetch('/trends/api/explore?hl=fa&tz=-210&req=' + encodeURIComponent(req), { credentials: 'include' });
+          // 429 یعنی به سهمیه خوردیم — ادامه دادن فقط وضع را بدتر می‌کند
+          if (r1.status === 429) { out.push({ rateLimited: true }); break; }
+          if (!r1.ok) continue;
+          const w = (JSON.parse(strip(await r1.text())).widgets || []).find(x => x.id === 'TIMESERIES');
+          if (!w) continue;
+          const r2 = await fetch('/trends/api/widgetdata/multiline?hl=fa&tz=-210&req='
+            + encodeURIComponent(JSON.stringify(w.request)) + '&token=' + encodeURIComponent(w.token), { credentials: 'include' });
+          if (r2.status === 429) { out.push({ rateLimited: true }); break; }
+          if (!r2.ok) continue;
+          const j2 = JSON.parse(strip(await r2.text()));
+          const tl = j2 && j2.default && j2.default.timelineData;
+          if (!tl || !tl.length) continue;
+          out.push({ keyword: j.keyword, window: j.window, values: tl.map(p => (p.value || [])[0]) });
+        } catch (e) {}
+        await new Promise(r => setTimeout(r, 1200));
+      }
+      return out;
+    }, jobs, CURVE_DEADLINE_MS);
+
+    let limited = false;
+    for (const r of results) {
+      if (r.rateLimited) { limited = true; continue; }
+      const pts = downsample(r.values, CURVE_BUCKETS);
+      if (!pts) continue;
+      try { trendDB.setCurve(r.keyword, r.window, pts); saved++; } catch (e) {}
+    }
+    if (limited) console.warn('[curve] سهمیه‌ی گوگل پر شد — بقیه به کرال بعدی موکول شد');
+  } catch (e) {
+    console.warn('[curve] error:', e.message);
+  } finally {
+    try { await page.close(); } catch (e) {}
+  }
+  return saved;
+}
+
+// دو اسکرپ پشت‌سرهم انجام می‌شود؛ ۲×این مقدار باید کمتر از backstop مرورگر بماند
 const SCRAPE_BUDGET_MS = 75000;
 
 async function crawl() {
@@ -279,6 +397,20 @@ async function crawl() {
         scrapeTrends(CONFIG.urls.h24, '24h'),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), SCRAPE_BUDGET_MS)),
       ]);
+      // منحنی‌ها باید داخل همین قفل و پیش از بستن مرورگر گرفته شوند،
+      // چون به کوکی و same-origin همین سشن نیاز دارند.
+      // بودجه بین دو بازه نصف می‌شود تا اگر کلیدواژه‌های ۴ ساعته مدام عوض شدند،
+      // بخش ۲۴ ساعته گرسنه نماند؛ سهم استفاده‌نشده‌ی هرکدام به دیگری می‌رسد.
+      const t4 = pickCurveTargets(a, '4h'), t24 = pickCurveTargets(b, '24h');
+      const half = Math.ceil(CURVE_BUDGET / 2);
+      const targets = t4.slice(0, half)
+        .concat(t24.slice(0, CURVE_BUDGET - Math.min(half, t4.length)))
+        .concat(t4.slice(half))
+        .slice(0, CURVE_BUDGET);
+      if (targets.length) {
+        const n = await fetchCurves(targets);
+        console.log(`[curve] ${n}/${targets.length} منحنی بروز شد`);
+      }
       return [a, b];
     });
     // free the ~150MB Chrome as soon as scraping is done — the AI step below doesn't need it
