@@ -1360,9 +1360,43 @@ const DB_LABELS = {
   'property.db': 'ملک تهران', 'gold.db': 'پلتفرم‌های طلا', 'commodity.db': 'کالای جهانی',
 };
 
-// آستانه‌ی «قدیمی» برای بخش‌هایی که عمداً کم‌تکرار بروز می‌شوند
-const DB_MAX_AGE_H = { 'property.db': 30, 'messages.db': 24 * 30 };
+/**
+ * آستانه‌ی «قدیمی» — باید با فاصله‌ی واقعی زمان‌بندِ همان بخش بخواند، وگرنه
+ * بخشی که درست کار می‌کند بی‌خود قرمز می‌شود. مثلاً «کالا» هر ۲۴ ساعت یک‌بار
+ * کرال می‌شود؛ با آستانه‌ی ۶ ساعتیِ پیش‌فرض، ۱۸ ساعت از هر ۲۴ ساعت قرمز بود.
+ * عدد هر ردیف = دوره‌ی زمان‌بند + حاشیه، تا فقط توقفِ واقعی قرمز شود.
+ *
+ * دوره‌ها (server.js و *-crawler.js): خودرو ۱۲س · کالا/بازار کار/ملک ۲۴س ·
+ * insights (brief) ۶س · طلا و کالای جهانی ۱۰د · بقیه پرتکرار.
+ */
+const DB_MAX_AGE_H = {
+  'cars.db': 14, 'car.db': 14,
+  'market.db': 26,
+  'jobs.db': 26, 'job.db': 26,
+  'property.db': 30,
+  'insights.db': 8,
+  'messages.db': 24 * 30,
+};
 const DEFAULT_MAX_AGE_H = 6;
+
+/**
+ * کدام ردیف دکمه‌ی «اجرا» بگیرد و به کدام جمع‌آورنده وصل شود.
+ * کلیدها باید با MANUAL_CRAWLS در server.js یکی باشند.
+ * news.db اینجا نیست چون از لیسنر تلگرام پر می‌شود نه کرالر، و messages.db
+ * هم ورودی کاربر است — هیچ‌کدام «اجرای دستی» ندارند.
+ */
+const DB_JOBS = {
+  'trends.db': 'trends', 'trend.db': 'trends',
+  'finance.db': 'finance',
+  'cars.db': 'cars', 'car.db': 'cars',
+  'market.db': 'market',
+  'jobs.db': 'jobs', 'job.db': 'jobs',
+  'property.db': 'property',
+  'gold.db': 'gold',
+  'commodity.db': 'commodity',
+  'polymarket.db': 'polymarket',
+  'insights.db': 'insights',
+};
 
 // شمردن ۳۰هزار فایل رسانه در هر بار باز کردن پنل کند است — یک دقیقه کش می‌شود.
 let _mediaCache = { at: 0, count: 0, mb: 0 };
@@ -1405,13 +1439,16 @@ function dbFiles() {
       try {
         const t = dbTouchedAt(path.join(dir, f));
         if (!t.mtimeMs) continue;
+        const maxAgeH = DB_MAX_AGE_H[f] || DEFAULT_MAX_AGE_H;
         out.push({
           file: f,
           label: DB_LABELS[f] || f.replace(/\.db$/, ''),
           sizeMB: Math.round(t.size / 1048576 * 10) / 10,
           mtime: new Date(t.mtimeMs).toISOString(),
+          maxAgeH,
+          job: DB_JOBS[f] || null,
           // بدون نوشتن در بازه‌ی مورد انتظار = احتمالاً جمع‌آورنده خوابیده
-          stale: Date.now() - t.mtimeMs > (DB_MAX_AGE_H[f] || DEFAULT_MAX_AGE_H) * 3600 * 1000,
+          stale: Date.now() - t.mtimeMs > maxAgeH * 3600 * 1000,
         });
       } catch (e) {}
     }
@@ -1521,7 +1558,7 @@ function adminPage(req, res, extra) {
     ? String(req.query.sec) : 'overview';
 
   page(res, 'admin', '', {
-    title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
+    title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true, bare: true
   }, Object.assign({
     rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec, goldPlatforms,
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
@@ -1558,7 +1595,7 @@ function backFrom(req, res, ok, err) {
 app.get('/admin/login', (req, res) => {
   if (auth.verifyToken((req.cookies && req.cookies.token) || '')) return backFrom(req, res);
   page(res, 'admin-login', '', {
-    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
+    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true, bare: true
   }, { error: null });
 });
 
@@ -1568,7 +1605,7 @@ app.post('/admin/login', loginLimiter, (req, res) => {
   const password = String((req.body && req.body.password) || '');
 
   const fail = msg => page(res, 'admin-login', '', {
-    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
+    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true, bare: true
   }, { error: msg });
 
   // ⚠️ verifyPassword شماره‌ی موبایل می‌گیرد، نه شیء کاربر
@@ -1583,6 +1620,48 @@ app.post('/admin/login', loginLimiter, (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => { res.clearCookie('token'); res.redirect('/admin/login'); });
+
+/**
+ * اجرای دستی یک جمع‌آورنده از دکمه‌ی پنل.
+ *
+ * این پروسه (signal-web) فقط رندر می‌کند و هیچ کرالری داخلش نیست؛ کرالرها در
+ * پروسه‌ی signal روی ۳۰۰۱ هستند. پس درخواست با کلید داخلی به آنجا پاس داده
+ * می‌شود. اگر همین‌جا کرالر را require می‌کردیم، یک Chrome دوم بالا می‌آمد که
+ * قفل کرالِ پروسه‌ی دیگر را نمی‌بیند و روی ۲ هسته با زمان‌بند تصادف می‌کرد.
+ */
+app.post('/admin/crawl/:job', adminGuard, async (req, res) => {
+  const job = String(req.params.job || '');
+  const secret = process.env.NODE_INTERNAL_SECRET;
+
+  // backFrom بخش را از روی مسیر حدس می‌زند و مثلاً /admin/crawl/commodity را
+  // به بخش «کالای جهانی» می‌برد. جدول جمع‌آورنده‌ها در «نمای کلی» است، پس
+  // همیشه به همان‌جا برگرد.
+  const back = (ok, err) => {
+    const qs = ['sec=overview'];
+    if (ok)  qs.push('ok=' + encodeURIComponent(ok));
+    if (err) qs.push('err=' + encodeURIComponent(err));
+    res.redirect('/admin?' + qs.join('&'));
+  };
+
+  if (!secret) return back(null, 'کلید داخلی تنظیم نشده — اجرای دستی ممکن نیست');
+
+  try {
+    // کرال در آن سمت پس‌زمینه‌ای است و بلافاصله پاسخ می‌دهد؛ ۱۵ ثانیه
+    // فقط برای گرفتن «قبول شد / نشد» است، نه انتظار تا پایان کرال.
+    // localhost و نه 127.0.0.1 — همان آدرسی که news-listener.py استفاده می‌کند.
+    const r = await fetch('http://localhost:3001/internal/crawl/' + encodeURIComponent(job), {
+      method: 'POST',
+      headers: { 'x-internal-secret': secret },
+      signal: AbortSignal.timeout(15000),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) return back(null, body.error || ('اجرا نشد (کد ' + r.status + ')'));
+    return back((body.label || job) + ' شروع شد — نتیجه چند دقیقه دیگر در همین جدول دیده می‌شود');
+  } catch (e) {
+    const msg = /abort|timeout/i.test(e.message || '') ? 'سرویس جمع‌آورنده پاسخ نداد' : e.message;
+    return back(null, 'اجرا نشد: ' + msg);
+  }
+});
 
 app.get('/admin', adminGuard, (req, res) => adminPage(req, res, { user: req.user }));
 

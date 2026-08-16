@@ -102,16 +102,28 @@
                 <div class="drow-main">
                   <span class="drow-rank" style="background:<%= d.stale ? 'var(--down-bg)' : 'var(--up-bg)' %>;color:<%= d.stale ? 'var(--down)' : 'var(--up)' %>;">●</span>
                   <span class="drow-name"><%= d.label %></span>
+                  <span class="dim" style="font-size:var(--fs-xs);">هر <%= fa(d.maxAgeH) %> ساعت</span>
                 </div>
                 <div class="drow-val">
                   <span class="<%= d.stale ? 'down' : '' %>"><%= timeAgo(d.mtime) %></span>
                   <span class="drow-sub"><%= fa(d.sizeMB) %> مگ</span>
+                  <% if (d.job) { %>
+                  <form method="POST" action="/admin/crawl/<%= d.job %>" style="display:inline;">
+                    <button class="btn btn-sm" type="submit" title="اجرای دستی همین حالا">اجرا</button>
+                  </form>
+                  <% } else { %>
+                  <span class="drow-sub dim" title="این بخش جمع‌آورنده‌ی دستی ندارد">—</span>
+                  <% } %>
                 </div>
               </div>
               <% }); %>
               <% if (!dbs.length) { %><div class="drow"><span class="dim">پایگاه داده‌ای پیدا نشد</span></div><% } %>
             </div>
-            <div class="panel-foot">اگر زمان آخرین نوشتن یک بخش بیش از ۶ ساعت گذشته باشد قرمز می‌شود — نشانه‌ی توقف جمع‌آورنده‌ی آن بخش.</div>
+            <div class="panel-foot">
+              آستانه‌ی هر بخش با دوره‌ی زمان‌بند خودش تنظیم شده (کنار نامش نوشته شده) — قرمز یعنی
+              بیش از آن مقدار چیزی ننوشته، نشانه‌ی توقف واقعی. دکمه‌ی «اجرا» همان کرال زمان‌بند را
+              همین حالا در پس‌زمینه شروع می‌کند؛ چند دقیقه بعد صفحه را تازه کنید.
+            </div>
           </section>
         </section>
 

@@ -53,6 +53,9 @@
   </div>
 </header>
 
+<%# صفحه‌های پنل مدیریت با seo.bare می‌آیند: نه نوار تب سایت را لازم دارند
+    نه فوتر عمومی را. لینک بازگشت به سایت داخل خود پنل هست. %>
+<% if (!seo.bare) { %>
 <nav class="tabbar" aria-label="بخش‌ها">
   <div class="container">
     <div class="tabs">
@@ -62,9 +65,11 @@
     </div>
   </div>
 </nav>
+<% } %>
 
 <%- body %>
 
+<% if (!seo.bare) { %>
 <footer class="footer">
   <div class="disc">
     <div class="container">
@@ -126,6 +131,7 @@
     </div>
   </div>
 </footer>
+<% } %>
 
 <script src="<%= ASSETS.app %>"></script>
 

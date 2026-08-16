@@ -47,6 +47,10 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: true, credentials: true }));
 app.use((req, res, next) => {
   const host = (req.headers.host || '').split(':')[0];
+  // مسیرهای داخلی همیشه از روی همین ماشین با آدرس عددی صدا زده می‌شوند؛
+  // ریدایرکت به دامنه آن‌ها را می‌شکست (۳۰۱ روی POST به GET تبدیل می‌شود).
+  // امنیت این مسیرها به هدر x-internal-secret است، نه به نام میزبان.
+  if (req.path.startsWith('/internal/')) return next();
   if (host === '81.168.119.67' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     return res.redirect(301, 'https://signalhoosh.site' + req.originalUrl);
   }
@@ -381,7 +385,90 @@ app.post('/internal/finance-message', (req, res) => {
   res.json({ ok: true });
 });
 
+// ════════════════════════════════════
+//  INTERNAL — اجرای دستی جمع‌آورنده‌ها از پنل مدیریت
+// ════════════════════════════════════
+/**
+ * جمع‌آورنده‌ها داخل همین پروسه (signal) زندگی می‌کنند، ولی پنل مدیریت را
+ * پروسه‌ی جداگانه‌ی signal-web روی ۳۰۰۲ رندر می‌کند. پس دکمه‌ی «اجرا» در پنل
+ * به اینجا POST می‌کند تا کرال در پروسه‌ی درست و پشت همان قفل کرال اجرا شود.
+ *
+ * دو نکته‌ی مهم:
+ *  ۱. دقیقاً همان تابعی صدا زده می‌شود که زمان‌بند صدا می‌زند. این توابع خودشان
+ *     withCrawlLock می‌گیرند، پس اینجا نباید دوباره قفل گرفت — قفل یک زنجیره‌ی
+ *     promise واحد است و قفلِ تو در تو خودش را بن‌بست می‌کند.
+ *  ۲. کرال‌ها دقیقه‌ها طول می‌کشند و درخواست HTTP آن‌قدر باز نمی‌ماند، پس کار در
+ *     پس‌زمینه می‌رود و پاسخ بلافاصله برمی‌گردد. نتیجه از «آخرین نوشتن» دیده می‌شود.
+ */
+const MANUAL_CRAWLS = {
+  trends:     { label: 'ترند سرچ',        run: () => _crawlers.scheduler.crawl() },
+  finance:    { label: 'بازار مالی',       run: () => financeCrawler.crawl() },
+  cars:       { label: 'خودرو',            run: () => carCrawler.crawlCars() },
+  market:     { label: 'کالا',             run: () => _crawlers.market.crawlMarket() },
+  jobs:       { label: 'بازار کار',        run: () => _crawlers.job.crawlWithRetry() },
+  property:   { label: 'ملک تهران',        run: () => require('./property-crawler').crawlAll() },
+  gold:       { label: 'پلتفرم‌های طلا',   run: () => require('./gold-crawler').crawl() },
+  commodity:  { label: 'کالای جهانی',      run: () => require('./commodity-crawler').crawlOnce() },
+  polymarket: { label: 'پلی‌مارکت',        run: () => require('./polymarket-crawler').crawlPolymarket() },
+  insights:   { label: 'insights',         run: async () => {
+    await require('./insights-brief').generate();
+    require('./insights-leadlag').run();
+  } },
+};
 
+/**
+ * کدام کرال همین حالا در حال اجراست — تا کلیک دوم دوباره صفش نکند.
+ *
+ * روی promise تنهایی نمی‌شود حساب کرد: بعضی کرالرها (مثلاً gold) در شرایطی
+ * promiseشان هرگز settle نمی‌شود و آن‌وقت دکمه تا ری‌استارت بعدی قفل می‌ماند.
+ * پس مثل خودِ lib/crawl-lock.js یک سقف زمانی هم گذاشته می‌شود: بعد از آن،
+ * ردیف پاک می‌شود حتی اگر کرال هنوز برنگشته باشد.
+ */
+const CRAWL_STUCK_MS = 20 * 60 * 1000;
+const _crawlRunning = new Map();
+
+function crawlBusy(key) {
+  const startedAt = _crawlRunning.get(key);
+  if (!startedAt) return 0;
+  if (Date.now() - startedAt > CRAWL_STUCK_MS) {
+    console.warn('[manual-crawl] ' + key + ' بیش از حد طول کشید — قفلش آزاد شد');
+    _crawlRunning.delete(key);
+    return 0;
+  }
+  return startedAt;
+}
+
+app.post('/internal/crawl/:job', (req, res) => {
+  if (req.headers['x-internal-secret'] !== INTERNAL_SECRET)
+    return res.status(401).json({ error: 'unauthorized' });
+
+  const key = String(req.params.job || '');
+  const job = MANUAL_CRAWLS[key];
+  if (!job) return res.status(404).json({ error: 'جمع‌آورنده‌ی ناشناخته: ' + key });
+
+  const startedAt = crawlBusy(key);
+  if (startedAt) {
+    const mins = Math.round((Date.now() - startedAt) / 60000);
+    return res.status(409).json({ error: job.label + ' همین حالا در حال اجراست (' + mins + ' دقیقه)' });
+  }
+
+  let p;
+  try { p = job.run(); }
+  catch (e) {
+    console.error('[manual-crawl] ' + key + ' شروع نشد:', e.message);
+    return res.status(500).json({ error: 'شروع نشد: ' + e.message });
+  }
+
+  _crawlRunning.set(key, Date.now());
+  console.log('[manual-crawl] ' + key + ' با درخواست دستی شروع شد');
+
+  Promise.resolve(p)
+    .then(() => console.log('[manual-crawl] ' + key + ' تمام شد'))
+    .catch(e => console.error('[manual-crawl] ' + key + ' شکست خورد:', e && e.message))
+    .finally(() => _crawlRunning.delete(key));
+
+  res.json({ ok: true, started: key, label: job.label });
+});
 
 const settingsDB = require('./settings-db');
 
