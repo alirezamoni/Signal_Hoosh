@@ -752,6 +752,62 @@ tbody tr:hover { background: var(--card-hover); }
   .tr-chart { width: 44px; }
 }
 
+/* ══════════════ وبلاگ ══════════════ */
+
+.blog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); }
+.blog-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+  overflow: hidden; box-shadow: var(--shadow);
+  transition: border-color var(--dur) var(--ease);
+}
+.blog-card:hover { border-color: var(--border-strong); }
+.blog-card-link { display: flex; flex-direction: column; height: 100%; }
+.blog-cover { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--inset); }
+.blog-cover-ph { background: linear-gradient(135deg, var(--inset), var(--card-hover)); }
+.blog-card-body { padding: var(--pad-panel); display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.blog-date { font-size: var(--fs-xs); color: var(--faint); }
+.blog-card-title { font-size: var(--fs-base); line-height: 1.7; color: var(--text); font-weight: var(--fw-medium); }
+.blog-card-ex {
+  font-size: var(--fs-sm); color: var(--muted); line-height: 1.9;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.blog-article { max-width: 760px; margin-inline: auto; }
+.blog-hero {
+  width: 100%; aspect-ratio: 1200 / 630; object-fit: cover;
+  border-radius: var(--r); border: 1px solid var(--border);
+  background: var(--inset); margin-block: var(--s4);
+}
+.blog-foot {
+  margin-top: var(--s6); padding-top: var(--s4);
+  border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 2;
+}
+
+.pager { display: flex; align-items: center; justify-content: center; gap: var(--s3); flex-wrap: wrap; }
+
+/* ویرایشگر پنل — متن طولانی با فونت یک‌دست و چپ‌چین برای مارک‌داون */
+.blog-editor { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-sm); line-height: 1.9; }
+.blog-prompt-view {
+  white-space: pre-wrap; word-break: break-word; margin-top: var(--s3);
+  background: var(--inset); border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: var(--pad-panel); font-size: var(--fs-xs); line-height: 1.9; color: var(--muted);
+  max-height: 340px; overflow: auto;
+}
+.cover-row { display: flex; gap: var(--s4); align-items: flex-start; flex-wrap: wrap; }
+.cover-prev {
+  width: 260px; aspect-ratio: 1200 / 630; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--inset); border: 1px dashed var(--border); border-radius: var(--r-sm);
+  overflow: hidden; font-size: var(--fs-xs);
+}
+.cover-prev img { width: 100%; height: 100%; object-fit: cover; }
+
+@media (max-width: 1000px) { .blog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .blog-grid { grid-template-columns: 1fr; }
+  .cover-prev { width: 100%; }
+}
+
 /* ══════════════ کارت AI ══════════════ */
 
 .ai-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: var(--s4); overflow: hidden; box-shadow: var(--shadow); }

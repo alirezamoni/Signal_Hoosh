@@ -1,0 +1,57 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb"><a href="/">خانه</a> <span>/</span> <span>وبلاگ</span></nav>
+
+    <div class="page-head">
+      <h1 class="page-title">وبلاگ سیگنال هوش</h1>
+      <p class="page-sub">هر روز یک گزارش از مهم‌ترین اتفاق‌های ایران، بر پایه‌ی داده</p>
+    </div>
+
+    <blockquote class="desc">
+      این‌جا هر شب، داده‌های همان روزِ همه‌ی بخش‌های سایت — پرجستجوترین کلیدواژه‌های گوگل،
+      خبرهای مهم، قیمت طلا و دلار، خودرو، ملک تهران، بازار کالا و بازار کار — کنار هم خوانده
+      می‌شوند و به یک گزارش کوتاه تبدیل می‌شوند؛ تا ببینید پشت اعداد امروز چه خبر بوده است.
+    </blockquote>
+
+    <% if (!posts.length) { %>
+      <section class="panel">
+        <div class="panel-body">
+          <div class="drow"><span class="dim">هنوز نوشته‌ای منتشر نشده است. به‌زودی.</span></div>
+        </div>
+      </section>
+    <% } else { %>
+
+    <div class="blog-grid">
+      <% posts.forEach(function (p) { %>
+      <article class="blog-card">
+        <a class="blog-card-link" href="/blog/<%= encodeURIComponent(p.slug) %>">
+          <% if (p.cover) { %>
+          <img class="blog-cover" src="<%= p.cover %>" alt="<%= p.cover_alt || p.title %>" loading="lazy" width="400" height="225">
+          <% } else { %>
+          <div class="blog-cover blog-cover-ph" aria-hidden="true"></div>
+          <% } %>
+          <div class="blog-card-body">
+            <time class="blog-date" datetime="<%= p.published_at %>"><%= faDay(p.published_at) %></time>
+            <h2 class="blog-card-title"><%= p.title %></h2>
+            <p class="blog-card-ex"><%= p.excerptText %></p>
+          </div>
+        </a>
+      </article>
+      <% }); %>
+    </div>
+
+    <% if (pages > 1) { %>
+    <nav class="pager mt4" aria-label="صفحه‌بندی وبلاگ">
+      <% if (pageNum > 1) { %>
+        <a class="btn btn-sm" href="<%= pageNum - 1 === 1 ? '/blog' : '/blog/page/' + (pageNum - 1) %>" rel="prev">صفحه‌ی قبل</a>
+      <% } %>
+      <span class="dim">صفحه‌ی <%= fa(pageNum) %> از <%= fa(pages) %></span>
+      <% if (pageNum < pages) { %>
+        <a class="btn btn-sm" href="/blog/page/<%= pageNum + 1 %>" rel="next">صفحه‌ی بعد</a>
+      <% } %>
+    </nav>
+    <% } %>
+
+    <% } %>
+  </div>
+</main>

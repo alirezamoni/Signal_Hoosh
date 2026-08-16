@@ -33,6 +33,11 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
           نمای کلی
         </a>
+        <a href="#" data-sec="sec-blog" class="<%= sec === 'blog' ? 'on' : '' %>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M14 4v6h6M8 14h8M8 17h5"/></svg>
+          وبلاگ
+          <% if (blogStats.drafts) { %><span class="badge badge-warn" style="margin-right:auto;"><%= fa(blogStats.drafts) %></span><% } %>
+        </a>
         <a href="#" data-sec="sec-users" class="<%= sec === 'users' ? 'on' : '' %>">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/></svg>
           کاربران <span class="tag" style="margin-right:auto;"><%= fa(users.length) %></span>
@@ -270,6 +275,110 @@
         </section>
 
         <!-- ══════════ کالای جهانی ══════════ -->
+        <!-- ══════════ وبلاگ ══════════ -->
+        <section class="admin-sec <%= sec === 'blog' ? 'on' : '' %>" id="sec-blog">
+          <div class="sec-head between wrap">
+            <h2 class="sec-title">وبلاگ</h2>
+            <span class="tag"><%= fa(blogStats.published || 0) %> منتشرشده · <%= fa(blogStats.drafts || 0) %> پیش‌نویس</span>
+          </div>
+
+          <blockquote class="desc desc-sm">
+            هر شب پس از ساعت <%= fa(blogHour) %> به وقت تهران، داده‌های مهم همه‌ی تب‌های همان روز به مدل داده می‌شود
+            و یک <strong>پیش‌نویس</strong> ساخته می‌شود. هیچ متنی خودکار منتشر نمی‌شود؛ شما آن را می‌خوانید،
+            در صورت نیاز اصلاح می‌کنید، عکس شاخص را اضافه می‌کنید و بعد منتشر می‌شود.
+            وبلاگ در تب‌های بالای سایت نیست و فقط از فوتر لینک دارد، ولی در سایت‌مپ و فید هست تا گوگل پیدایش کند.
+          </blockquote>
+
+          <section class="panel mb4">
+            <div class="panel-head"><h3 class="panel-title">ساخت دستی</h3></div>
+            <div class="panel-body-pad">
+              <form method="POST" action="/admin/blog/generate" class="row wrap" style="gap:var(--s3);align-items:flex-end;">
+                <label class="field" style="margin-bottom:0;">
+                  <span class="label">تاریخِ داده‌ها (خالی = امروز)</span>
+                  <input class="input" type="text" name="day" placeholder="۲۰۲۶-۰۸-۱۶" pattern="\d{4}-\d{2}-\d{2}" style="width:150px;">
+                </label>
+                <label class="row" style="gap:6px;align-items:center;margin-bottom:0;">
+                  <input type="checkbox" name="force" value="1">
+                  <span class="hint">اگر برای آن روز نوشته‌ای هست، بازنویسی شود</span>
+                </label>
+                <button class="btn btn-acc" type="submit">ساخت پیش‌نویس</button>
+              </form>
+              <div class="hint" style="margin-top:8px;">
+                ساخت متن چند ثانیه طول می‌کشد و یک فراخوانی از سهمیه‌ی روزانه‌ی مدل مصرف می‌کند.
+              </div>
+            </div>
+          </section>
+
+          <section class="panel mb4">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>عنوان</th><th class="ta-l">وضعیت</th><th class="ta-l">داده‌ها</th><th class="ta-l">حجم</th><th class="ta-l">عکس</th><th class="ta-l"></th></tr></thead>
+                <tbody>
+                  <% blogPosts.forEach(function (p) { %>
+                  <tr>
+                    <td class="td-name">
+                      <a href="/admin/blog/<%= p.id %>"><%= p.title %></a>
+                      <div class="dim" style="font-size:var(--fs-xs);margin-top:3px;"><%= p.excerptText %></div>
+                    </td>
+                    <td class="ta-l">
+                      <span class="badge <%= p.status === 'published' ? 'badge-up' : 'badge-warn' %>">
+                        <%= p.status === 'published' ? 'منتشرشده' : 'پیش‌نویس' %>
+                      </span>
+                    </td>
+                    <td class="ta-l"><%= p.day ? faDay(p.day) : '—' %></td>
+                    <td class="ta-l"><%= fa(p.words) %> کلمه</td>
+                    <td class="ta-l"><%= p.cover ? '✓' : '—' %></td>
+                    <td class="ta-l"><a class="btn btn-sm" href="/admin/blog/<%= p.id %>">بررسی و ویرایش</a></td>
+                  </tr>
+                  <% }); %>
+                  <% if (!blogPosts.length) { %>
+                  <tr><td colspan="6" class="dim center">هنوز نوشته‌ای ساخته نشده. با «ساخت دستی» بالا شروع کنید.</td></tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel mb4">
+            <div class="panel-head"><h3 class="panel-title">پرامپت و زمان‌بندی</h3></div>
+            <div class="panel-body-pad">
+              <form method="POST" action="/admin/blog/settings">
+                <label class="field">
+                  <span class="label">ساعت نوشتن (به وقت تهران) — پس از این ساعت، مطلب آن روز ساخته می‌شود</span>
+                  <input class="input" type="number" name="blog_hour" min="0" max="23" value="<%= blogHour %>" style="width:110px;">
+                </label>
+
+                <label class="field">
+                  <span class="label">
+                    پرامپت نویسنده — <code>{{DATA}}</code> جای داده‌های روز را می‌گیرد.
+                    اگر این جای‌نما نباشد، داده‌ها به انتهای پرامپت اضافه می‌شوند.
+                  </span>
+                  <textarea class="input blog-editor" name="blog_prompt" rows="20"><%= blogPromptIsDefault ? '' : blogPrompt %></textarea>
+                </label>
+                <div class="hint" style="margin-bottom:var(--s3);">
+                  <% if (blogPromptIsDefault) { %>
+                    الان پرامپت پیش‌فرض استفاده می‌شود (متن زیر). اگر چیزی بنویسید جایگزین آن می‌شود؛
+                    برای برگشتن به پیش‌فرض، کادر را خالی کنید و ذخیره بزنید.
+                  <% } else { %>
+                    پرامپت سفارشی فعال است. برای برگشتن به پیش‌فرض، کادر را خالی کنید و ذخیره بزنید.
+                  <% } %>
+                </div>
+                <button class="btn btn-acc" type="submit">ذخیره‌ی تنظیمات وبلاگ</button>
+              </form>
+
+              <% if (blogPromptIsDefault) { %>
+              <details class="sm-more" style="margin-top:var(--s4);">
+                <summary><span class="sm-more-open">دیدن متن پرامپت پیش‌فرض</span><span class="sm-more-close">بستن</span></summary>
+                <pre class="blog-prompt-view"><%= blogPrompt %></pre>
+              </details>
+              <% } %>
+            </div>
+            <div class="panel-foot">
+              مدل این بخش در تب «هوش مصنوعی» با نام «نویسنده‌ی وبلاگ روزانه» قابل انتخاب است.
+            </div>
+          </section>
+        </section>
+
         <section class="admin-sec <%= sec === 'commodity' ? 'on' : '' %>" id="sec-commodity">
           <div class="sec-head between wrap">
             <h2 class="sec-title">قیمت جهانی کالا</h2>

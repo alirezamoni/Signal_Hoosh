@@ -1,0 +1,190 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb">
+      <a href="/admin?sec=blog">پنل مدیریت</a> <span>/</span>
+      <a href="/admin?sec=blog">وبلاگ</a> <span>/</span>
+      <span>ویرایش</span>
+    </nav>
+
+    <% if (flash) { %>
+    <div class="alert-ok show mb3">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      <%= flash %>
+    </div>
+    <% } %>
+    <% if (flashErr) { %>
+    <div class="alert-ok show mb3" style="background:var(--down-bg);color:var(--down);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+      <%= flashErr %>
+    </div>
+    <% } %>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">ویرایش نوشته</h1>
+        <p class="page-sub">
+          <%= fa(words) %> کلمه
+          <% if (post.day) { %> · داده‌های <%= faDay(post.day) %><% } %>
+          <% if (post.ai_model) { %> · مدل: <%= post.ai_model %><% } %>
+        </p>
+      </div>
+      <span class="badge <%= post.status === 'published' ? 'badge-up' : 'badge-warn' %>">
+        <%= post.status === 'published' ? 'منتشرشده' : 'پیش‌نویس' %>
+      </span>
+    </div>
+
+    <blockquote class="desc desc-sm">
+      متن را بخوانید و در صورت نیاز اصلاح کنید. تا وقتی عکس شاخص اضافه نشده دکمه‌ی انتشار فعال نمی‌شود —
+      عکس هم برای ظاهر صفحه لازم است و هم برای پیش‌نمایش لینک در تلگرام و نتایج گوگل.
+    </blockquote>
+
+    <!-- ── عکس شاخص ── -->
+    <section class="panel mb4">
+      <div class="panel-head"><h2 class="panel-title">عکس شاخص</h2></div>
+      <div class="panel-body-pad">
+        <div class="cover-row">
+          <div class="cover-prev" id="coverPrev">
+            <% if (post.cover) { %>
+              <img src="<%= post.cover %>" alt="عکس شاخص فعلی">
+            <% } else { %>
+              <span class="dim">هنوز عکسی انتخاب نشده</span>
+            <% } %>
+          </div>
+          <div>
+            <input type="file" id="coverFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <button type="button" class="btn btn-acc" id="coverBtn">انتخاب عکس از رایانه</button>
+            <div class="hint" style="margin-top:8px;">JPG، PNG، WebP یا GIF — حداکثر ۴ مگابایت. اندازه‌ی پیشنهادی ۱۲۰۰×۶۳۰.</div>
+            <div id="coverMsg" class="hint"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <form method="POST" action="/admin/blog/<%= post.id %>/save">
+      <section class="panel mb4">
+        <div class="panel-head"><h2 class="panel-title">متن نوشته</h2></div>
+        <div class="panel-body-pad">
+          <label class="field">
+            <span class="label">عنوان</span>
+            <input class="input" type="text" name="title" value="<%= post.title %>" maxlength="200" required>
+          </label>
+
+          <label class="field">
+            <span class="label">نامک — نشانی صفحه: /blog/<%= post.slug %></span>
+            <input class="input" type="text" name="slug" value="<%= post.slug %>" maxlength="90">
+          </label>
+
+          <label class="field">
+            <span class="label">خلاصه — در فهرست وبلاگ دیده می‌شود</span>
+            <textarea class="input" name="excerpt" rows="2" maxlength="400"><%= post.excerpt || '' %></textarea>
+          </label>
+
+          <label class="field">
+            <span class="label">متن کامل — مارک‌داون: ## عنوان، **پررنگ**، - فهرست، [متن](/نشانی)</span>
+            <textarea class="input blog-editor" name="body" rows="26" required><%= post.body %></textarea>
+          </label>
+
+          <label class="field">
+            <span class="label">متن جایگزین عکس (alt) — برای سئو و دسترس‌پذیری</span>
+            <input class="input" type="text" name="cover_alt" value="<%= post.cover_alt || '' %>" maxlength="200">
+          </label>
+        </div>
+      </section>
+
+      <section class="panel mb4">
+        <div class="panel-head"><h2 class="panel-title">سئو</h2></div>
+        <div class="panel-body-pad">
+          <label class="field">
+            <span class="label">عنوان سئو — خالی بماند یعنی همان عنوان نوشته؛ بهتر است زیر ۶۰ نویسه باشد</span>
+            <input class="input" type="text" name="meta_title" value="<%= post.meta_title || '' %>" maxlength="120">
+          </label>
+          <label class="field">
+            <span class="label">توضیح متا — بین ۱۲۰ تا ۱۵۵ نویسه</span>
+            <textarea class="input" name="meta_desc" rows="2" maxlength="300"><%= post.meta_desc || '' %></textarea>
+          </label>
+          <label class="field">
+            <span class="label">کلیدواژه‌ها — با ویرگول جدا شوند</span>
+            <input class="input" type="text" name="keywords" value="<%= post.keywords || '' %>" maxlength="400">
+          </label>
+        </div>
+      </section>
+
+      <div class="row wrap mb4" style="gap:8px;">
+        <button class="btn btn-acc" type="submit">ذخیره‌ی تغییرات</button>
+        <a class="btn" href="/admin?sec=blog">بازگشت به فهرست</a>
+      </div>
+    </form>
+
+    <section class="panel mb4">
+      <div class="panel-head"><h2 class="panel-title">انتشار</h2></div>
+      <div class="panel-body-pad">
+        <div class="row wrap" style="gap:8px;align-items:center;">
+          <% if (post.status === 'published') { %>
+            <a class="btn" href="/blog/<%= encodeURIComponent(post.slug) %>" target="_blank" rel="noopener">دیدن در سایت ↗</a>
+            <form method="POST" action="/admin/blog/<%= post.id %>/unpublish" style="display:inline;">
+              <button class="btn" type="submit">برگرداندن به پیش‌نویس</button>
+            </form>
+          <% } else if (post.cover) { %>
+            <form method="POST" action="/admin/blog/<%= post.id %>/publish" style="display:inline;">
+              <button class="btn btn-acc" type="submit">انتشار در وبلاگ</button>
+            </form>
+          <% } else { %>
+            <button class="btn" type="button" disabled>انتشار در وبلاگ</button>
+            <span class="hint">اول عکس شاخص را اضافه کنید.</span>
+          <% } %>
+          <form method="POST" action="/admin/blog/<%= post.id %>/delete" style="display:inline;"
+                onsubmit="return confirm('این نوشته برای همیشه حذف شود؟')">
+            <button class="btn btn-sm" type="submit" style="color:var(--down);">حذف نوشته</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel mb6">
+      <div class="panel-head"><h2 class="panel-title">پیش‌نمایش</h2></div>
+      <div class="panel-body-pad">
+        <div class="prose"><%- preview %></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var btn = document.getElementById('coverBtn');
+  var file = document.getElementById('coverFile');
+  var msg = document.getElementById('coverMsg');
+  var prev = document.getElementById('coverPrev');
+  if (!btn || !file) return;
+
+  btn.addEventListener('click', function () { file.click(); });
+
+  file.addEventListener('change', function () {
+    var f = file.files && file.files[0];
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) { msg.textContent = 'حجم عکس بیش از ۴ مگابایت است.'; return; }
+    msg.textContent = 'در حال بارگذاری…';
+
+    // فایل در مرورگر به base64 تبدیل و به‌صورت JSON فرستاده می‌شود؛
+    // این‌طور نیازی به multipart و وابستگی تازه نیست.
+    var r = new FileReader();
+    r.onload = function () {
+      fetch('/admin/blog/<%= post.id %>/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ data: r.result })
+      })
+      .then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j }; }); })
+      .then(function (o) {
+        if (!o.ok) { msg.textContent = (o.j && o.j.error) || 'بارگذاری ناموفق بود.'; return; }
+        msg.textContent = 'عکس ذخیره شد.';
+        // انتشار تا پیش از این غیرفعال بود؛ تازه‌سازی صفحه فعالش می‌کند
+        setTimeout(function () { location.reload(); }, 500);
+      })
+      .catch(function (e) { msg.textContent = 'خطا: ' + e.message; });
+    };
+    r.readAsDataURL(f);
+  });
+})();
+</script>

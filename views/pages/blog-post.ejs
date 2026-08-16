@@ -1,0 +1,53 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/blog">وبلاگ</a> <span>/</span>
+      <span><%= post.title %></span>
+    </nav>
+
+    <article class="blog-article">
+      <h1 class="article-title"><%= post.title %></h1>
+
+      <div class="article-meta">
+        <time datetime="<%= post.published_at %>"><%= faDay(post.published_at) %></time>
+        <span class="dim"><%= fa(readMin) %> دقیقه مطالعه</span>
+        <% if (post.day) { %><span class="tag">داده‌های <%= faDay(post.day) %></span><% } %>
+      </div>
+
+      <% if (post.cover) { %>
+      <img class="blog-hero" src="<%= post.cover %>" alt="<%= post.cover_alt || post.title %>" width="1200" height="630">
+      <% } %>
+
+      <% if (post.excerpt) { %>
+      <blockquote class="desc"><%= post.excerpt %></blockquote>
+      <% } %>
+
+      <div class="prose"><%- bodyHtml %></div>
+
+      <div class="blog-foot">
+        <p class="dim">
+          اعداد این نوشته مربوط به <%= faDay(post.day || post.published_at) %> است.
+          برای دیدن داده‌های همین لحظه سراغ
+          <a href="/trends">ترند جستجو</a>،
+          <a href="/news">اخبار</a> و
+          <a href="/finance">بازارهای مالی</a> بروید.
+        </p>
+      </div>
+    </article>
+
+    <% if (related && related.length) { %>
+    <section class="panel mt6">
+      <div class="panel-head"><h2 class="panel-title">نوشته‌های دیگر</h2></div>
+      <div class="panel-body">
+        <% related.forEach(function (r) { %>
+        <a class="drow" href="/blog/<%= encodeURIComponent(r.slug) %>">
+          <div class="drow-main"><span class="drow-name"><%= r.title %></span></div>
+          <div class="drow-val"><span class="drow-sub"><%= faDay(r.published_at) %></span></div>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+  </div>
+</main>

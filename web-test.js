@@ -26,6 +26,9 @@ const commodityDB = require('./commodity-db');
 const commodityCrawler = require('./commodity-crawler');
 const insightsDB = require('./insights-db');
 const tlSkill    = require('./timeline-skill');
+const blogDB     = require('./blog-db');
+const blogWriter = require('./blog-writer');
+const mdown      = require('./lib/markdown');
 const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
@@ -1329,6 +1332,102 @@ app.get('/disclaimer', (req, res) => {
   }, {});
 });
 
+// ════════════ وبلاگ ════════════
+// عمداً در تب‌های بالای سایت نیست و فقط از فوتر لینک می‌گیرد؛ ولی برای
+// گوگل کاملاً قابل خزش است (سایت‌مپ + فید + پیوند داخلی از هر نوشته).
+
+const BLOG_PER_PAGE = 12;
+
+function blogListPage(req, res, pageNum) {
+  const total = blogDB.countPublished();
+  const pages = Math.max(1, Math.ceil(total / BLOG_PER_PAGE));
+  const p = Math.min(Math.max(1, pageNum || 1), pages);
+  const posts = blogDB.listPublished(BLOG_PER_PAGE, (p - 1) * BLOG_PER_PAGE)
+    .map(x => Object.assign({}, x, { excerptText: x.excerpt || mdown.plain(x.body, 180) }));
+
+  page(res, 'blog', '', {
+    title: p > 1
+      ? `وبلاگ سیگنال هوش — صفحه ${p} | تحلیل روزانه داده‌های ایران`
+      : 'وبلاگ سیگنال هوش | تحلیل روزانه ترند، بازار و اخبار ایران',
+    desc: 'هر روز یک گزارش از مهم‌ترین اتفاق‌های ایران بر پایه‌ی داده: پرجستجوترین کلیدواژه‌های گوگل، خبرهای مهم، قیمت طلا و دلار، خودرو، ملک و بازار کار.',
+    path: p > 1 ? '/blog/page/' + p : '/blog',
+    // صفحه‌های ۲ به بعد محتوای تکراری‌اند؛ فقط صفحه‌ی اول ایندکس شود
+    noindex: p > 1,
+  }, { posts, pageNum: p, pages, total }, {
+    '@context': 'https://schema.org', '@type': 'Blog',
+    name: 'وبلاگ سیگنال هوش', url: SITE + '/blog', inLanguage: 'fa-IR',
+    publisher: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+  });
+}
+
+app.get('/blog', (req, res) => blogListPage(req, res, 1));
+app.get('/blog/page/:n', (req, res) => blogListPage(req, res, parseInt(req.params.n, 10) || 1));
+
+// فید — مسیرش باید پیش از /blog/:slug تعریف شود وگرنه slug آن را می‌بلعد
+app.get('/blog/rss.xml', (req, res) => {
+  const posts = blogDB.listPublished(30, 0);
+  const esc = s => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const items = posts.map(p => `<item>` +
+    `<title>${esc(p.title)}</title>` +
+    `<link>${SITE}/blog/${encodeURIComponent(p.slug)}</link>` +
+    `<guid isPermaLink="true">${SITE}/blog/${encodeURIComponent(p.slug)}</guid>` +
+    `<pubDate>${new Date(p.published_at).toUTCString()}</pubDate>` +
+    `<description>${esc(p.excerpt || mdown.plain(p.body, 300))}</description>` +
+    `</item>`).join('');
+  res.type('application/rss+xml').send(
+    '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>' +
+    '<title>وبلاگ سیگنال هوش</title>' +
+    `<link>${SITE}/blog</link>` +
+    '<description>تحلیل روزانه‌ی داده‌های ایران</description>' +
+    '<language>fa-ir</language>' + items + '</channel></rss>'
+  );
+});
+
+app.get('/blog/:slug', (req, res, next) => {
+  const post = blogDB.publishedBySlug(req.params.slug);
+  if (!post) return next();
+
+  const bodyHtml = mdown.render(post.body);
+  const words = mdown.plain(post.body).split(/\s+/).filter(Boolean).length;
+  const readMin = Math.max(1, Math.round(words / 200));
+  const related = blogDB.related(post.id, 3);
+  const desc = post.meta_desc || post.excerpt || mdown.plain(post.body, 155);
+  // layout خودش SITE را جلوی seo.image می‌گذارد، پس اینجا باید مسیر نسبی بماند؛
+  // ولی JSON-LD نشانی مطلق می‌خواهد.
+  const imgAbs = post.cover ? SITE + post.cover : null;
+
+  page(res, 'blog-post', '', {
+    title: (post.meta_title || post.title) + ' | سیگنال هوش',
+    desc,
+    path: '/blog/' + post.slug,
+    image: post.cover || null,
+    ogType: 'article',
+  }, { post, bodyHtml, readMin, related }, [{
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: desc,
+    datePublished: post.published_at,
+    dateModified: post.updated_at || post.published_at,
+    inLanguage: 'fa-IR',
+    image: imgAbs ? [imgAbs] : undefined,
+    keywords: post.keywords || undefined,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': SITE + '/blog/' + post.slug },
+    author: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+    publisher: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+  }, {
+    // وبلاگ تب نیست، پس breadcrumbFor چیزی نمی‌سازد و باید دستی بدهیم
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'خانه', item: SITE + '/' },
+      { '@type': 'ListItem', position: 2, name: 'وبلاگ', item: SITE + '/blog' },
+      { '@type': 'ListItem', position: 3, name: post.title, item: SITE + '/blog/' + post.slug },
+    ],
+  }]);
+});
+
 // ════════════ پنل مدیریت ════════════
 // از robots مسدود است و هدر noindex می‌گیرد.
 
@@ -1349,6 +1448,7 @@ const AI_MODULES = [
   { key: 'ai_model_news',       label: 'گزارش خبری هوشمند',            file: 'news-bot.js',    tag: 'news-digest' },
   { key: 'ai_model_jobs',       label: 'تحلیل بازار کار',              file: 'job-api.js',     tag: 'job-ai' },
   { key: 'timeline_ai_model',   label: 'ترند آینده (تایم‌لاین)',        file: 'timeline-ai.js', tag: 'tl-ai' },
+  { key: 'ai_model_blog',       label: 'نویسنده‌ی وبلاگ روزانه',        file: 'blog-writer.js', tag: 'blog-writer' },
 ];
 
 const DB_LABELS = {
@@ -1358,45 +1458,12 @@ const DB_LABELS = {
   'polymarket.db': 'پلی‌مارکت', 'timeline.db': 'ترند آینده',
   'messages.db': 'پیام‌های تماس', 'users.db': 'کاربران',
   'property.db': 'ملک تهران', 'gold.db': 'پلتفرم‌های طلا', 'commodity.db': 'کالای جهانی',
+  'blog.db': 'وبلاگ',
 };
 
-/**
- * آستانه‌ی «قدیمی» — باید با فاصله‌ی واقعی زمان‌بندِ همان بخش بخواند، وگرنه
- * بخشی که درست کار می‌کند بی‌خود قرمز می‌شود. مثلاً «کالا» هر ۲۴ ساعت یک‌بار
- * کرال می‌شود؛ با آستانه‌ی ۶ ساعتیِ پیش‌فرض، ۱۸ ساعت از هر ۲۴ ساعت قرمز بود.
- * عدد هر ردیف = دوره‌ی زمان‌بند + حاشیه، تا فقط توقفِ واقعی قرمز شود.
- *
- * دوره‌ها (server.js و *-crawler.js): خودرو ۱۲س · کالا/بازار کار/ملک ۲۴س ·
- * insights (brief) ۶س · طلا و کالای جهانی ۱۰د · بقیه پرتکرار.
- */
-const DB_MAX_AGE_H = {
-  'cars.db': 14, 'car.db': 14,
-  'market.db': 26,
-  'jobs.db': 26, 'job.db': 26,
-  'property.db': 30,
-  'insights.db': 8,
-  'messages.db': 24 * 30,
-};
+// آستانه‌ی «قدیمی» برای بخش‌هایی که عمداً کم‌تکرار بروز می‌شوند
+const DB_MAX_AGE_H = { 'property.db': 30, 'messages.db': 24 * 30 };
 const DEFAULT_MAX_AGE_H = 6;
-
-/**
- * کدام ردیف دکمه‌ی «اجرا» بگیرد و به کدام جمع‌آورنده وصل شود.
- * کلیدها باید با MANUAL_CRAWLS در server.js یکی باشند.
- * news.db اینجا نیست چون از لیسنر تلگرام پر می‌شود نه کرالر، و messages.db
- * هم ورودی کاربر است — هیچ‌کدام «اجرای دستی» ندارند.
- */
-const DB_JOBS = {
-  'trends.db': 'trends', 'trend.db': 'trends',
-  'finance.db': 'finance',
-  'cars.db': 'cars', 'car.db': 'cars',
-  'market.db': 'market',
-  'jobs.db': 'jobs', 'job.db': 'jobs',
-  'property.db': 'property',
-  'gold.db': 'gold',
-  'commodity.db': 'commodity',
-  'polymarket.db': 'polymarket',
-  'insights.db': 'insights',
-};
 
 // شمردن ۳۰هزار فایل رسانه در هر بار باز کردن پنل کند است — یک دقیقه کش می‌شود.
 let _mediaCache = { at: 0, count: 0, mb: 0 };
@@ -1439,16 +1506,13 @@ function dbFiles() {
       try {
         const t = dbTouchedAt(path.join(dir, f));
         if (!t.mtimeMs) continue;
-        const maxAgeH = DB_MAX_AGE_H[f] || DEFAULT_MAX_AGE_H;
         out.push({
           file: f,
           label: DB_LABELS[f] || f.replace(/\.db$/, ''),
           sizeMB: Math.round(t.size / 1048576 * 10) / 10,
           mtime: new Date(t.mtimeMs).toISOString(),
-          maxAgeH,
-          job: DB_JOBS[f] || null,
           // بدون نوشتن در بازه‌ی مورد انتظار = احتمالاً جمع‌آورنده خوابیده
-          stale: Date.now() - t.mtimeMs > maxAgeH * 3600 * 1000,
+          stale: Date.now() - t.mtimeMs > (DB_MAX_AGE_H[f] || DEFAULT_MAX_AGE_H) * 3600 * 1000,
         });
       } catch (e) {}
     }
@@ -1482,7 +1546,12 @@ function systemInfo(dbs) {
   };
 }
 
-const ADMIN_SECS = ['overview', 'users', 'channels', 'gold', 'commodity', 'ai', 'messages', 'spam', 'blocked', 'system'];
+const ADMIN_SECS = ['overview', 'blog', 'users', 'channels', 'gold', 'commodity', 'ai', 'messages', 'spam', 'blocked', 'system'];
+
+// آستانه‌ی حجم عکس شاخص وبلاگ. عکس به‌صورت base64 از فرم می‌آید (بدون
+// وابستگی multipart)، و base64 حدود ۳۳٪ بزرگ‌تر از فایل خام است.
+const BLOG_COVER_MAX_BYTES = 4 * 1024 * 1024;
+const BLOG_MEDIA_DIR = path.join(__dirname, 'public', 'blog-media');
 
 function adminPage(req, res, extra) {
   const q = (sql, d) => { try { return newsRO.prepare(sql).get(); } catch (e) { return d; } };
@@ -1527,6 +1596,15 @@ function adminPage(req, res, extra) {
     }));
   } catch (e) { console.warn('[admin/commodity]', e.message); }
 
+  let blogPosts = [], blogStats = { total: 0, drafts: 0, published: 0 };
+  try {
+    blogPosts = (blogDB.listAll(60) || []).map(p => Object.assign({}, p, {
+      excerptText: p.excerpt || mdown.plain(p.body, 140),
+      words: mdown.plain(p.body).split(/\s+/).filter(Boolean).length,
+    }));
+    blogStats = blogDB.stats() || blogStats;
+  } catch (e) { console.warn('[admin/blog]', e.message); }
+
   let chNews = [], chFin = [];
   try { chNews = newsDB.getChannels() || []; } catch (e) {}
   try { chFin  = financeDB.getFinanceChannels() || []; } catch (e) {}
@@ -1558,9 +1636,13 @@ function adminPage(req, res, extra) {
     ? String(req.query.sec) : 'overview';
 
   page(res, 'admin', '', {
-    title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true, bare: true
+    title: 'پنل مدیریت | سیگنال هوش', desc: 'پنل مدیریت', path: '/admin', noindex: true
   }, Object.assign({
     rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec, goldPlatforms,
+    blogPosts, blogStats,
+    blogPrompt: blogWriter.getPrompt(),
+    blogPromptIsDefault: !String(setAll.blog_prompt || '').trim(),
+    blogHour: Number(setAll.blog_hour == null ? 23 : setAll.blog_hour),
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
     COMMODITY_MIN: commodityCrawler.MIN_INTERVAL_MIN, COMMODITY_MAX: commodityCrawler.MAX_INTERVAL_MIN,
     sys: systemInfo(dbs),
@@ -1586,6 +1668,7 @@ function backFrom(req, res, ok, err) {
   else if (p.indexOf('/spam') !== -1)     sec = 'spam';
   else if (p.indexOf('/news') !== -1)     sec = 'blocked';
   else if (p.indexOf('/commodity') !== -1) sec = 'commodity';
+  else if (p.indexOf('/blog') !== -1)     sec = 'blog';
   const qs = ['sec=' + sec];
   if (ok)  qs.push('ok=' + encodeURIComponent(ok));
   if (err) qs.push('err=' + encodeURIComponent(err));
@@ -1595,7 +1678,7 @@ function backFrom(req, res, ok, err) {
 app.get('/admin/login', (req, res) => {
   if (auth.verifyToken((req.cookies && req.cookies.token) || '')) return backFrom(req, res);
   page(res, 'admin-login', '', {
-    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true, bare: true
+    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
   }, { error: null });
 });
 
@@ -1605,7 +1688,7 @@ app.post('/admin/login', loginLimiter, (req, res) => {
   const password = String((req.body && req.body.password) || '');
 
   const fail = msg => page(res, 'admin-login', '', {
-    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true, bare: true
+    title: 'ورود به پنل مدیریت | سیگنال هوش', desc: 'ورود', path: '/admin/login', noindex: true
   }, { error: msg });
 
   // ⚠️ verifyPassword شماره‌ی موبایل می‌گیرد، نه شیء کاربر
@@ -1620,48 +1703,6 @@ app.post('/admin/login', loginLimiter, (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => { res.clearCookie('token'); res.redirect('/admin/login'); });
-
-/**
- * اجرای دستی یک جمع‌آورنده از دکمه‌ی پنل.
- *
- * این پروسه (signal-web) فقط رندر می‌کند و هیچ کرالری داخلش نیست؛ کرالرها در
- * پروسه‌ی signal روی ۳۰۰۱ هستند. پس درخواست با کلید داخلی به آنجا پاس داده
- * می‌شود. اگر همین‌جا کرالر را require می‌کردیم، یک Chrome دوم بالا می‌آمد که
- * قفل کرالِ پروسه‌ی دیگر را نمی‌بیند و روی ۲ هسته با زمان‌بند تصادف می‌کرد.
- */
-app.post('/admin/crawl/:job', adminGuard, async (req, res) => {
-  const job = String(req.params.job || '');
-  const secret = process.env.NODE_INTERNAL_SECRET;
-
-  // backFrom بخش را از روی مسیر حدس می‌زند و مثلاً /admin/crawl/commodity را
-  // به بخش «کالای جهانی» می‌برد. جدول جمع‌آورنده‌ها در «نمای کلی» است، پس
-  // همیشه به همان‌جا برگرد.
-  const back = (ok, err) => {
-    const qs = ['sec=overview'];
-    if (ok)  qs.push('ok=' + encodeURIComponent(ok));
-    if (err) qs.push('err=' + encodeURIComponent(err));
-    res.redirect('/admin?' + qs.join('&'));
-  };
-
-  if (!secret) return back(null, 'کلید داخلی تنظیم نشده — اجرای دستی ممکن نیست');
-
-  try {
-    // کرال در آن سمت پس‌زمینه‌ای است و بلافاصله پاسخ می‌دهد؛ ۱۵ ثانیه
-    // فقط برای گرفتن «قبول شد / نشد» است، نه انتظار تا پایان کرال.
-    // localhost و نه 127.0.0.1 — همان آدرسی که news-listener.py استفاده می‌کند.
-    const r = await fetch('http://localhost:3001/internal/crawl/' + encodeURIComponent(job), {
-      method: 'POST',
-      headers: { 'x-internal-secret': secret },
-      signal: AbortSignal.timeout(15000),
-    });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok) return back(null, body.error || ('اجرا نشد (کد ' + r.status + ')'));
-    return back((body.label || job) + ' شروع شد — نتیجه چند دقیقه دیگر در همین جدول دیده می‌شود');
-  } catch (e) {
-    const msg = /abort|timeout/i.test(e.message || '') ? 'سرویس جمع‌آورنده پاسخ نداد' : e.message;
-    return back(null, 'اجرا نشد: ' + msg);
-  }
-});
 
 app.get('/admin', adminGuard, (req, res) => adminPage(req, res, { user: req.user }));
 
@@ -1862,6 +1903,137 @@ app.post('/admin/ai/reset-budget', adminGuard, (req, res) => {
     settingsDB.set('ai_calls_used', 0);
     settingsDB.set('ai_daily_limit_hit', false);
     backFrom(req, res, 'شمارنده‌ی مصرف امروز صفر شد.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// ════════════ پنل مدیریت — وبلاگ ════════════
+
+// صفحه‌ی ویرایش یک نوشته
+app.get('/admin/blog/:id', adminGuard, (req, res) => {
+  const post = blogDB.byId(parseInt(req.params.id, 10));
+  if (!post) return backFrom(req, res, null, 'نوشته پیدا نشد');
+  page(res, 'admin-blog-edit', '', {
+    title: 'ویرایش نوشته | پنل مدیریت', desc: '', path: '/admin/blog', noindex: true
+  }, {
+    post,
+    preview: mdown.render(post.body),
+    words: mdown.plain(post.body).split(/\s+/).filter(Boolean).length,
+    flash:    (req.query && req.query.ok)  ? String(req.query.ok).slice(0, 200)  : null,
+    flashErr: (req.query && req.query.err) ? String(req.query.err).slice(0, 200) : null,
+  });
+});
+
+function backToPost(res, id, ok, err) {
+  const qs = [];
+  if (ok)  qs.push('ok=' + encodeURIComponent(ok));
+  if (err) qs.push('err=' + encodeURIComponent(err));
+  res.redirect('/admin/blog/' + id + (qs.length ? '?' + qs.join('&') : ''));
+}
+
+// متن نوشته از سقف ۶۴ کیلوبایتی فرم‌های عادی رد می‌شود، پس این مسیر
+// حد جداگانه‌ای دارد. عکس اصلاً از این مسیر نمی‌آید (مسیر cover جداست).
+app.post('/admin/blog/:id/save', adminGuard, express.urlencoded({ extended: false, limit: '512kb' }), (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const b = req.body || {};
+    const title = String(b.title || '').trim().slice(0, 200);
+    const body  = String(b.body || '').trim();
+    if (!title || body.length < 50) return backToPost(res, id, null, 'عنوان و متن نمی‌توانند خالی باشند');
+    blogDB.update(id, {
+      title,
+      body,
+      slug: String(b.slug || '').trim() || title,
+      excerpt:    String(b.excerpt || '').trim().slice(0, 400),
+      meta_title: String(b.meta_title || '').trim().slice(0, 120),
+      meta_desc:  String(b.meta_desc || '').trim().slice(0, 300),
+      keywords:   String(b.keywords || '').trim().slice(0, 400),
+      cover_alt:  String(b.cover_alt || '').trim().slice(0, 200),
+    });
+    backToPost(res, id, 'ذخیره شد');
+  } catch (e) { backToPost(res, id, null, 'خطا: ' + e.message); }
+});
+
+// عکس شاخص — مرورگر فایل را base64 می‌کند و اینجا فقط رمزگشایی و ذخیره
+// می‌شود. این کار وابستگی multipart (multer) را حذف می‌کند و با قرارداد
+// همیشگی سایت هم می‌خواند: عکس روی سرور خودمان ذخیره می‌شود، نه hotlink.
+const COVER_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+app.post('/admin/blog/:id/cover', adminGuard, express.json({ limit: '6mb' }), (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const post = blogDB.byId(id);
+    if (!post) return res.status(404).json({ error: 'نوشته پیدا نشد' });
+    const data = String((req.body && req.body.data) || '');
+    const m = data.match(/^data:([\w\/+.-]+);base64,(.+)$/);
+    if (!m) return res.status(400).json({ error: 'قالب عکس نامعتبر است' });
+    const ext = COVER_TYPES[m[1].toLowerCase()];
+    if (!ext) return res.status(400).json({ error: 'فقط JPG، PNG، WebP یا GIF' });
+    const buf = Buffer.from(m[2], 'base64');
+    if (!buf.length) return res.status(400).json({ error: 'فایل خالی است' });
+    if (buf.length > BLOG_COVER_MAX_BYTES) {
+      return res.status(413).json({ error: 'حجم عکس بیش از ۴ مگابایت است' });
+    }
+    if (!fs.existsSync(BLOG_MEDIA_DIR)) fs.mkdirSync(BLOG_MEDIA_DIR, { recursive: true });
+    const name = 'post-' + id + '-' + Date.now() + '.' + ext;
+    fs.writeFileSync(path.join(BLOG_MEDIA_DIR, name), buf);
+
+    // عکس قبلی همان نوشته دیگر به‌کار نمی‌آید
+    if (post.cover && post.cover.indexOf('/blog-media/') === 0) {
+      try { fs.unlinkSync(path.join(BLOG_MEDIA_DIR, path.basename(post.cover))); } catch (e) {}
+    }
+    blogDB.update(id, { cover: '/blog-media/' + name });
+    res.json({ ok: true, cover: '/blog-media/' + name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/admin/blog/:id/publish', adminGuard, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const p = blogDB.byId(id);
+    if (!p) return backToPost(res, id, null, 'نوشته پیدا نشد');
+    if (!p.cover) return backToPost(res, id, null, 'برای انتشار، اول عکس شاخص را اضافه کنید');
+    blogDB.setStatus(id, 'published');
+    backToPost(res, id, 'منتشر شد — /blog/' + blogDB.byId(id).slug);
+  } catch (e) { backToPost(res, id, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/blog/:id/unpublish', adminGuard, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try { blogDB.setStatus(id, 'draft'); backToPost(res, id, 'به پیش‌نویس برگشت'); }
+  catch (e) { backToPost(res, id, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/blog/:id/delete', adminGuard, (req, res) => {
+  try {
+    const p = blogDB.byId(parseInt(req.params.id, 10));
+    if (p && p.cover && p.cover.indexOf('/blog-media/') === 0) {
+      try { fs.unlinkSync(path.join(BLOG_MEDIA_DIR, path.basename(p.cover))); } catch (e) {}
+    }
+    blogDB.remove(parseInt(req.params.id, 10));
+    backFrom(req, res, 'نوشته حذف شد');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// ساخت دستی — وقتی ادمین نخواهد تا شب صبر کند، یا زمان‌بند به خطا خورده باشد
+app.post('/admin/blog/generate', adminGuard, async (req, res) => {
+  try {
+    const day = String((req.body && req.body.day) || '').trim() || blogWriter.tehranDay();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return backFrom(req, res, null, 'تاریخ نامعتبر است');
+    const force = !!(req.body && req.body.force);
+    const r = await blogWriter.generateFor(day, { force });
+    if (r.ok) backFrom(req, res, (r.replaced ? 'پیش‌نویس بازنویسی شد' : 'پیش‌نویس ساخته شد') + ' — برای بررسی بازش کنید');
+    else backFrom(req, res, null, r.reason || 'ساخته نشد');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+app.post('/admin/blog/settings', adminGuard, express.urlencoded({ extended: false, limit: '256kb' }), (req, res) => {
+  try {
+    const b = req.body || {};
+    const prompt = String(b.blog_prompt || '').trim();
+    // خالی گذاشتن یعنی «برگرد به پرامپت پیش‌فرض»
+    settingsDB.set('blog_prompt', prompt);
+    const h = parseInt(String(b.blog_hour || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
+    if (!isNaN(h) && h >= 0 && h <= 23) settingsDB.set('blog_hour', h);
+    backFrom(req, res, prompt ? 'تنظیمات وبلاگ ذخیره شد' : 'پرامپت به حالت پیش‌فرض برگشت');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 
@@ -2329,7 +2501,8 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /internal/\n' +
     'Disallow: /admin\n' +
     'Disallow: /legacy\n' +
-    'Disallow: /news/page/\n\n' +
+    'Disallow: /news/page/\n' +
+    'Disallow: /blog/page/\n\n' +
     'Sitemap: ' + SITE + '/sitemap.xml\n'
   );
 });
@@ -2347,10 +2520,20 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/jobs', pri: '0.7', freq: 'daily' },
     { loc: '/polymarket', pri: '0.7', freq: 'daily' },
     { loc: '/future', pri: '0.6', freq: 'daily' },
+    { loc: '/blog', pri: '0.8', freq: 'daily' },
     { loc: '/contact', pri: '0.4', freq: 'monthly' },
     { loc: '/disclaimer', pri: '0.4', freq: 'monthly' }
   ];
   let items = '';
+
+  // نوشته‌های وبلاگ — فقط منتشرشده‌ها؛ پیش‌نویس هرگز نباید به گوگل معرفی شود
+  try {
+    for (const p of blogDB.listPublished(1000, 0)) {
+      items += `<url><loc>${SITE}/blog/${encodeURIComponent(p.slug)}</loc>` +
+        `<lastmod>${new Date(p.updated_at || p.published_at).toISOString()}</lastmod>` +
+        `<changefreq>monthly</changefreq><priority>0.7</priority></url>`;
+    }
+  } catch (e) {}
 
   // صفحه‌ی هر منطقه‌ی تهران — ۲۲ صفحه‌ی مستقل و قابل ایندکس
   try {
