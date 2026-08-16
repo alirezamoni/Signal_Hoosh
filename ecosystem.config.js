@@ -19,6 +19,22 @@ module.exports = {
       }
     },
     {
+      // لایه‌ی رندر سمت سرور: کل سایت عمومی + پنل مدیریت.
+      // این بلوک قبلاً اینجا نبود و پراسس دستی استارت شده بود، یعنی با هر
+      // ریبوت سرور فقط کرالرها برمی‌گشتند و خود سایت بالا نمی‌آمد.
+      name: 'signal-web',
+      script: 'web-test.js',
+      cwd: __dirname,
+      max_memory_restart: '800M',
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        WEB_PORT: process.env.WEB_PORT || 3002,
+        OPENROUTER_KEY: process.env.OPENROUTER_KEY,
+        NODE_INTERNAL_SECRET: process.env.NODE_INTERNAL_SECRET,
+        JWT_SECRET: process.env.JWT_SECRET,
+      }
+    },
+    {
       name: 'news-listener',
       script: 'news-listener.py',
       cwd: __dirname,
