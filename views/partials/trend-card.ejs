@@ -1,4 +1,4 @@
-<a class="hot-card" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
+<a class="hot-card" href="/trends/<%= encodeURIComponent(String(t.keyword).trim().replace(/\s+/g, '-')) %>">
   <div class="hot-top">
     <div class="hot-rank"><%= fa(String(rank).padStart(2, '0')) %></div>
     <div class="hot-kw"><%= t.keyword %></div>

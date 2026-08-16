@@ -88,11 +88,15 @@
     </details>
     <% } %>
 
-    <div class="page-head"><h2 class="sec-title">تاریخچه ترند — از روز اول تا امروز</h2></div>
+    <div class="page-head between wrap">
+      <h2 class="sec-title">تاریخچه ترند — از روز اول تا امروز</h2>
+      <a class="btn btn-sm" href="/trends/keywords">آرشیو <%= fa(kwCount) %> کلیدواژه ←</a>
+    </div>
     <blockquote class="desc">
       تا پیش از این فقط ترندهای «همین الان» نگه داشته می‌شد و هر بار جای قبلی را می‌گرفت.
       حالا هر بار جمع‌آوری بایگانی می‌شود، پس می‌توان پرسید کدام کلیدواژه در کل دوره بیشترین
       جستجو را داشته، کدام‌ها روزها ماندگار بوده‌اند و کدام‌ها فقط یک روز مثل شهاب آمده‌اند و رفته‌اند.
+      هر کلیدواژه صفحه‌ی مستقل خودش را دارد؛ روی نامش بزنید.
     </blockquote>
 
     <div class="grid g3 mb4">
@@ -100,7 +104,7 @@
         <div class="panel-head"><h3 class="panel-title">پرحجم‌ترین‌ها (کل دوره)</h3></div>
         <div class="panel-body">
           <% hall.forEach(function (r, i) { %>
-          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(r.keyword) %>" target="_blank" rel="noopener">
+          <a class="drow" href="/trends/<%= encodeURIComponent(kwSlug(r.keyword)) %>">
             <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.keyword %></span></div>
             <div class="drow-val"><span><%= fa(r.peak_vol || 0) %></span></div>
           </a>
@@ -116,7 +120,7 @@
         </div>
         <div class="panel-body">
           <% persistent.forEach(function (r, i) { %>
-          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(r.keyword) %>" target="_blank" rel="noopener">
+          <a class="drow" href="/trends/<%= encodeURIComponent(kwSlug(r.keyword)) %>">
             <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.keyword %></span></div>
             <div class="drow-val"><span><%= fa(r.days_seen || 0) %></span><span class="drow-sub">روز</span></div>
           </a>
@@ -132,7 +136,7 @@
         </div>
         <div class="panel-body">
           <% meteors.forEach(function (r, i) { %>
-          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(r.keyword) %>" target="_blank" rel="noopener">
+          <a class="drow" href="/trends/<%= encodeURIComponent(kwSlug(r.keyword)) %>">
             <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= r.keyword %></span></div>
             <div class="drow-val"><span class="badge badge-up">+<%= fa(r.peak_growth || 0) %>٪</span></div>
           </a>

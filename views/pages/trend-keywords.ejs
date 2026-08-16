@@ -1,0 +1,84 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/trends">ترند سرچ ایران</a> <span>/</span>
+      <span>آرشیو کلیدواژه‌ها</span>
+    </nav>
+
+    <div class="page-head">
+      <h1 class="page-title">آرشیو کلیدواژه‌های ترند<% if (cat) { %> — <%= cat %><% } %></h1>
+      <p class="page-sub">
+        <%= fa(total) %> عبارتی که تا امروز در ترندهای جستجوی گوگل ایران ثبت شده‌اند
+      </p>
+    </div>
+
+    <blockquote class="desc">
+      هر عبارتی که یک‌بار در ترندهای گوگل ایران دیده شود، همین‌جا بایگانی می‌شود و صفحه‌ی خودش را می‌گیرد:
+      حجم جستجو، بیشترین رشد، بهترین رتبه، نمودار روزبه‌روز و خبرهای همان روزها.
+      برخلاف خود گوگل که فقط «همین الان» را نشان می‌دهد، این آرشیو نشان می‌دهد یک موضوع چه زمانی آمد،
+      چقدر ماند و کِی فروکش کرد.
+    </blockquote>
+
+    <div class="kw-filters mb4">
+      <div class="kw-filter-row">
+        <span class="kw-filter-label">دسته:</span>
+        <a class="chip <%= !cat ? 'chip-on' : '' %>" href="<%= qs({ cat: null, p: 1 }) %>">همه</a>
+        <% cats.forEach(function (c) { %>
+        <a class="chip <%= cat === c.name ? 'chip-on' : '' %>" href="<%= qs({ cat: c.name, p: 1 }) %>"><%= c.name %> <span class="chip-n"><%= fa(c.n) %></span></a>
+        <% }); %>
+      </div>
+      <div class="kw-filter-row">
+        <span class="kw-filter-label">مرتب‌سازی:</span>
+        <a class="chip <%= sort === 'vol' ? 'chip-on' : '' %>"    href="<%= qs({ sort: 'vol', p: 1 }) %>">بیشترین حجم</a>
+        <a class="chip <%= sort === 'days' ? 'chip-on' : '' %>"   href="<%= qs({ sort: 'days', p: 1 }) %>">ماندگارترین</a>
+        <a class="chip <%= sort === 'growth' ? 'chip-on' : '' %>" href="<%= qs({ sort: 'growth', p: 1 }) %>">بیشترین رشد</a>
+        <a class="chip <%= sort === 'recent' ? 'chip-on' : '' %>" href="<%= qs({ sort: 'recent', p: 1 }) %>">تازه‌ترین</a>
+      </div>
+    </div>
+
+    <div class="tbl-wrap mb4">
+      <table>
+        <thead>
+          <tr>
+            <th class="rank-cell">#</th>
+            <th>کلیدواژه</th>
+            <th class="ta-l">اوج حجم</th>
+            <th class="ta-l">بیشترین رشد</th>
+            <th class="ta-l">بهترین رتبه</th>
+            <th class="ta-l">روز حضور</th>
+            <th class="ta-l">آخرین بار</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach(function (r, i) { %>
+          <tr>
+            <td class="rank-cell"><%= fa((p - 1) * 60 + i + 1) %></td>
+            <td class="td-name">
+              <a class="kw-link" href="/trends/<%= encodeURIComponent(r.slug) %>"><%= r.keyword %></a>
+              <% if (r.cat) { %><span class="tag"><%= r.cat %></span><% } %>
+            </td>
+            <td class="ta-l"><%= fa(r.peak_vol || 0) %></td>
+            <td class="ta-l"><% if (r.peak_growth) { %><span class="badge badge-up">+<%= fa(r.peak_growth) %>٪</span><% } else { %><span class="dim">—</span><% } %></td>
+            <td class="ta-l"><%= r.best_rank ? fa(r.best_rank) : '—' %></td>
+            <td class="ta-l"><%= fa(r.days) %></td>
+            <td class="ta-l"><%= timeAgo(r.last_seen) %></td>
+          </tr>
+          <% }); %>
+          <% if (!rows.length) { %>
+          <tr><td colspan="7" class="dim" style="text-align:center;padding:26px;">کلیدواژه‌ای در این دسته نیست</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <% if (pages > 1) { %>
+    <nav class="pager mb6">
+      <% if (prevUrl) { %><a class="btn btn-sm" href="<%= prevUrl %>">→ صفحه‌ی قبل</a><% } else { %><span></span><% } %>
+      <span class="pager-mid">صفحه‌ی <%= fa(p) %> از <%= fa(pages) %></span>
+      <% if (nextUrl) { %><a class="btn btn-sm" href="<%= nextUrl %>">صفحه‌ی بعد ←</a><% } else { %><span></span><% } %>
+    </nav>
+    <% } %>
+
+  </div>
+</main>

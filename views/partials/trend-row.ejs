@@ -1,4 +1,4 @@
-<a class="trend-row" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
+<a class="trend-row" href="/trends/<%= encodeURIComponent(String(t.keyword).trim().replace(/\s+/g, '-')) %>">
   <span class="tr-rank"><%= fa(rank) %></span>
   <span class="tr-name"><%= t.keyword %></span>
   <% if (t.breakdown && t.breakdown.length) { %>

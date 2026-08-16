@@ -188,6 +188,107 @@ function getCurveAges(window) {
   return map;
 }
 
+// ══════════════ صفحه‌ی مستقل هر کلیدواژه ══════════════
+// همه‌ی این پرس‌وجوها روی ایندکس idx_ts_keyword فیلتر می‌شوند، پس با رشد
+// جدول هم سریع می‌مانند (برخلاف پرس‌وجوهای کل‌جدولیِ صفحه‌ی اصلی ترند).
+
+// کارنامه‌ی کلی یک کلیدواژه
+function getKeywordProfile(keyword) {
+  const kw = String(keyword || '').trim();
+  if (!kw) return null;
+  const r = db.prepare(`
+    SELECT COUNT(*)                  AS snaps,
+           COUNT(DISTINCT snap_date) AS days,
+           MAX(vol)                  AS peak_vol,
+           MAX(growth)               AS peak_growth,
+           MIN(rank)                 AS best_rank,
+           MIN(captured_at)          AS first_seen,
+           MAX(captured_at)          AS last_seen,
+           MIN(snap_date)            AS first_day,
+           MAX(snap_date)            AS last_day
+    FROM trend_snapshots WHERE keyword = ?
+  `).get(kw);
+  if (!r || !r.snaps) return null;
+  r.keyword = kw;
+  const c = db.prepare('SELECT cat FROM trend_keyword_cat WHERE keyword=?').get(kw);
+  r.cat = c ? c.cat : null;
+  // آخرین وضعیت ثبت‌شده — برای اینکه بگوییم «الان فعال است یا تمام شده»
+  const last = db.prepare(
+    'SELECT vol, growth, rank, active, window, captured_at FROM trend_snapshots WHERE keyword=? ORDER BY captured_at DESC LIMIT 1'
+  ).get(kw);
+  r.latest = last || null;
+  return r;
+}
+
+// سری روزانه برای نمودار ستونی تاریخچه
+function getKeywordDaily(keyword) {
+  return db.prepare(`
+    SELECT snap_date AS day, MAX(vol) AS vol, MAX(growth) AS growth,
+           MIN(rank) AS best_rank, COUNT(*) AS snaps
+    FROM trend_snapshots WHERE keyword = ?
+    GROUP BY snap_date ORDER BY snap_date ASC
+  `).all(String(keyword || '').trim());
+}
+
+// حضور در هر بازه‌ی زمانی (۴ ساعته / ۲۴ ساعته)
+function getKeywordWindows(keyword) {
+  return db.prepare(`
+    SELECT window, COUNT(*) AS snaps, MIN(rank) AS best_rank,
+           MAX(vol) AS peak_vol, MAX(captured_at) AS last_seen
+    FROM trend_snapshots WHERE keyword = ? GROUP BY window
+  `).all(String(keyword || '').trim());
+}
+
+// منحنی‌های میل به جستجوی همین کلیدواژه (هر دو بازه)
+function getKeywordCurves(keyword) {
+  const out = {};
+  for (const r of db.prepare('SELECT window, points, updated_at FROM trend_curves WHERE keyword=?').all(String(keyword || '').trim())) {
+    try {
+      const p = JSON.parse(r.points);
+      if (Array.isArray(p) && p.length > 1) out[r.window] = { points: p, updated_at: r.updated_at };
+    } catch (e) {}
+  }
+  return out;
+}
+
+// کلیدواژه‌هایی که همان روزها ترند بوده‌اند — پیوند داخلی و مسیر خزش می‌سازد
+function getRelatedKeywords(keyword, limit = 10) {
+  const kw = String(keyword || '').trim();
+  const days = db.prepare('SELECT DISTINCT snap_date d FROM trend_snapshots WHERE keyword=?').all(kw).map(r => r.d);
+  if (!days.length) return [];
+  const ph = days.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT s.keyword,
+           COUNT(DISTINCT s.snap_date) AS shared_days,
+           MAX(s.vol)                  AS peak_vol,
+           (SELECT cat FROM trend_keyword_cat c WHERE c.keyword = s.keyword) AS cat
+    FROM trend_snapshots s
+    WHERE s.snap_date IN (${ph}) AND s.keyword <> ?
+    GROUP BY s.keyword
+    ORDER BY shared_days DESC, peak_vol DESC
+    LIMIT ?
+  `).all(...days, kw, limit);
+}
+
+// فهرست کامل کلیدواژه‌ها برای صفحه‌ی آرشیو و ساخت نقشه‌ی نامک
+function getKeywordIndex() {
+  return db.prepare(`
+    SELECT s.keyword,
+           COUNT(*)                    AS snaps,
+           COUNT(DISTINCT s.snap_date) AS days,
+           MAX(s.vol)                  AS peak_vol,
+           MAX(s.growth)               AS peak_growth,
+           MIN(s.rank)                 AS best_rank,
+           MIN(s.snap_date)            AS first_day,
+           MAX(s.snap_date)            AS last_day,
+           MAX(s.captured_at)          AS last_seen,
+           (SELECT cat FROM trend_keyword_cat c WHERE c.keyword = s.keyword) AS cat
+    FROM trend_snapshots s
+    GROUP BY s.keyword
+    ORDER BY peak_vol DESC, snaps DESC
+  `).all();
+}
+
 // تایم‌لاین یک کلیدواژه برای نمودار
 function getKeywordTimeline(keyword, days = 30) {
   return db.prepare(`
@@ -246,6 +347,8 @@ module.exports = {
   saveSnapshot, getCachedCat, setCachedCat, setCachedCatBulk,
   getHallOfFame, getMostPersistent, getMeteors, getKeywordTimeline,
   setCurve, getCurveMap, getCurveAges,
+  getKeywordProfile, getKeywordDaily, getKeywordWindows, getKeywordCurves,
+  getRelatedKeywords, getKeywordIndex,
   getCategoryShare, getActivityHeatmap, getStats, cleanup,
   _db: db,
 };

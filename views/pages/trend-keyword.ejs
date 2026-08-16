@@ -1,0 +1,188 @@
+<main id="main" class="page">
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <defs>
+      <linearGradient id="trend-grad" gradientTransform="rotate(90)">
+        <stop offset="0%" style="stop-color:var(--accent);stop-opacity:.30"></stop>
+        <stop offset="100%" style="stop-color:var(--accent);stop-opacity:0"></stop>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="container">
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/trends">ترند سرچ ایران</a> <span>/</span>
+      <a href="/trends/keywords">آرشیو کلیدواژه‌ها</a> <span>/</span>
+      <span><%= kw %></span>
+    </nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title"><%= kw %></h1>
+        <p class="page-sub">ترند جستجوی گوگل در ایران · تاریخچه و حجم</p>
+      </div>
+      <div class="kw-badges">
+        <span class="badge <%= active ? 'badge-up' : 'badge-flat' %>"><%= active ? 'اکنون فعال' : 'پایان‌یافته' %></span>
+        <% if (prof.cat) { %><a class="tag" href="/trends/keywords?cat=<%= encodeURIComponent(prof.cat) %>"><%= prof.cat %></a><% } %>
+      </div>
+    </div>
+
+    <blockquote class="desc"><%= intro %></blockquote>
+
+    <div class="grid g5 mb4">
+      <div class="kpi">
+        <div class="kpi-label">اوج حجم جستجو</div>
+        <div class="kpi-val"><%= fa(prof.peak_vol || 0) %></div>
+        <div class="kpi-note">بیشترین مقدار ثبت‌شده</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">بهترین رتبه</div>
+        <div class="kpi-val"><%= prof.best_rank ? fa(prof.best_rank) : '—' %></div>
+        <div class="kpi-note">در جدول ترندها</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">بیشترین رشد</div>
+        <div class="kpi-val" style="color:var(--up)"><%= prof.peak_growth ? '+' + fa(prof.peak_growth) + '٪' : '—' %></div>
+        <div class="kpi-note">در یک بازه</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">روزهای حضور</div>
+        <div class="kpi-val"><%= fa(prof.days) %></div>
+        <div class="kpi-note">از <%= faDay(prof.first_day) %></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">دفعات ثبت</div>
+        <div class="kpi-val"><%= fa(prof.snaps) %></div>
+        <div class="kpi-note">آخرین بار <%= timeAgo(prof.last_seen) %></div>
+      </div>
+    </div>
+
+    <% if (curve4 || curve24) { %>
+    <div class="grid <%= (curve4 && curve24) ? 'g2' : '' %> mb4">
+      <% if (curve4) { %>
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">میل به جستجو — ۴ ساعت اخیر</h2></div>
+        <div class="panel-body-pad">
+          <svg class="kw-curve" viewBox="0 0 128 48" preserveAspectRatio="none" role="img" aria-label="نمودار میل به جستجو در چهار ساعت اخیر">
+            <polyline points="<%= curve4.fill %>" fill="url(#trend-grad)" stroke="none"></polyline>
+            <polyline points="<%= curve4.line %>" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <div class="dim" style="font-size:var(--fs-xs);margin-top:6px;">بروزرسانی <%= timeAgo(curve4.updated_at) %></div>
+        </div>
+      </section>
+      <% } %>
+      <% if (curve24) { %>
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">میل به جستجو — ۲۴ ساعت اخیر</h2></div>
+        <div class="panel-body-pad">
+          <svg class="kw-curve" viewBox="0 0 128 48" preserveAspectRatio="none" role="img" aria-label="نمودار میل به جستجو در بیست‌وچهار ساعت اخیر">
+            <polyline points="<%= curve24.fill %>" fill="url(#trend-grad)" stroke="none"></polyline>
+            <polyline points="<%= curve24.line %>" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <div class="dim" style="font-size:var(--fs-xs);margin-top:6px;">بروزرسانی <%= timeAgo(curve24.updated_at) %></div>
+        </div>
+      </section>
+      <% } %>
+    </div>
+    <% } %>
+
+    <% if (bars.length > 1) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">حجم جستجو به تفکیک روز</h2>
+        <span class="panel-link"><%= fa(bars.length) %> روز</span>
+      </div>
+      <div class="panel-body-pad">
+        <div class="kw-bars">
+          <% bars.forEach(function (b) { %>
+          <div class="kw-bar" title="<%= b.day %> · <%= fa(b.vol) %> جستجو">
+            <div class="kw-bar-fill" style="height:<%= b.h %>%"></div>
+            <div class="kw-bar-v"><%= fa(b.vol >= 1000 ? Math.round(b.vol/1000) + 'K' : b.vol) %></div>
+            <div class="kw-bar-d"><%= b.label %></div>
+          </div>
+          <% }); %>
+        </div>
+      </div>
+    </section>
+    <% } %>
+
+    <div class="grid g2 mb4">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">حضور در بازه‌های زمانی</h2></div>
+        <div class="panel-body">
+          <% windows.forEach(function (w) { %>
+          <div class="drow">
+            <div class="drow-main"><span class="drow-name"><%= w.window === '4h' ? 'ترند ۴ ساعته' : 'ترند ۲۴ ساعته' %></span></div>
+            <div class="drow-val">
+              <span><%= fa(w.snaps) %> بار</span>
+              <span class="drow-sub">بهترین رتبه <%= w.best_rank ? fa(w.best_rank) : '—' %></span>
+            </div>
+          </div>
+          <% }); %>
+          <% if (!windows.length) { %><div class="drow"><span class="dim">داده‌ای نیست</span></div><% } %>
+        </div>
+        <div class="panel-foot">
+          نخستین ثبت <%= faDay(prof.first_day) %> · آخرین ثبت <%= faDay(prof.last_day) %>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">جستجوی این عبارت</h2></div>
+        <div class="panel-body">
+          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(kw) %>" target="_blank" rel="noopener nofollow">
+            <div class="drow-main"><span class="drow-name">جستجو در گوگل</span></div>
+            <div class="drow-val"><span class="dim">↗</span></div>
+          </a>
+          <a class="drow" href="https://trends.google.com/trends/explore?q=<%= encodeURIComponent(kw) %>&geo=IR&hl=fa" target="_blank" rel="noopener nofollow">
+            <div class="drow-main"><span class="drow-name">کاوش در گوگل ترندز</span></div>
+            <div class="drow-val"><span class="dim">↗</span></div>
+          </a>
+          <a class="drow" href="/news/archive?q=<%= encodeURIComponent(kw) %>">
+            <div class="drow-main"><span class="drow-name">جستجوی این عبارت در بایگانی اخبار</span></div>
+            <div class="drow-val"><span class="dim">←</span></div>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <% if (news.length) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">خبرهای همان روزها که این عبارت در آن‌ها آمده</h2>
+        <span class="panel-link"><%= fa(news.length) %> خبر</span>
+      </div>
+      <div class="panel-body">
+        <% news.forEach(function (n) { %>
+          <%- include('../partials/news-row', { n: n, fa: fa, timeAgo: timeAgo, mediaOf: mediaOf, excerpt: excerpt }) %>
+        <% }); %>
+      </div>
+      <div class="panel-foot">این خبرها به‌صورت خودکار بر پایه‌ی وجود همین عبارت در متنشان انتخاب شده‌اند.</div>
+    </section>
+    <% } %>
+
+    <% if (related.length) { %>
+    <section class="panel mb6">
+      <div class="panel-head">
+        <h2 class="panel-title">کلیدواژه‌هایی که همان روزها ترند بودند</h2>
+      </div>
+      <div class="panel-body">
+        <% related.forEach(function (r, i) { %>
+        <a class="drow" href="/trends/<%= encodeURIComponent(kwSlug(r.keyword)) %>">
+          <div class="drow-main">
+            <span class="drow-rank"><%= fa(i + 1) %></span>
+            <span class="drow-name"><%= r.keyword %></span>
+            <% if (r.cat) { %><span class="tag"><%= r.cat %></span><% } %>
+          </div>
+          <div class="drow-val">
+            <span><%= fa(r.peak_vol || 0) %></span>
+            <span class="drow-sub"><%= fa(r.shared_days) %> روز مشترک</span>
+          </div>
+        </a>
+        <% }); %>
+      </div>
+      <div class="panel-foot"><a href="/trends/keywords">دیدن آرشیو کامل کلیدواژه‌ها ←</a></div>
+    </section>
+    <% } %>
+
+  </div>
+</main>

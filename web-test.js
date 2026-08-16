@@ -845,11 +845,189 @@ app.get('/trends', (req, res) => {
     .map(([name, w]) => ({ name, weight: w, share: catTotal ? Math.round((w / catTotal) * 100) : 0 }))
     .sort((a, b) => b.weight - a.weight);
 
+  let kwCount = 0;
+  try { kwCount = keywordIndex().length; } catch (e) {}
+
   page(res, 'trends', '/trends', {
     title: 'ترند سرچ ایران | پرجستجوترین کلیدواژه‌های گوگل — سیگنال هوش',
     desc: 'پرجستجوترین کلیدواژه‌های گوگل در ایران در بازه‌های ۴ و ۲۴ ساعته، همراه با حجم جستجو، رشد و تاریخچه‌ی کامل ترندها.',
     path: '/trends'
-  }, { h4, h24, stats, hall, persistent, meteors, topCats, catTotal });
+  }, { h4, h24, stats, hall, persistent, meteors, topCats, catTotal, kwCount, kwSlug });
+});
+
+// ══════════════ آرشیو کلیدواژه‌ها و صفحه‌ی مستقل هر کلیدواژه ══════════════
+
+// فهرست کامل ۲۳۵ میلی‌ثانیه طول می‌کشد و در هر بازدید لازم می‌شود؛
+// ۱۰ دقیقه کش می‌شود (کرال ترند هر ۵ دقیقه است، پس تازگی کافی است).
+let _kwCache = { at: 0, rows: [], slugs: null };
+function keywordIndex() {
+  if (Date.now() - _kwCache.at < 10 * 60 * 1000 && _kwCache.rows.length) return _kwCache.rows;
+  let rows = [];
+  try { rows = trendDB.getKeywordIndex() || []; } catch (e) { return _kwCache.rows; }
+  const slugs = new Map();
+  for (const r of rows) {
+    r.slug = kwSlug(r.keyword);
+    // اگر دو کلیدواژه به یک نامک برسند، اولی (پرحجم‌تر، چون مرتب است) برنده است
+    if (!slugs.has(r.slug)) slugs.set(r.slug, r.keyword);
+  }
+  _kwCache = { at: Date.now(), rows, slugs };
+  return rows;
+}
+// نامک: فاصله‌ها به خط تیره. حروف فارسی در URL می‌مانند و گوگل آن‌ها را
+// درست می‌خواند (همان کاری که ویکی‌پدیای فارسی می‌کند).
+function kwSlug(kw) {
+  return String(kw || '').trim().replace(/\s+/g, '-');
+}
+function keywordFromSlug(slug) {
+  keywordIndex();
+  const s = String(slug || '').trim();
+  if (_kwCache.slugs && _kwCache.slugs.has(s)) return _kwCache.slugs.get(s);
+  // اگر کش هنوز نساخته یا کلیدواژه تازه است، مستقیم امتحان کن
+  const direct = s.replace(/-/g, ' ');
+  try { if (trendDB.getKeywordProfile(direct)) return direct; } catch (e) {}
+  try { if (trendDB.getKeywordProfile(s)) return s; } catch (e) {}
+  return null;
+}
+
+const KW_CATS = ['ورزشی', 'اقتصادی', 'سیاسی', 'سرگرمی', 'اجتماعی', 'مذهبی', 'تکنولوژی', 'خودرو', 'سلامت', 'مالی', 'قیمت کالا', 'علم'];
+
+app.get('/trends/keywords', (req, res) => {
+  const all = keywordIndex();
+  const cat  = req.query.cat ? String(req.query.cat) : null;
+  const sort = ['vol', 'days', 'recent', 'growth'].includes(String(req.query.sort)) ? String(req.query.sort) : 'vol';
+  const page_ = Math.max(1, Math.min(60, parseInt(req.query.p, 10) || 1));
+  const PER = 60;
+
+  let rows = cat ? all.filter(r => r.cat === cat) : all.slice();
+  if (sort === 'days')        rows.sort((a, b) => b.days - a.days || b.peak_vol - a.peak_vol);
+  else if (sort === 'recent') rows.sort((a, b) => String(b.last_seen).localeCompare(String(a.last_seen)));
+  else if (sort === 'growth') rows.sort((a, b) => (b.peak_growth || 0) - (a.peak_growth || 0) || b.peak_vol - a.peak_vol);
+
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / PER));
+  const p = Math.min(page_, pages);
+  const slice = rows.slice((p - 1) * PER, p * PER);
+
+  // شمارش هر دسته برای نوار فیلتر
+  const catCounts = new Map();
+  for (const r of all) if (r.cat) catCounts.set(r.cat, (catCounts.get(r.cat) || 0) + 1);
+  const cats = KW_CATS.filter(c => catCounts.has(c)).map(c => ({ name: c, n: catCounts.get(c) }));
+
+  const qs = (o) => {
+    const q = [];
+    const c = o.cat !== undefined ? o.cat : cat;
+    const s = o.sort !== undefined ? o.sort : sort;
+    const pg = o.p !== undefined ? o.p : null;
+    if (c) q.push('cat=' + encodeURIComponent(c));
+    if (s && s !== 'vol') q.push('sort=' + s);
+    if (pg && pg > 1) q.push('p=' + pg);
+    return '/trends/keywords' + (q.length ? '?' + q.join('&') : '');
+  };
+
+  const titleBase = cat ? `کلیدواژه‌های ترند دسته‌ی ${cat}` : 'آرشیو کلیدواژه‌های ترند جستجوی ایران';
+  page(res, 'trend-keywords', '/trends', {
+    title: titleBase + (p > 1 ? ` — صفحه ${fa(p)}` : '') + ' | سیگنال هوش',
+    desc: `فهرست ${fa(total)} کلیدواژه‌ی ترندشده‌ی گوگل در ایران` + (cat ? ` در دسته‌ی ${cat}` : '') +
+          '، با حجم جستجو، بیشترین رشد، بهترین رتبه و تاریخ حضور هر کدام.',
+    path: qs({ p }),
+    // صفحات دوم به بعد ایندکس نمی‌شوند تا محتوای نازک و تکراری تولید نشود
+    noindex: p > 1
+  }, {
+    rows: slice, total, p, pages, cat, sort, cats,
+    prevUrl: p > 1 ? qs({ p: p - 1 }) : null,
+    nextUrl: p < pages ? qs({ p: p + 1 }) : null,
+    qs, kwSlug,
+  });
+});
+
+app.get('/trends/:slug', (req, res, next) => {
+  const keyword = keywordFromSlug(req.params.slug);
+  if (!keyword) return next();
+
+  let prof = null;
+  try { prof = trendDB.getKeywordProfile(keyword); } catch (e) {}
+  if (!prof) return next();
+
+  let daily = [], windows = [], curves = {}, related = [];
+  try { daily   = trendDB.getKeywordDaily(keyword) || []; } catch (e) {}
+  try { windows = trendDB.getKeywordWindows(keyword) || []; } catch (e) {}
+  try { curves  = trendDB.getKeywordCurves(keyword) || {}; } catch (e) {}
+  try { related = trendDB.getRelatedKeywords(keyword, 10) || []; } catch (e) {}
+
+  // نمودار ستونی حجم روزانه
+  const maxVol = daily.reduce((m, d) => Math.max(m, d.vol || 0), 0) || 1;
+  const dayLabel = (d) => {
+    try {
+      return new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric' }).format(new Date(d + 'T00:00:00Z'));
+    } catch (e) { return fa(d.slice(5)); }
+  };
+  const bars = daily.map(d => ({
+    day: d.day, vol: d.vol, growth: d.growth, best_rank: d.best_rank,
+    label: dayLabel(d.day),
+    h: Math.max(3, Math.round((d.vol / maxVol) * 100)),
+  }));
+
+  // منحنی میل به جستجو با همان هندسه‌ی گوگل
+  const curveOf = w => {
+    const c = curves[w];
+    if (!c) return null;
+    const g = curveGeometry(c.points);
+    return g ? { line: g.line, fill: g.fill, updated_at: c.updated_at } : null;
+  };
+  const curve4 = curveOf('4h'), curve24 = curveOf('24h');
+
+  // خبرهای همان بازه که این عبارت در متنشان آمده — محدود به بازه‌ی
+  // فعال بودن کلیدواژه، وگرنه LIKE روی ۸۰ هزار خبر کند می‌شود
+  let news = [];
+  try {
+    const from = prof.first_day;
+    const to = new Date(new Date(prof.last_day + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10);
+    news = markNews(newsRO.prepare(`
+      SELECT n.*, c.title AS channel_title, c.username AS channel_username
+      FROM news n LEFT JOIN channels c ON c.id = n.channel_id
+      WHERE COALESCE(n.blocked,0)=0
+        AND n.published_at >= ? AND n.published_at < ?
+        AND (n.text_fa LIKE ? OR n.text LIKE ?)
+      ORDER BY n.published_at DESC LIMIT 6
+    `).all(from, to, '%' + keyword + '%', '%' + keyword + '%'));
+  } catch (e) { news = []; }
+
+  const active = prof.latest && prof.latest.active;
+  const volText = prof.peak_vol >= 1000 ? fa(Math.round(prof.peak_vol / 1000)) + ' هزار' : fa(prof.peak_vol);
+  const intro =
+    `«${keyword}» ` +
+    (prof.days > 1
+      ? `در ${fa(prof.days)} روز از ${faDay(prof.first_day)} تا ${faDay(prof.last_day)} در فهرست ترندهای جستجوی گوگل ایران دیده شده`
+      : `در ${faDay(prof.first_day)} در فهرست ترندهای جستجوی گوگل ایران دیده شده`) +
+    ` و در اوج خود به ${volText} جستجو` +
+    (prof.best_rank ? ` و رتبه‌ی ${fa(prof.best_rank)} ` : ' ') +
+    `رسیده است` +
+    (prof.cat ? `. دسته‌بندی این عبارت «${prof.cat}» است` : '') + '.';
+
+  page(res, 'trend-keyword', '/trends', {
+    title: `${keyword} — ترند جستجو، حجم و تاریخچه | سیگنال هوش`,
+    desc: `حجم جستجو، رشد، رتبه و نمودار تاریخچه‌ی عبارت «${keyword}» در ترندهای گوگل ایران` +
+          (prof.peak_vol ? ` — اوج ${volText} جستجو` : '') +
+          (prof.days > 1 ? `، ${fa(prof.days)} روز حضور` : '') + '.',
+    // درصدگذاری‌شده تا دقیقاً با همان نشانی‌ای که در سایت‌مپ آمده یکی باشد
+    path: '/trends/' + encodeURIComponent(kwSlug(keyword)),
+  }, {
+    kw: keyword, prof, daily, bars, windows, curve4, curve24, related, news, active, intro, kwSlug,
+  }, {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: `ترند جستجوی «${keyword}» در ایران`,
+    description: intro,
+    url: SITE + '/trends/' + encodeURIComponent(kwSlug(keyword)),
+    temporalCoverage: prof.first_day + '/' + prof.last_day,
+    isAccessibleForFree: true,
+    creator: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+    variableMeasured: [
+      { '@type': 'PropertyValue', name: 'اوج حجم جستجو', value: prof.peak_vol },
+      { '@type': 'PropertyValue', name: 'بهترین رتبه', value: prof.best_rank },
+      { '@type': 'PropertyValue', name: 'روزهای حضور', value: prof.days },
+    ],
+  });
 });
 
 app.get('/finance', (req, res) => {
@@ -2541,6 +2719,20 @@ app.get('/sitemap.xml', (req, res) => {
   try {
     for (const r of propDB.getRegions()) {
       items += `<url><loc>${SITE}/property/${r.slug}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    }
+  } catch (e) {}
+
+  // صفحه‌ی هر کلیدواژه‌ی ترند. کلیدواژه‌ای که فقط یک‌بار دیده شده تقریباً
+  // هیچ داده‌ای برای نشان دادن ندارد و «محتوای نازک» می‌شود؛ همان اشتباهی
+  // که برای خبرهای کوتاه هم از آن پرهیز شده. پس آستانه می‌گذاریم.
+  try {
+    items += `<url><loc>${SITE}/trends/keywords</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`;
+    for (const k of keywordIndex()) {
+      if (k.snaps < 2) continue;
+      items += `<url><loc>${SITE}/trends/${encodeURIComponent(k.slug)}</loc>` +
+        `<lastmod>${new Date(k.last_seen).toISOString()}</lastmod>` +
+        `<changefreq>${k.last_day === new Date().toISOString().slice(0, 10) ? 'hourly' : 'weekly'}</changefreq>` +
+        `<priority>${k.days > 2 ? '0.7' : '0.5'}</priority></url>`;
     }
   } catch (e) {}
 
