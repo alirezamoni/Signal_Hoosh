@@ -733,6 +733,8 @@ app.get('/news/live/:since', (req, res) => {
 
 // صفحه‌بندی برای لیزی‌لود (قطعه‌ی HTML برمی‌گرداند)
 app.get('/news/page/:n', (req, res) => {
+  // قطعه‌ی HTML برای اسکرول بی‌نهایت است، نه صفحه‌ی مستقل — گوگل نباید ایندکسش کند
+  res.set('X-Robots-Tag', 'noindex, nofollow');
   const n = Math.max(1, Math.min(50, parseInt(req.params.n, 10) || 1));
   const channel = req.query.channel ? parseInt(req.query.channel, 10) : null;
   const category = req.query.cat ? String(req.query.cat) : null;
