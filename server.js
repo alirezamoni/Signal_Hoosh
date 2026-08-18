@@ -672,4 +672,5 @@ app.listen(PORT, HOST, () => {
   startNewsBot();
   migrateMediaToDisk().catch(console.error);
   try { require('./timeline-engine').startScheduler(); } catch(e) { console.warn('[warn] timeline-engine not started:', e.message); }
+  try { require('./timeline-alerts').startScheduler(5 * 60 * 1000); } catch(e) { console.warn('[warn] timeline-alerts not started:', e.message); }
 });

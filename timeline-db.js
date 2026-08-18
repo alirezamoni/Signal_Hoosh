@@ -940,7 +940,7 @@ function cleanup() {
   // رویدادهای خام — بزرگ‌ترین جدول
   run('timeline_events', `DELETE FROM timeline_events WHERE detected_at < datetime('now', ?)`, KEEP.events);
 
-  run('concept_drift_log', `DELETE FROM concept_drift_log WHERE created_at < datetime('now', ?)`, KEEP.drift);
+  run('concept_drift_log', `DELETE FROM concept_drift_log WHERE detected_at < datetime('now', ?)`, KEEP.drift);
 
   const n = Object.values(out).reduce((a, b) => a + b, 0);
   if (n) console.log('[tl-db] cleanup:', JSON.stringify(out));

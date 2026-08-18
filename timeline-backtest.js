@@ -168,8 +168,64 @@ function calibrationReport() {
   };
 }
 
+// ── ۱۵) بک‌تست پیش‌رونده (walk-forward) ──────────────────────────────
+// اندازه‌گیری روی همان داده‌ای که ازش یاد گرفته‌ایم، خوش‌بینانه است. اینجا
+// داده به ترتیب زمان بریده می‌شود: هر پنجره فقط با گذشته‌ی خودش سنجیده
+// می‌شود و روی آینده‌ی دیده‌نشده امتحان می‌شود. این تنها راهی است که
+// می‌شود فهمید یک تغییر واقعاً کمک کرده یا فقط گذشته را حفظ کرده.
+function walkForward(folds = 5) {
+  const all = rows().filter(r => r.actual_direction);
+  if (all.length < folds * 10) {
+    return { ok: false, reason: `نمونه کافی نیست (${all.length} از حداقل ${folds * 10})`, n: all.length };
+  }
+  const size = Math.floor(all.length / folds);
+  const out = [];
+  // از fold دوم شروع می‌کنیم؛ fold اول فقط «گذشته» است
+  for (let i = 1; i < folds; i++) {
+    const train = all.slice(0, i * size);
+    const test = all.slice(i * size, (i + 1) * size);
+    if (!test.length) continue;
+
+    // قاعده‌ی آموخته از گذشته: برای هر نماد، آیا جهت اعلام‌شده تاریخاً درست
+    // بوده یا وارونه؟ این تنها «مدلی» است که از train یاد می‌گیریم.
+    const flip = {};
+    const byT = {};
+    train.forEach(r => (byT[r.target] = byT[r.target] || []).push(r));
+    for (const t in byT) {
+      const list = byT[t];
+      if (list.length < 15) continue;                    // نمونه کم → دست نزن
+      const acc = list.filter(r => r.direction_correct).length / list.length;
+      flip[t] = acc < 0.5;
+    }
+
+    let asIs = 0, learned = 0;
+    for (const r of test) {
+      if (r.direction_correct) asIs++;
+      const shouldFlip = flip[r.target];
+      const correct = shouldFlip ? !r.direction_correct : !!r.direction_correct;
+      if (correct) learned++;
+    }
+    out.push({
+      fold: i, trainN: train.length, testN: test.length,
+      asIsPct: +(100 * asIs / test.length).toFixed(1),
+      learnedPct: +(100 * learned / test.length).toFixed(1),
+      flipped: Object.keys(flip).filter(k => flip[k]),
+    });
+  }
+  const avgAsIs = out.reduce((s, f) => s + f.asIsPct, 0) / (out.length || 1);
+  const avgLearned = out.reduce((s, f) => s + f.learnedPct, 0) / (out.length || 1);
+  return {
+    ok: true, folds: out, n: all.length,
+    avgAsIsPct: +avgAsIs.toFixed(1),
+    avgLearnedPct: +avgLearned.toFixed(1),
+    // آیا قاعده‌ی وارونگی روی داده‌ی دیده‌نشده هم کار می‌کند؟
+    inversionHelpsOutOfSample: avgLearned > avgAsIs + 2,
+  };
+}
+
 function fullReport() {
   return {
+    walkForward: walkForward(),
     baseline: vsBaseline(),
     inversion: inversionReport(),
     horizons: byHorizon(),
@@ -179,4 +235,4 @@ function fullReport() {
   };
 }
 
-module.exports = { fullReport, vsBaseline, inversionReport, byHorizon, byModel, calibrationReport, zScore, pValue, summarize };
+module.exports = { fullReport, walkForward, vsBaseline, inversionReport, byHorizon, byModel, calibrationReport, zScore, pValue, summarize };

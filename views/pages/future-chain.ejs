@@ -1,0 +1,126 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/future">ترند آینده</a> <span>/</span>
+      <span><%= chain.topicLabel || chain.topic || 'زنجیره' %></span>
+    </nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title"><%= chain.title %></h1>
+        <p class="page-sub">زنجیره‌ی رویداد · <%= faDate(chain.started_at) %></p>
+      </div>
+      <div class="kw-badges">
+        <span class="badge <%= chain.status === 'active' ? 'badge-up' : 'badge-flat' %>"><%= chain.statusLabel %></span>
+        <% if (chain.regimeLabel) { %><span class="tag"><%= chain.regimeLabel %></span><% } %>
+      </div>
+    </div>
+
+    <blockquote class="desc"><%= chain.ai_analysis || chain.title %></blockquote>
+
+    <div class="grid g4 mb4">
+      <div class="kpi">
+        <div class="kpi-label">شدت</div>
+        <div class="kpi-val"><%= fa(Math.round((chain.peak_severity || 0) * 100)) %>٪</div>
+        <div class="kpi-note">بیشترین شدت رویدادها</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">رویدادها</div>
+        <div class="kpi-val"><%= fa(events.length) %></div>
+        <div class="kpi-note">در این زنجیره</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">منشأ</div>
+        <div class="kpi-val" style="font-size:var(--fs-lg)"><%= chain.rootLabel || '—' %></div>
+        <div class="kpi-note">جایی که شروع شد</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">مدت</div>
+        <div class="kpi-val" style="font-size:var(--fs-lg)"><%= timeAgo(chain.started_at) %></div>
+        <div class="kpi-note">از شروع</div>
+      </div>
+    </div>
+
+    <% if (events.length) { %>
+    <div class="page-head"><h2 class="sec-title">تایم‌لاین رویدادها</h2></div>
+    <section class="panel mb6">
+      <div class="panel-body">
+        <% events.forEach(function (e, i) { %>
+        <div class="drow" style="display:block;">
+          <div class="between" style="margin-bottom:4px;">
+            <div class="drow-main">
+              <span class="drow-rank"><%= fa(i + 1) %></span>
+              <span class="drow-name"><%= e.title %></span>
+            </div>
+            <div class="drow-val">
+              <% if (e.direction) { %>
+              <span class="badge <%= e.direction === 'up' ? 'badge-up' : 'badge-down' %>"><%= e.direction === 'up' ? 'صعودی' : 'نزولی' %></span>
+              <% } %>
+              <span class="drow-sub"><%= timeAgo(e.detected_at) %></span>
+            </div>
+          </div>
+          <div class="dim" style="font-size:var(--fs-xs);padding-inline-start:26px;">
+            <%= e.nodeLabel || e.node_key %>
+            <% if (e.topic) { %> · موضوع: <%= e.topic %><% } %>
+            <% if (e.severity != null) { %> · شدت <%= fa(Math.round(e.severity * 100)) %>٪<% } %>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <div class="panel-foot">
+        ترتیب زمانی رویدادهایی که این زنجیره را ساخته‌اند. هم‌زمانی لزوماً علیت نیست.
+      </div>
+    </section>
+    <% } %>
+
+    <% if (preds && preds.length) { %>
+    <div class="page-head"><h2 class="sec-title">پیش‌بینی‌های ساخته‌شده از این زنجیره</h2></div>
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr><th>نماد</th><th class="ta-l">جهت</th><th class="ta-l">مقدار</th><th class="ta-l">افق</th><th class="ta-l">نتیجه</th></tr></thead>
+        <tbody>
+          <% preds.forEach(function (p) { %>
+          <tr>
+            <td class="td-name"><%= p.symLabel %></td>
+            <td class="ta-l">
+              <span class="badge <%= p.direction === 'up' ? 'badge-up' : 'badge-down' %>">
+                <%= p.direction === 'up' ? 'صعودی' : 'نزولی' %>
+              </span>
+            </td>
+            <td class="ta-l"><%= faSigned(p.predicted_pct) %>٪</td>
+            <td class="ta-l"><%= fa(p.time_horizon) %> ساعت</td>
+            <td class="ta-l">
+              <% if (p.status === 'open') { %><span class="badge badge-flat">در انتظار</span>
+              <% } else if (p.direction_correct === 1) { %><span class="badge badge-up">درست</span>
+              <% } else if (p.direction_correct === 0) { %><span class="badge badge-down">نادرست</span>
+              <% } else { %><span class="dim">—</span><% } %>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
+    <% if (related && related.length) { %>
+    <div class="page-head"><h2 class="sec-title">زنجیره‌های مرتبط</h2></div>
+    <section class="panel mb6">
+      <div class="panel-body">
+        <% related.forEach(function (r) { %>
+        <a class="drow" href="/future/chain/<%= r.id %>">
+          <div class="drow-main"><span class="drow-name"><%= r.title %></span></div>
+          <div class="drow-val"><span class="drow-sub"><%= timeAgo(r.started_at) %></span></div>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+
+    <blockquote class="desc desc-sm">
+      <a href="/future">← بازگشت به ترند آینده</a> ·
+      <a href="/future/leads">چه چیزی پیشرو چیست</a>
+    </blockquote>
+
+  </div>
+</main>

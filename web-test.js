@@ -1540,6 +1540,84 @@ app.get('/future/accuracy', (req, res) => {
   }, { bt });
 });
 
+// ── چه چیزی پیشرو چیست ──
+app.get('/future/leads', (req, res) => {
+  let rows = [], meta = { n: 0, sig: 0, at: null };
+  try {
+    rows = (insightsDB.topLeadLag(40) || []).map(r => Object.assign({}, r, {
+      fromLabel: symLabel(r.from_key) || NODE[r.from_key] || r.from_key,
+      toLabel: symLabel(r.to_key) || NODE[r.to_key] || r.to_key,
+    }));
+    meta = insightsDB.leadLagMeta() || meta;
+  } catch (e) { console.warn('[future/leads]', e.message); }
+
+  page(res, 'future-leads', '/future', {
+    title: 'چه چیزی پیشرو چیست — رابطه‌های تأخیری بازار ایران | سیگنال هوش',
+    desc: 'کدام سیگنال با چه تأخیری کدام بازار را حرکت می‌دهد — سنجیده‌شده با آزمون همبستگی روی داده‌ی واقعی، با معناداری آماری.',
+    path: '/future/leads',
+    crumb: 'چه چیزی پیشرو چیست',
+  }, { rows, meta });
+});
+
+// ── صفحه‌ی مستقل هر زنجیره ──
+app.get('/future/chain/:id', (req, res, next) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return next();
+  // از هندل فقط‌خواندنی استفاده می‌شود؛ لایه‌ی SSR نباید دیتابیس نوشتنی باز کند
+  let chain = null;
+  try { chain = timelineRO.prepare('SELECT * FROM signal_chains WHERE id=?').get(id); } catch (e) {}
+  if (!chain) return next();
+
+  // رویدادهای زنجیره از event_ids استخراج می‌شوند
+  let evIds = [];
+  try {
+    const parsed = JSON.parse(chain.event_ids || '{}');
+    evIds = [...new Set([].concat(parsed.roots || [], (parsed.edges || []).flat()))].filter(Number.isFinite);
+  } catch (e) {}
+  chain.events = [];
+  if (evIds.length) {
+    try {
+      chain.events = timelineRO.prepare(
+        `SELECT * FROM timeline_events WHERE id IN (${evIds.map(() => '?').join(',')})`
+      ).all(...evIds);
+    } catch (e) {}
+  }
+
+  chain.rootLabel = NODE[chain.root_node] || chain.root_node;
+  chain.regimeLabel = REGIME[chain.regime] || chain.regime;
+  chain.statusLabel = CHAIN_STATUS[chain.status] || chain.status;
+  chain.topicLabel = topicLabel(chain.topic);
+
+  const events = (chain.events || []).map(e => Object.assign({}, e, {
+    nodeLabel: NODE[e.node_key] || e.node_key,
+  })).sort((a, b) => new Date(a.detected_at) - new Date(b.detected_at));
+
+  let preds = [];
+  try {
+    preds = timelineRO.prepare(`
+      SELECT p.*, v.direction_correct FROM predictions p
+      LEFT JOIN prediction_validations v ON v.prediction_id = p.id
+      WHERE p.chain_id = ? ORDER BY p.created_at DESC`).all(id)
+      .map(p => Object.assign({}, p, { symLabel: symLabel(p.target) }));
+  } catch (e) {}
+
+  let related = [];
+  try {
+    related = timelineRO.prepare(
+      `SELECT id, title, started_at FROM signal_chains WHERE topic = ? AND id <> ? ORDER BY started_at DESC LIMIT 6`
+    ).all(chain.topic, id);
+  } catch (e) {}
+
+  page(res, 'future-chain', '/future', {
+    title: `${chain.title} — زنجیره‌ی رویداد | سیگنال هوش`,
+    desc: (chain.ai_analysis || chain.title || '').slice(0, 180),
+    path: '/future/chain/' + id,
+    crumb: chain.topicLabel || 'زنجیره',
+    // زنجیره‌ی ضعیف یا کم‌رویداد نباید وارد ایندکس شود — محتوای نازک
+    noindex: !(chain.peak_severity >= 0.5 && events.length >= 3),
+  }, { chain, events, preds, related });
+});
+
 // ── ارتباط با ما ──
 app.get('/contact', (req, res) => {
   page(res, 'contact', '/contact', {
@@ -2769,6 +2847,7 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/polymarket', pri: '0.7', freq: 'daily' },
     { loc: '/future', pri: '0.6', freq: 'daily' },
     { loc: '/future/accuracy', pri: '0.6', freq: 'daily' },
+    { loc: '/future/leads', pri: '0.6', freq: 'daily' },
     { loc: '/blog', pri: '0.8', freq: 'daily' },
     { loc: '/contact', pri: '0.4', freq: 'monthly' },
     { loc: '/disclaimer', pri: '0.4', freq: 'monthly' }

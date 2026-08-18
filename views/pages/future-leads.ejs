@@ -1,0 +1,97 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/future">ترند آینده</a> <span>/</span>
+      <span>چه چیزی پیشرو چیست</span>
+    </nav>
+
+    <div class="page-head">
+      <h1 class="page-title">چه چیزی واقعاً پیشرو چیست</h1>
+      <p class="page-sub">همه‌ی جفت‌ها آزموده شده‌اند — فقط آن‌هایی که از تصادف قابل تفکیک‌اند اینجا هستند</p>
+    </div>
+
+    <blockquote class="desc">
+      رابطه‌های زیر با آزمون همبستگی روی داده‌ی واقعی سنجیده شده‌اند، نه با حدس.
+      برای هر جفت، تأخیر بهینه پیدا شده و معناداری آماری‌اش محاسبه شده است.
+      رابطه‌ای که <span class="mono">p</span> بالای ۰٫۰۵ داشته باشد، یعنی می‌تواند کاملاً
+      شانسی باشد و اینجا نمی‌آید — حتی اگر عدد همبستگی‌اش در نگاه اول بزرگ به نظر برسد.
+    </blockquote>
+
+    <% if (meta && meta.n) { %>
+    <div class="grid g3 mb4">
+      <div class="kpi">
+        <div class="kpi-label">جفت‌های آزموده‌شده</div>
+        <div class="kpi-val"><%= fa(meta.n) %></div>
+        <div class="kpi-note">همه‌ی ترکیب‌های ممکن</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">رابطه‌ی معنادار</div>
+        <div class="kpi-val"><%= fa(meta.sig || 0) %></div>
+        <div class="kpi-note">از تصادف قابل تفکیک</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">آخرین محاسبه</div>
+        <div class="kpi-val" style="font-size:var(--fs-lg)"><%= meta.at ? timeAgo(meta.at) : '—' %></div>
+        <div class="kpi-note">بازمحاسبه‌ی خودکار</div>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (rows && rows.length) { %>
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr>
+          <th>پیشرو</th><th>دنباله‌رو</th>
+          <th class="ta-l">تأخیر</th><th class="ta-l">همبستگی</th>
+          <th class="ta-l">معناداری</th><th class="ta-l">نمونه</th>
+        </tr></thead>
+        <tbody>
+          <% rows.forEach(function (r) { %>
+          <tr>
+            <td class="td-name"><%= r.fromLabel || r.from_key %></td>
+            <td class="td-name"><%= r.toLabel || r.to_key %></td>
+            <td class="ta-l"><%= fa(r.lag_min) %> دقیقه</td>
+            <td class="ta-l <%= (r.correlation || 0) > 0 ? 'up' : 'down' %>"><%= faSigned(r.correlation, 3) %></td>
+            <td class="ta-l">
+              <span class="badge <%= (r.p_value != null && r.p_value < 0.01) ? 'badge-up' : 'badge-flat' %>">
+                p = <%= fa((r.p_value != null ? r.p_value : 0).toFixed(3)) %>
+              </span>
+            </td>
+            <td class="ta-l"><%= fa(r.sample_count || 0) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <blockquote class="desc desc-sm mb6">
+      <strong>چطور بخوانیم:</strong> «تأخیر» یعنی چند دقیقه بعد از حرکت پیشرو، دنباله‌رو واکنش نشان می‌دهد.
+      همبستگی مثبت یعنی هم‌جهت، منفی یعنی خلاف‌جهت. هرچه <span class="mono">p</span> کوچک‌تر،
+      احتمال شانسی بودن کمتر. و مهم‌تر از همه: <em>همبستگی، علیت نیست</em> — این جدول می‌گوید
+      چه چیزی با چه چیزی حرکت کرده، نه اینکه چه چیزی باعث چه چیزی شده.
+    </blockquote>
+    <% } else { %>
+    <section class="panel mb6">
+      <div class="panel-body">
+        <div class="drow"><span class="dim">هنوز هیچ رابطه‌ای به آستانه‌ی معناداری نرسیده است.</span></div>
+      </div>
+      <div class="panel-foot">
+        این یعنی سیستم دارد کارش را درست انجام می‌دهد: به‌جای نشان دادن الگوهای ضعیف،
+        سکوت می‌کند تا داده‌ی کافی جمع شود.
+      </div>
+    </section>
+    <% } %>
+
+    <div class="page-head"><h2 class="sec-title">چرا این صفحه از پیش‌بینی ارزشمندتر است</h2></div>
+    <blockquote class="desc mb6">
+      پیش‌بینی یک ادعای بزرگ است: «فردا این اتفاق می‌افتد». این صفحه ادعای کوچک‌تری می‌کند که
+      می‌شود بررسی‌اش کرد: «تاریخاً وقتی این حرکت کرده، آن با این تأخیر واکنش نشان داده».
+      ادعای کوچک‌ترِ درست، از ادعای بزرگ‌ترِ غلط ارزش بیشتری دارد.
+      <br><br>
+      <a href="/future">← بازگشت به ترند آینده</a> ·
+      <a href="/future/accuracy">کارنامه‌ی موتور پیش‌بینی</a>
+    </blockquote>
+
+  </div>
+</main>
