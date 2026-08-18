@@ -60,13 +60,20 @@ try { db.prepare('ALTER TABLE channels ADD COLUMN needs_translation INTEGER DEFA
 
 // ── Channels ──────────────────────────────────────────────
 function upsertChannel(tg_id, username, title, category, photo_url, needs_translation) {
-  const nt = needs_translation !== undefined ? (needs_translation ? 1 : 0) : 1;
   // چک با tg_id
-  let existing = db.prepare('SELECT id FROM channels WHERE tg_id=?').get(tg_id);
+  let existing = db.prepare('SELECT * FROM channels WHERE tg_id=?').get(tg_id);
   // اگه نبود، با username چک کن
   if (!existing && username) {
-    existing = db.prepare('SELECT id FROM channels WHERE username=?').get(username);
+    existing = db.prepare('SELECT * FROM channels WHERE username=?').get(username);
   }
+  // ⚠️ این تابع با *هر* پیام رسیده از news-listener صدا زده می‌شود (server.js:257)
+  // و آن مسیر needs_translation را پاس نمی‌دهد. قبلاً در نبودِ آرگومان مقدار ۱
+  // نوشته می‌شد، یعنی هر کانالی که ادمین ترجمه‌اش را خاموش کرده بود با اولین
+  // خبر بعدی دوباره روشن می‌شد. وقتی صداکننده نظری نداده، مقدار فعلی کانال
+  // باید دست‌نخورده بماند.
+  const nt = needs_translation !== undefined
+    ? (needs_translation ? 1 : 0)
+    : (existing && existing.needs_translation != null ? existing.needs_translation : 1);
   if (existing) {
     db.prepare('UPDATE channels SET tg_id=?,username=?,title=?,category=?,photo_url=?,needs_translation=?,active=1 WHERE id=?')
       .run(tg_id, username, title, category||'خبرگزاری‌ها', photo_url||null, nt, existing.id);
@@ -80,7 +87,11 @@ function upsertChannel(tg_id, username, title, category, photo_url, needs_transl
 function updateChannel(id, data) {
   const existing = db.prepare('SELECT * FROM channels WHERE id=?').get(id);
   if (!existing) return;
-  const nt = data.needs_translation !== undefined ? (data.needs_translation ? 1 : 0) : existing.needs_translation || 1;
+  // «existing.needs_translation || 1» غلط بود: برای کانالی که ترجمه‌اش خاموش
+  // (۰) است، 0 || 1 می‌شود ۱ — یعنی خاموش‌بودن هرگز حفظ نمی‌شد.
+  const nt = data.needs_translation !== undefined
+    ? (data.needs_translation ? 1 : 0)
+    : (existing.needs_translation != null ? existing.needs_translation : 1);
   // preserve existing values when not provided
   const username = data.username !== undefined ? data.username : existing.username;
   const title = data.title !== undefined ? data.title : existing.title;

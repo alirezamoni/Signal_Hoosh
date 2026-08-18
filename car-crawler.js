@@ -8,7 +8,7 @@
 const puppeteer = require('puppeteer');
 const carDB = require('./car-db');
 const { withCrawlLock } = require('./lib/crawl-lock');
-const { makeProfileDir, cleanupProfileDir } = require('./lib/browser-lifecycle');
+const { makeProfileDir, cleanupProfileDir, isBrowserAlive } = require('./lib/browser-lifecycle');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -54,7 +54,7 @@ async function safeKillBrowser() {
 }
 
 async function getBrowser() {
-  try { if (browser && browser.isConnected()) return browser; } catch (e) {}
+  if (isBrowserAlive(browser)) return browser;
   await safeKillBrowser();
   browserProfileDir = makeProfileDir('cars');
   browser = await puppeteer.launch({

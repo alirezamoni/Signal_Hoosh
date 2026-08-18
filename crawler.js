@@ -9,7 +9,7 @@ const path = require('path');
 const aiClient = require('./lib/ai-client');
 const { withCrawlLock } = require('./lib/crawl-lock');
 const { categorizeKeyword } = require('./lib/categorize');
-const { makeProfileDir, cleanupProfileDir } = require('./lib/browser-lifecycle');
+const { makeProfileDir, cleanupProfileDir, isBrowserAlive } = require('./lib/browser-lifecycle');
 let trendDB = null;
 try { trendDB = require('./trend-db'); } catch (e) { console.warn('[warn] trend-db not loaded:', e.message); }
 
@@ -82,7 +82,7 @@ async function safeKillBrowser() {
 }
 
 async function getBrowser() {
-  try { if (browser && browser.isConnected()) return browser; } catch (e) {}
+  if (isBrowserAlive(browser)) return browser;
   await safeKillBrowser();
   browserProfileDir = makeProfileDir('trends');
   const b = await puppeteer.launch({

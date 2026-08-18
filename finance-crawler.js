@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const financeDB = require('./finance-db');
 const { withCrawlLock } = require('./lib/crawl-lock');
-const { makeProfileDir, cleanupProfileDir } = require('./lib/browser-lifecycle');
+const { makeProfileDir, cleanupProfileDir, isBrowserAlive } = require('./lib/browser-lifecycle');
 
 const CONFIG = {
   chromePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -39,7 +39,7 @@ async function safeKillBrowser() {
 
 async function getBrowser() {
   // If the old browser is alive, reuse it
-  try { if (browser && browser.isConnected()) return browser; } catch (e) {}
+  if (isBrowserAlive(browser)) return browser;
   // Kill the old one first (it's dead or dying)
   await safeKillBrowser();
   browserProfileDir = makeProfileDir('finance');

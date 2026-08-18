@@ -295,7 +295,7 @@
               <form method="POST" action="/admin/blog/generate" class="row wrap" style="gap:var(--s3);align-items:flex-end;">
                 <label class="field" style="margin-bottom:0;">
                   <span class="label">تاریخِ داده‌ها (خالی = امروز)</span>
-                  <input class="input" type="text" name="day" placeholder="۲۰۲۶-۰۸-۱۶" pattern="\d{4}-\d{2}-\d{2}" style="width:150px;">
+                  <input class="input" type="date" name="day" max="<%= blogToday %>" style="width:190px;direction:ltr;">
                 </label>
                 <label class="row" style="gap:6px;align-items:center;margin-bottom:0;">
                   <input type="checkbox" name="force" value="1">
@@ -548,7 +548,7 @@
                       <%= fa(modelsMeta.free) %> مدل رایگان از مجموع <%= fa(modelsMeta.total) %> مدل OpenRouter.
                     </div></div>
                   <div class="field"><label class="label" for="aiLimit">سقف فراخوانی روزانه</label>
-                    <input class="input" id="aiLimit" name="ai_daily_limit" type="number" min="0" max="10000" value="<%= ai.limit %>" style="direction:ltr;text-align:left;">
+                    <input class="input" id="aiLimit" name="ai_daily_limit" type="number" min="0" max="1000000" value="<%= ai.limit %>" style="direction:ltr;text-align:left;">
                     <div class="hint">مجموع فراخوانی همه‌ی بخش‌ها در یک شبانه‌روز. عدد بالاتر یعنی هزینه/مصرف بیشتر.</div></div>
                 </div>
               </div>
