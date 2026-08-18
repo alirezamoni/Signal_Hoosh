@@ -900,6 +900,54 @@ function upsertAccuracyMetric(scope, scopeKey, m) {
 function getAccuracyMetrics() { return db.prepare('SELECT * FROM accuracy_metrics').all(); }
 
 // ════════════════════════════════════════════════════════
+//  CLEANUP
+// ════════════════════════════════════════════════════════
+// این تنها دیتابیس پروژه بود که هیچ سیاست نگه‌داری نداشت و برای همیشه رشد
+// می‌کرد: روزی ~۲٬۸۰۰ رویداد، یعنی حدود یک میلیون ردیف در سال.
+//
+// چیزی که حذف می‌شود، داده‌ی خامِ گذراست (رویدادها و زنجیره‌های کهنه).
+// چیزی که می‌ماند، حافظه‌ی آموخته‌ی سیستم است: الگوها، وزن‌ها، کالیبراسیون،
+// اعتبار منابع و کارنامه‌ی دقت — این‌ها کوچک‌اند و ارزششان با زمان بیشتر می‌شود.
+const KEEP = {
+  events: 120,        // رویداد خام
+  chains: 120,        // زنجیره‌های حل‌شده
+  predictions: 365,   // پیش‌بینی و اعتبارسنجی — پایه‌ی سنجش مهارت، بلندمدت نگه می‌داریم
+  updates: 60,        // بازبینی‌های میانی یک پیش‌بینی
+  drift: 180,
+};
+
+function cleanup() {
+  const out = {};
+  const run = (label, sql, days) => {
+    try {
+      const r = db.prepare(sql).run(`-${days} days`);
+      if (r.changes) out[label] = r.changes;
+    } catch (e) { console.warn('[tl-db] cleanup ' + label + ':', e.message); }
+  };
+
+  // به‌روزرسانی‌های میانیِ پیش‌بینی‌های بسته‌شده
+  run('prediction_updates', `DELETE FROM prediction_updates WHERE prediction_id IN
+      (SELECT id FROM predictions WHERE status <> 'open' AND created_at < datetime('now', ?))`, KEEP.updates);
+
+  // پیش‌بینی‌های خیلی قدیمی و اعتبارسنجی‌شان
+  run('prediction_validations', `DELETE FROM prediction_validations WHERE prediction_id IN
+      (SELECT id FROM predictions WHERE created_at < datetime('now', ?))`, KEEP.predictions);
+  run('predictions', `DELETE FROM predictions WHERE status <> 'open' AND created_at < datetime('now', ?)`, KEEP.predictions);
+
+  // زنجیره‌های حل‌شده‌ی کهنه
+  run('signal_chains', `DELETE FROM signal_chains WHERE status <> 'active' AND created_at < datetime('now', ?)`, KEEP.chains);
+
+  // رویدادهای خام — بزرگ‌ترین جدول
+  run('timeline_events', `DELETE FROM timeline_events WHERE detected_at < datetime('now', ?)`, KEEP.events);
+
+  run('concept_drift_log', `DELETE FROM concept_drift_log WHERE created_at < datetime('now', ?)`, KEEP.drift);
+
+  const n = Object.values(out).reduce((a, b) => a + b, 0);
+  if (n) console.log('[tl-db] cleanup:', JSON.stringify(out));
+  return out;
+}
+
+// ════════════════════════════════════════════════════════
 //  TOPIC CATEGORIZATION
 // ════════════════════════════════════════════════════════
 // Raw keyword topics ("مقتدی صدر", "امید عالیشاه") almost never repeat, so a
@@ -955,6 +1003,7 @@ module.exports = {
   insertDriftLog, getDriftLog,
   // accuracy
   upsertAccuracyMetric, getAccuracyMetrics,
+  cleanup,
   // topic categorization
   categorizeTopic, TOPIC_CATEGORIES,
 };

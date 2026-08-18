@@ -243,13 +243,13 @@ function detectFinanceMove() {
     sev = clamp(sev, 0, 1) * tdb.getReliabilityForSource('finance_api', null).reliability;
 
     _finPrice.set(sym, { price: latest.price, dir, count });
-    if (tdb.getLatestByNodeTopic(sym, dir === 'up' ? 'up' : 'down', 10)) {
-      // allow but we keep emitting on significant moves; dedup by node+direction within 10 min is too aggressive, so skip dedup here
-    }
     tdb.insertEvent({
       source: 'finance', node_key: sym, event_type: 'price_move',
       title: `${SYMBOL_LABEL[sym] || sym} ${dir === 'up' ? 'صعودی' : 'نزولی'} ${toEn(pct.toFixed(2))}٪`,
-      topic: dir === 'up' ? 'up' : 'down', severity: sev, direction: dir, magnitude: pct,
+      // موضوع باید «درباره‌ی چه چیزی» را بگوید، نه «به کدام سمت». ذخیره‌ی جهت
+      // به‌عنوان موضوع، ۱۷٬۵۲۹ رویداد را با topic برابر up/down پر کرده بود و
+      // هر گروه‌بندی موضوعی را بی‌معنا می‌کرد. جهت ستون خودش را دارد.
+      topic: sym, severity: sev, direction: dir, magnitude: pct,
       surprise_score: surprise, expected_value: expected,
       data: JSON.stringify({ symbol: sym, price: latest.price, ref_price: ref.price }), detected_at: nowIso(),
     });
@@ -429,7 +429,8 @@ async function detectRegime() {
   try {
     const parsed = await ai.callStructured(prompt);
     if (parsed && parsed.regime) {
-      regime = parsed.regime; confidence = clamp(Number(parsed.confidence) || 0.6, 0, 1); evidence = parsed.evidence || '';
+      regime = parsed.regime; confidence = clamp(Number(parsed.confidence) || 0.6, 0, 1);
+      evidence = cleanEvidence(parsed.evidence);
     }
   } catch (e) { /* keep heuristic */ }
 
@@ -438,9 +439,39 @@ async function detectRegime() {
     // same regime continues — do not rewrite
     return regime;
   }
+
+  // ── ماندگاری حداقلی ────────────────────────────────────────────────
+  // رژیم در یک روز چهار بار بین «جنگ» و «عادی» می‌پرید. چون رژیم مستقیماً در
+  // اطمینانِ هر پیش‌بینی ضرب می‌شود، این بی‌ثباتی به کل خروجی سرایت می‌کرد.
+  // تغییر رژیم یک ادعای بزرگ است و باید شواهد قوی و زمان کافی پشتش باشد.
+  if (cur && cur.started_at) {
+    const ageMin = (Date.now() - new Date(cur.started_at).getTime()) / 60000;
+    const minDwell = tdb.getWeight('regime_min_dwell_min', 12 * 60);
+    if (ageMin < minDwell) {
+      // فقط شواهد بسیار قوی می‌تواند رژیم تازه را زودتر از موعد جابه‌جا کند
+      if (confidence < 0.85) {
+        console.log(`[tl-engine] regime ${cur.regime}→${regime} رد شد — فقط ${Math.round(ageMin)} دقیقه از رژیم فعلی گذشته`);
+        return cur.regime;
+      }
+    }
+  }
+
   tdb.insertRegime({ regime, confidence, evidence, started_at: nowIso() });
   console.log(`[tl-engine] regime -> ${regime} (${(confidence * 100).toFixed(0)}%)`);
   return regime;
+}
+
+// متن توجیه رژیم باید فارسی باشد. وقتی سهمیه‌ی مدل رایگان ته می‌کشد، خروجی
+// چندزبانه‌ی بی‌معنا تولید می‌شود («مرتبط با wypowiedzi … działań نظامی»).
+// چنین متنی به کاربر نشان داده می‌شود، پس بهتر است خالی بماند تا بی‌معنا.
+function cleanEvidence(text) {
+  const s = String(text || '').trim();
+  if (!s) return '';
+  const letters = s.replace(/[\s\d،؛؟.,;:!?()«»\-–—'"]/g, '');
+  if (!letters) return '';
+  const persian = (letters.match(/[؀-ۿ]/g) || []).length;
+  // دست‌کم ۸۰٪ حروف باید فارسی/عربی باشند
+  return (persian / letters.length) >= 0.8 ? s : '';
 }
 
 // ════════════════════════════════════════════════════════
@@ -463,10 +494,15 @@ async function assembleCascades() {
   const used = new Set();
   const cascades = [];
 
-  // Only process the 3 most recent finance events to avoid chain spam
+  // Only process the 3 most recent finance events to avoid chain spam.
+  // یک نماد در هر دور — وگرنه چون نفت بیشترین رویداد قیمتی را می‌سازد، هر سه
+  // جای خالی را می‌گیرد و نتیجه‌اش این شد که ۷۳٪ کل زنجیره‌های تاریخی به «نفت»
+  // ختم می‌شوند. تنوع هدف را همین‌جا تضمین می‌کنیم، نه بعد از انتشار.
+  const seenTarget = new Set();
   const financeEvents = events
     .filter(e => ['usd', 'coin', 'gold18', 'tether', 'bitcoin', 'oil_brent', 'stock_market', 'mesghal', 'ounce'].includes(e.node_key))
     .sort((a, b) => new Date(b.detected_at) - new Date(a.detected_at))
+    .filter(e => { if (seenTarget.has(e.node_key)) return false; seenTarget.add(e.node_key); return true; })
     .slice(0, 3);
   for (const fe of financeEvents) {
     // find edges pointing INTO fe.node_key
@@ -496,9 +532,29 @@ async function assembleCascades() {
       }
     }
     if (roots.length > 1) {
-      used.add(fe.id);
       const rootCauseIds = roots.filter(id => id !== fe.id);
       const causeEvents = events.filter(e => rootCauseIds.includes(e.id));
+
+      // ── دروازه‌ی ربط علّی ───────────────────────────────────────────
+      // هم‌زمانی، علیت نیست. اسپایک جستجوی «فورتنایت» یا «بایرن مونیخ» با
+      // نوسان نفت هم‌زمان می‌شود، ولی ادعای علّی از رویش، همان چیزی است که
+      // اعتبار این بخش را از بین برد (۳۶٪ زنجیره‌ها ریشه‌ی صرفاً جستجویی داشتند).
+      //
+      // قاعده: زنجیره باید دست‌کم یک علت «مرتبط» داشته باشد — یعنی یا از
+      // منبعی جز جستجو بیاید (خبر یا قیمت)، یا موضوع جستجویش در دسته‌ای
+      // اقتصادی/سیاسی بیفتد. اسپایک جستجوی سرگرمی به‌تنهایی کافی نیست.
+      const isRelevantCause = (e) => {
+        if (e.node_key !== 'trend') return true;               // خبر یا قیمت، ذاتاً مرتبط
+        const cat = tdb.categorizeTopic(e.topic);
+        return cat && cat !== 'general' && cat !== 'social';   // جستجو فقط اگر موضوعش اقتصادی/سیاسی باشد
+      };
+      if (!causeEvents.some(isRelevantCause)) {
+        // رویدادها را آزاد کن تا در گروه‌بندی مشاهده‌ای پایین‌تر قابل استفاده بمانند
+        rootCauseIds.forEach(id => used.delete(id));
+        continue;
+      }
+
+      used.add(fe.id);
       const peak = Math.max(fe.severity || 0, ...causeEvents.map(e => e.severity || 0));
       // use the most severe cause's topic, or the finance event's target as topic
       const topCause = causeEvents.sort((a, b) => (b.severity || 0) - (a.severity || 0))[0];
@@ -611,6 +667,10 @@ function learnLoop() {
   try { require('./timeline-learn').runValidation(); } catch (e) { console.warn('[tl-engine] learnLoop error:', e.message); }
 }
 
+function cleanupLoop() {
+  try { tdb.cleanup(); } catch (e) { console.warn('[tl-engine] cleanupLoop error:', e.message); }
+}
+
 function startScheduler() {
   if (!process.env.OPENROUTER_KEY) console.warn('[tl-engine] no OPENROUTER_KEY — AI features disabled');
   // initial staggered runs
@@ -620,6 +680,7 @@ function startScheduler() {
   setTimeout(() => cascadeLoop().catch(() => {}), 60000);
   setTimeout(() => graphLoop(), 90000);
   setTimeout(() => learnLoop(), 120000);
+  setTimeout(() => cleanupLoop(), 180000);
 
   // intervals
   setInterval(() => fastLoop().catch(() => {}), tdb.getWeight('fast_loop_interval_sec', 60) * 1000);
@@ -628,6 +689,7 @@ function startScheduler() {
   setInterval(() => cascadeLoop().catch(() => {}), tdb.getWeight('cascade_interval_min', 2) * 60 * 1000);
   setInterval(graphLoop, tdb.getWeight('graph_discovery_interval_min', 30) * 60 * 1000);
   setInterval(learnLoop, tdb.getWeight('validation_interval_min', 10) * 60 * 1000);
+  setInterval(cleanupLoop, 24 * 60 * 60 * 1000);   // روزی یک‌بار، مثل بقیه‌ی دیتابیس‌ها
 
   console.log('[tl-engine] scheduler started — fast:60s, trend:5m, regime:30m, cascade:2m, graph:30m, learn:10m');
 }

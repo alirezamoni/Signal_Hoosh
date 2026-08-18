@@ -43,6 +43,20 @@ function magnitudeAsPricePct(event) {
 function median(arr) { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 function nowIso() { return new Date().toISOString(); }
 
+// جهت و مقدار باید هم‌علامت باشند. تا پیش از این، جهت با رأی‌گیری وزنی
+// انتخاب می‌شد ولی درصد میانه‌ی *همه‌ی* مدل‌ها بود — از جمله مخالفان — و
+// نتیجه پیش‌بینی‌هایی می‌شد که «صعودی» را با عدد منفی منتشر می‌کردند
+// (۳۳ مورد از ۳۰۰). این تابع تضمین می‌کند علامت با جهت بخواند.
+function signedPct(direction, pct) {
+  const m = Math.abs(Number(pct) || 0);
+  if (direction === 'up') return m;
+  if (direction === 'down') return -m;
+  return 0;
+}
+// کمترین حرکتی که ارزش انتشار دارد. زیر این مقدار، پیش‌بینی عملاً «بی‌تغییر»
+// است و انتشارش به‌عنوان جهت‌دار، همان چیزی است که پنل را بی‌اعتبار کرد.
+const MIN_PUBLISHABLE_PCT = 0.05;
+
 function currentPrice(target) {
   try { const r = require('./finance-db').getLatestBySymbol(target); return r && r.price ? r.price : null; } catch (e) { return null; }
 }
@@ -60,8 +74,12 @@ function patternModel(target, horizon, regime, topic) {
   if (!p) return null;
   const conf = (p.reliability || 0) * Math.min((p.sample_count || 0) / 10, 1);
   const drift = p.concept_drift_score || 0;
+  // «|| up» قبلی یعنی الگویی که جهتش ثبت نشده بود، صعودی فرض می‌شد.
+  // نبودِ جهت یعنی نبودِ شواهد، نه شواهدِ صعودی.
+  if (!p.outcome_dir) return null;
   return {
-    direction: p.outcome_dir || 'up', pct: p.outcome_pct || 0,
+    direction: p.outcome_dir,
+    pct: signedPct(p.outcome_dir, p.outcome_pct || 0),
     confidence: conf * (1 - drift), sample_count: p.sample_count || 0,
   };
 }
@@ -80,7 +98,11 @@ function similarityModel(target, horizon, regime, topic) {
   let direction = 'flat';
   if (dirUp > dirDown) direction = 'up';
   else if (dirDown > dirUp) direction = 'down';
-  const med = median(excess);
+  if (direction === 'flat') return null;   // بدون جهت غالب، شواهدی برای انتشار نیست
+  // میانه فقط روی نمونه‌هایی که با جهت غالب موافق‌اند، وگرنه مقدار می‌تواند
+  // علامتی مخالف جهتِ اعلام‌شده بگیرد
+  const agreeing = excess.filter(x => direction === 'up' ? x > 0 : x < 0);
+  const med = signedPct(direction, median(agreeing));
   const agreement = Math.max(dirUp, dirDown) / vals.length;
   const sufficiency = Math.min(vals.length / 5, 1);
   return { direction, pct: med, confidence: agreement * sufficiency, sample_count: vals.length };
@@ -123,6 +145,13 @@ const REGIME_PRIORS = {
 const PRIOR_CONFIDENCE = 0.30;   // deliberately low — this is a heuristic, not evidence
 const PRIOR_PCT = { up: 0.8, down: -0.8 };
 
+// اندازه‌گیری روی ۲۹۴ پیش‌بینی اعتبارسنجی‌شده: پیش‌بینی‌هایی که تنها پایه‌شان
+// همین پیش‌فرض دامنه‌ای بود، ۳۰٪ دقت داشتند — بدترین گروه، و بدتر از پرتاب سکه.
+// عملاً یعنی «وقتی چیزی نمی‌دانیم، یک عدد ثابت منتشر می‌کنیم». حالا به‌جایش
+// هیچ‌چیز منتشر نمی‌شود. پیش‌فرض همچنان محاسبه می‌شود تا در ensemble_json
+// برای بررسی بماند، ولی به‌تنهایی هرگز به انتشار نمی‌رسد.
+const PUBLISH_PRIOR_ONLY = false;
+
 function priorModel(target, regime) {
   const dir = (REGIME_PRIORS[regime] || {})[target];
   if (!dir) return null;
@@ -133,6 +162,34 @@ function priorModel(target, regime) {
     is_prior: true,
     reason: `پیش‌فرض دامنه‌ای: در رژیم «${regime}» رفتار تاریخی بازار ایران برای ${SYMBOL_LABEL[target] || target} ${dir === 'up' ? 'صعودی' : 'نزولی'} است`,
   };
+}
+
+// ════════════════════════════════════════════════════════
+//  دروازه‌ی مهارت  —  فقط جایی پیش‌بینی منتشر کن که برتری‌اش ثابت شده
+// ════════════════════════════════════════════════════════
+// اندازه‌گیری روی ۲۹۴ نمونه نشان داد دقت کلی ۴۰٫۵٪ است، یعنی به‌طور معنادار
+// بدتر از پرتاب سکه. تا وقتی یک نماد روی داده‌ی خودش برتری نشان نداده،
+// انتشار پیش‌بینی برایش فقط اعتبار سایت را خرج می‌کند.
+//
+// «کافی» یعنی هم نمونه‌ی کافی و هم دقت بالای مرز شانس. زیر آستانه، نماد در
+// حالت مشاهده می‌ماند: پیش‌بینی ساخته و ذخیره می‌شود تا یاد بگیرد و
+// اعتبارسنجی شود، ولی به کاربر نشان داده نمی‌شود.
+const SKILL_MIN_SAMPLES = 30;    // زیر این تعداد، هر دقتی نویز است
+const SKILL_MIN_ACC     = 0.50;  // باید دست‌کم به مرز شانس برسد
+
+function targetSkill(target) {
+  try {
+    const m = (tdb.getAccuracyMetrics() || []).find(x => x.scope === 'target' && x.scope_key === target);
+    if (!m || !m.total) return { n: 0, acc: null, passes: false, reason: 'بدون سابقه' };
+    const acc = m.correct_dir / m.total;
+    if (m.total < SKILL_MIN_SAMPLES) {
+      return { n: m.total, acc, passes: false, reason: `نمونه کم (${m.total} از ${SKILL_MIN_SAMPLES})` };
+    }
+    if (acc < SKILL_MIN_ACC) {
+      return { n: m.total, acc, passes: false, reason: `دقت زیر مرز شانس (${Math.round(acc * 100)}٪)` };
+    }
+    return { n: m.total, acc, passes: true, reason: null };
+  } catch (e) { return { n: 0, acc: null, passes: false, reason: 'خطا در خواندن کارنامه' }; }
 }
 
 // A learned model only counts as real evidence if it has both confidence and samples.
@@ -171,8 +228,14 @@ function combine(A, B, C, D) {
   const finalDir = Object.entries(dirScore).sort((a, b) => b[1] - a[1])[0][0];
   // no side actually scored -> no direction to publish
   if (!(dirScore[finalDir] > 0)) return null;
-  const finalPct = median(pctList);
-  const agreeCount = active.filter(([, m]) => m.direction === finalDir).length;
+  if (finalDir === 'flat') return null;   // «بدون تغییر» پیش‌بینی جهت‌دار نیست
+  // میانه فقط روی مدل‌هایی که با جهت نهایی موافق‌اند — نه همه‌ی مدل‌ها.
+  // این همان جایی بود که جهت و مقدار از هم جدا می‌شدند.
+  const agree = active.filter(([, m]) => m.direction === finalDir);
+  const finalPct = signedPct(finalDir, median(agree.map(([, m]) => m.pct || 0)));
+  // حرکتِ بی‌اندازه، جهت‌دار نیست
+  if (Math.abs(finalPct) < MIN_PUBLISHABLE_PCT) return null;
+  const agreeCount = agree.length;
   const agreement = agreeCount / active.length;
   const regimeConf = (tdb.getCurrentRegime() || {}).confidence || 0.7;
   let finalConf = confList.reduce((a, b) => a + b, 0) * agreement * regimeConf;
@@ -183,6 +246,7 @@ function combine(A, B, C, D) {
   // directional call is what made the whole panel untrustworthy.
   if (finalConf < 0.05) return null;
   const priorOnly = active.length === 1 && active[0][1].is_prior;
+  if (priorOnly && !PUBLISH_PRIOR_ONLY) return null;
   return {
     direction: finalDir, pct: finalPct, confidence: finalConf, agreement, regimeConf,
     basis: priorOnly ? 'prior' : 'learned',
@@ -463,5 +527,6 @@ module.exports = {
   onNewEvents, tryGeneratePredictions, reviseOpenPredictions, generatePrediction,
   getPredictionMatrix, whatIf, patternModel, similarityModel, llmModel, combine, buildAttribution,
   pctRange, magnitudeAsPricePct, priorModel, hasEvidence,
+  targetSkill, signedPct, SKILL_MIN_SAMPLES, SKILL_MIN_ACC,
   TO_NODES, HORIZONS, SYMBOL_LABEL, REGIME_PRIORS,
 };

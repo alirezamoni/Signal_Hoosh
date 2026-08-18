@@ -26,6 +26,7 @@ const commodityDB = require('./commodity-db');
 const commodityCrawler = require('./commodity-crawler');
 const insightsDB = require('./insights-db');
 const tlSkill    = require('./timeline-skill');
+const tlPredict  = require('./timeline-predict');
 const blogDB     = require('./blog-db');
 const blogWriter = require('./blog-writer');
 const mdown      = require('./lib/markdown');
@@ -1343,17 +1344,39 @@ app.get('/future', (req, res) => {
     try { return timelineRO.prepare(sql).all(...(args || [])); } catch (e) { return []; }
   };
 
-  const predictions = tl(`SELECT * FROM predictions WHERE status='open' ORDER BY created_at DESC LIMIT 12`)
+  // دروازه‌ی مهارت: پیش‌بینی برای نمادی که هنوز روی داده‌ی خودش برتری نشان
+  // نداده، ساخته و اعتبارسنجی می‌شود (تا یاد بگیرد) ولی به کاربر نشان داده
+  // نمی‌شود. نمایش پیش‌بینی‌ای که دقتش زیر پرتاب سکه است، فقط اعتبار خرج می‌کند.
+  const skillGate = {};
+  try { for (const t of tlPredict.TO_NODES) skillGate[t] = tlPredict.targetSkill(t); } catch (e) {}
+
+  const openRaw = tl(`SELECT * FROM predictions WHERE status='open' ORDER BY created_at DESC LIMIT 24`);
+  const predictions = openRaw
+    .filter(p => (skillGate[p.target] || {}).passes)
+    .slice(0, 12)
     .map(p => {
       let attr = null;
       try { attr = p.attribution_json ? JSON.parse(p.attribution_json) : null; } catch (e) {}
+      const g = skillGate[p.target] || {};
       return Object.assign({}, p, {
         symLabel: symLabel(p.target),
         regimeLabel: REGIME[p.regime] || p.regime,
         conf: p.calibrated_confidence != null ? p.calibrated_confidence : p.confidence,
+        // کارنامه‌ی همین نماد، کنار خودِ پیش‌بینی (مورد ۲۴)
+        trackAcc: g.acc != null ? Math.round(g.acc * 100) : null,
+        trackN: g.n || 0,
         attr
       });
     });
+
+  // نمادهایی که فعلاً در حالت مشاهده‌اند — شفاف اعلام می‌شوند، نه اینکه بی‌صدا غیب شوند
+  const withheld = Object.entries(skillGate)
+    .filter(([, g]) => !g.passes && g.n > 0)
+    .map(([t, g]) => ({
+      target: t, symLabel: symLabel(t), n: g.n,
+      accPct: g.acc != null ? Math.round(g.acc * 100) : null, reason: g.reason,
+    }))
+    .sort((a, b) => b.n - a.n);
 
   const chains = tl(`SELECT * FROM signal_chains WHERE status='active' ORDER BY peak_severity DESC, created_at DESC LIMIT 8`)
     .map(c => Object.assign({}, c, {
@@ -1370,17 +1393,25 @@ app.get('/future', (req, res) => {
       topicLabel: topicLabel(p.trigger_topic)
     }));
 
+  // زیر این تعداد نمونه، هر درصدی نویز است و نباید به‌عنوان «دقت» نمایش داده شود
+  const MIN_ACC_SAMPLES = tlPredict.SKILL_MIN_SAMPLES;
   const accuracy = tl(`SELECT * FROM accuracy_metrics WHERE scope='target' ORDER BY total DESC LIMIT 10`)
     .map(a => Object.assign({}, a, {
       symLabel: symLabel(a.scope_key),
-      dirPct: a.total ? (a.correct_dir / a.total) * 100 : null
+      dirPct: a.total ? (a.correct_dir / a.total) * 100 : null,
+      enough: (a.total || 0) >= MIN_ACC_SAMPLES,
     }));
 
-  const indicators = tl(`SELECT indicator, target, MAX(accuracy) accuracy, MAX(sample_count) sample_count,
-                                MIN(lead_time_min) lead_time_min, MAX(correlation) correlation
+  // شاخصی که همبستگی‌اش عملاً صفر است، «شاخص پیشرو» نیست. نمایش دادنش با
+  // نوار اطمینان، به کاربر سیگنالی وعده می‌دهد که در داده وجود ندارد.
+  const MIN_CORR = 0.10;
+  const indicatorsAll = tl(`SELECT indicator, target, MAX(accuracy) accuracy, MAX(sample_count) sample_count,
+                                MIN(lead_time_min) lead_time_min, MAX(ABS(correlation)) correlation
                          FROM leading_indicators WHERE sample_count >= 10
-                         GROUP BY indicator, target ORDER BY accuracy DESC LIMIT 12`)
+                         GROUP BY indicator, target ORDER BY correlation DESC LIMIT 40`)
     .map(i => Object.assign({}, i, { indLabel: NODE[i.indicator] || i.indicator, symLabel: symLabel(i.target) }));
+  const indicators = indicatorsAll.filter(i => Math.abs(i.correlation || 0) >= MIN_CORR).slice(0, 12);
+  const indicatorsDropped = indicatorsAll.length - indicators.length;
 
   const archive = tl(`SELECT p.target, p.time_horizon, p.direction, p.predicted_pct, v.*
                       FROM prediction_validations v JOIN predictions p ON p.id = v.prediction_id
@@ -1469,7 +1500,8 @@ app.get('/future', (req, res) => {
     desc: 'موتور کشف زنجیره‌های علّی: چه خبری چه بازاری را با چه تأخیری حرکت می‌دهد. پیش‌بینی دلار، سکه و طلا با سنجش شفاف دقت.',
     path: '/future'
   }, { predictions, chains, patterns, accuracy, indicators, archive, acc, confidence, regime, REGIME,
-       brief, briefHistory, leadLag, leadLagMeta, sources, skill });
+       brief, briefHistory, leadLag, leadLagMeta, sources, skill,
+       withheld, indicatorsDropped, MIN_ACC_SAMPLES });
 });
 
 // ── ارتباط با ما ──
@@ -1821,8 +1853,6 @@ function adminPage(req, res, extra) {
     rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec, goldPlatforms,
     blogPosts, blogStats,
     blogPrompt: blogWriter.getPrompt(),
-    // سقف تقویمِ فرم «ساخت پیش‌نویس» — روز آینده انتخاب‌شدنی نباشد
-    blogToday: blogWriter.tehranDay(),
     blogPromptIsDefault: !String(setAll.blog_prompt || '').trim(),
     blogHour: Number(setAll.blog_hour == null ? 23 : setAll.blog_hour),
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
@@ -2066,7 +2096,7 @@ app.post('/admin/ai/save', adminGuard, (req, res) => {
     for (const k in wanted) settingsDB.set(k, wanted[k]);
 
     const lim = parseInt(String(b.ai_daily_limit || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
-    if (!isNaN(lim) && lim >= 0 && lim <= 1000000) settingsDB.set('ai_daily_limit', lim);
+    if (!isNaN(lim) && lim >= 0 && lim <= 10000) settingsDB.set('ai_daily_limit', lim);
 
     backFrom(req, res, 'تنظیمات هوش مصنوعی ذخیره شد و بلافاصله اعمال می‌شود.');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }

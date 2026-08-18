@@ -233,6 +233,30 @@
     <% } %>
 
 
+    <% if (typeof withheld !== 'undefined' && withheld.length) { %>
+    <section class="panel mb6">
+      <div class="panel-head">
+        <h2 class="panel-title">نمادهایی که فعلاً پیش‌بینی‌شان منتشر نمی‌شود</h2>
+        <span class="panel-link"><%= fa(withheld.length) %> نماد</span>
+      </div>
+      <div class="panel-body">
+        <% withheld.forEach(function (w) { %>
+        <div class="drow">
+          <div class="drow-main"><span class="drow-name"><%= w.symLabel %></span></div>
+          <div class="drow-val">
+            <% if (w.accPct != null) { %><span><%= fa(w.accPct) %>٪ دقت</span><% } %>
+            <span class="drow-sub"><%= w.reason %></span>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <div class="panel-foot">
+        موتور برای این نمادها همچنان پیش‌بینی می‌سازد و نتیجه‌اش را می‌سنجد تا یاد بگیرد،
+        ولی تا وقتی دقتشان از مرز شانس (۵۰٪) رد نشده، نمایششان فقط گمراه‌کننده است.
+      </div>
+    </section>
+    <% } %>
+
     <% if (predictions.length) { %>
 
     <div class="page-head"><h2 class="sec-title">پیش‌بینی‌های پیش‌رو</h2></div>
@@ -250,9 +274,14 @@
           <span class="pred-band"><%= faSigned(p.predicted_min) %>٪ تا <%= faSigned(p.predicted_max) %>٪</span>
           <% } %>
         </div>
-        <% if (p.conf != null) { %>
-        <div class="dim" style="font-size:var(--fs-xs);">اطمینان کالیبره‌شده: <%= fa(Math.round(p.conf * 100)) %>٪</div>
-        <div class="pred-conf-bar"><div class="pred-conf-fill" style="width:<%= Math.round(p.conf * 100) %>%;"></div></div>
+        <%# نوار اطمینان عمداً حذف شده: اندازه‌گیری نشان داد پیش‌بینی‌های «مطمئن»
+            ۴۶٪ درست‌اند و «نامطمئن»ها ۴۰٪ — یعنی این عدد عملاً چیزی نمی‌گوید.
+            به‌جایش کارنامه‌ی واقعی همین نماد نشان داده می‌شود. %>
+        <% if (p.trackAcc != null) { %>
+        <div class="pred-track">
+          <span class="pred-track-l">کارنامه‌ی این نماد</span>
+          <span class="pred-track-v"><%= fa(p.trackAcc) %>٪ درست از <%= fa(p.trackN) %> پیش‌بینی</span>
+        </div>
         <% } %>
         <div class="pred-reasons">
           <% if (p.regimeLabel) { %>وضعیت بازار: <%= p.regimeLabel %><br><% } %>

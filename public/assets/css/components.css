@@ -718,6 +718,15 @@ tbody tr:hover { background: var(--card-hover); }
   .hot-spark { height: 30px; }
 }
 
+/* کارنامه‌ی نماد، جای نوار اطمینانِ بی‌معنا */
+.pred-track {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2);
+  background: var(--inset); border-radius: var(--r-sm);
+  padding: 6px 9px; margin-block: 8px;
+}
+.pred-track-l { font-size: var(--fs-xs); color: var(--faint); }
+.pred-track-v { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+
 /* ══════════════ صفحه‌ی کلیدواژه‌ی ترند ══════════════ */
 
 .kw-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
