@@ -233,6 +233,87 @@
     <% } %>
 
 
+    <div class="page-head between wrap">
+      <h2 class="sec-title">کارنامه‌ی موتور</h2>
+      <a class="btn btn-sm" href="/future/accuracy">کارنامه‌ی کامل و تشخیص ←</a>
+    </div>
+    <blockquote class="desc desc-sm">
+      دقت واقعی به تفکیک دارایی، افق زمانی و مدل — همراه با مقایسه‌ی صریح در برابر پرتاب سکه.
+    </blockquote>
+
+    <% if (typeof sig !== 'undefined' && (sig.bubble || sig.stress || (sig.commodities && sig.commodities.length))) { %>
+    <div class="page-head"><h2 class="sec-title">سیگنال‌های ساختاری</h2></div>
+    <blockquote class="desc desc-sm">
+      این‌ها پیش‌بینی نیستند، اندازه‌گیری‌اند — رابطه‌شان حسابداری است نه آماری،
+      برای همین برخلاف پیش‌بینی‌ها نیازی به اثبات دقت تاریخی ندارند.
+    </blockquote>
+
+    <div class="grid g2 mb4">
+      <% if (sig.bubble) { %>
+      <section class="panel">
+        <div class="panel-head">
+          <h3 class="panel-title">حباب طلای داخلی</h3>
+          <span class="badge <%= sig.bubble.bubblePct >= 7 ? 'badge-down' : (sig.bubble.bubblePct <= -5 ? 'badge-up' : 'badge-flat') %>"><%= sig.bubble.state %></span>
+        </div>
+        <div class="panel-body-pad">
+          <div class="kpi-val" style="margin-bottom:6px;"><%= faSigned(sig.bubble.bubblePct) %>٪</div>
+          <div class="dim" style="font-size:var(--fs-sm);line-height:2;">
+            ارزش ذاتی هر گرم: <%= fa(num(sig.bubble.intrinsic)) %><br>
+            قیمت واقعی بازار: <%= fa(num(sig.bubble.gold18)) %>
+          </div>
+        </div>
+        <div class="panel-foot">
+          ارزش ذاتی از انس جهانی و نرخ دلار ساخته می‌شود. فاصله‌ی مثبت یعنی
+          تقاضای داخلی از ارزش پایه جلو زده است.
+        </div>
+      </section>
+      <% } %>
+
+      <% if (sig.stress) { %>
+      <section class="panel">
+        <div class="panel-head">
+          <h3 class="panel-title">استرس بازار طلا</h3>
+          <span class="badge <%= sig.stress.cvPct >= 1.2 ? 'badge-down' : (sig.stress.cvPct >= 0.6 ? 'badge-warn' : 'badge-up') %>"><%= sig.stress.state %></span>
+        </div>
+        <div class="panel-body-pad">
+          <div class="kpi-val" style="margin-bottom:6px;"><%= fa(sig.stress.spreadPct) %>٪</div>
+          <div class="dim" style="font-size:var(--fs-sm);line-height:2;">
+            فاصله‌ی گران‌ترین تا ارزان‌ترین، بین <%= fa(sig.stress.platforms) %> پلتفرم<br>
+            میانگین: <%= fa(num(sig.stress.mean)) %> تومان
+          </div>
+        </div>
+        <div class="panel-foot">
+          وقتی پلتفرم‌ها هم‌قیمت‌اند بازار آرام است؛ باز شدن فاصله نشانه‌ی عدم قطعیت است.
+        </div>
+      </section>
+      <% } %>
+    </div>
+
+    <% if (sig.commodities && sig.commodities.length) { %>
+    <section class="panel mb6">
+      <div class="panel-head">
+        <h3 class="panel-title">کالای جهانی مرتبط با بازار ایران</h3>
+        <span class="panel-link"><%= fa(sig.commodities.length) %> قلم</span>
+      </div>
+      <div class="panel-body">
+        <% sig.commodities.forEach(function (c) { %>
+        <div class="drow">
+          <div class="drow-main"><span class="drow-name"><%= c.fa %></span></div>
+          <div class="drow-val">
+            <span><%= fa(c.price) %></span>
+            <% if (c.changePct != null) { %>
+            <span class="badge <%= c.changePct > 0 ? 'badge-up' : (c.changePct < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(c.changePct) %></span>
+            <% } %>
+            <% if (c.weeklyPct != null) { %><span class="drow-sub">هفته <%= pct(c.weeklyPct) %></span><% } %>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <div class="panel-foot">قیمت پایه‌ی جهانی — ورودی مستقیم قیمت داخلی، با تأخیر.</div>
+    </section>
+    <% } %>
+    <% } %>
+
     <% if (typeof withheld !== 'undefined' && withheld.length) { %>
     <section class="panel mb6">
       <div class="panel-head">

@@ -1,0 +1,155 @@
+<main id="main" class="page">
+  <div class="container">
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/future">ترند آینده</a> <span>/</span>
+      <span>کارنامه و تشخیص</span>
+    </nav>
+
+    <div class="page-head">
+      <h1 class="page-title">کارنامه‌ی کامل موتور پیش‌بینی</h1>
+      <p class="page-sub">همه‌ی اعداد از پیش‌بینی‌هایی است که نتیجه‌شان مشخص شده — بدون انتخاب و بدون آرایش</p>
+    </div>
+
+    <blockquote class="desc">
+      یک موتور پیش‌بینی که کارنامه‌اش را پنهان کند، قابل اعتماد نیست. این صفحه دقیقاً می‌گوید
+      کجا درست گفته‌ایم، کجا غلط، و کجا اصلاً نمونه‌ی کافی برای قضاوت نداریم.
+      مرز مقایسه همیشه ۵۰ درصد است: چیزی که یک سکه هم به آن می‌رسد.
+    </blockquote>
+
+    <% if (bt && bt.baseline && bt.baseline.engine) { %>
+    <div class="grid g4 mb4">
+      <div class="kpi">
+        <div class="kpi-label">دقت جهت</div>
+        <div class="kpi-val <%= bt.baseline.engine.accPct >= 50 ? 'up' : 'down' %>"><%= fa(bt.baseline.engine.accPct) %>٪</div>
+        <div class="kpi-note">از <%= fa(bt.baseline.engine.n) %> پیش‌بینی</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">فاصله از شانس</div>
+        <div class="kpi-val"><%= faSigned(bt.baseline.engine.z) %></div>
+        <div class="kpi-note"><%= bt.baseline.engine.significant ? 'تفاوت معنادار' : 'قابل تفکیک از شانس نیست' %></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">مبنای ساده</div>
+        <div class="kpi-val"><%= fa(bt.baseline.naive.accPct) %>٪</div>
+        <div class="kpi-note">حدس بی‌مغز، برای مقایسه</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">خطای کالیبراسیون</div>
+        <div class="kpi-val"><%= bt.calibration.ecePct != null ? fa(bt.calibration.ecePct) + '٪' : '—' %></div>
+        <div class="kpi-note">فاصله‌ی ادعا تا واقعیت</div>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (bt && bt.inversion && bt.inversion.length) { %>
+    <div class="page-head"><h2 class="sec-title">به تفکیک دارایی</h2></div>
+    <div class="tbl-wrap mb6">
+      <table>
+        <thead><tr>
+          <th>دارایی</th><th class="ta-l">تعداد</th><th class="ta-l">دقت</th>
+          <th class="ta-l">فاصله از شانس</th><th class="ta-l">وضعیت</th>
+        </tr></thead>
+        <tbody>
+          <% bt.inversion.forEach(function (i) { %>
+          <tr>
+            <td class="td-name"><%= i.label || i.target %></td>
+            <td class="ta-l"><%= fa(i.n) %></td>
+            <td class="ta-l <%= i.accPct >= 50 ? 'up' : 'down' %>"><%= fa(i.accPct) %>٪</td>
+            <td class="ta-l"><%= faSigned(i.z) %></td>
+            <td class="ta-l"><span class="badge <%= i.accPct >= 50 ? 'badge-up' : (i.significant ? 'badge-down' : 'badge-flat') %>"><%= i.note %></span></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <blockquote class="desc desc-sm">
+      «قابل تفکیک از شانس نیست» یعنی با این تعداد نمونه، نمی‌شود گفت موتور بهتر یا بدتر از
+      پرتاب سکه است. این صادقانه‌ترین چیزی است که می‌شود گفت — نه ادعای موفقیت، نه اعتراف به شکست.
+    </blockquote>
+    <% } %>
+
+    <% if (bt && bt.horizons && bt.horizons.length) { %>
+    <div class="page-head"><h2 class="sec-title">به تفکیک افق زمانی</h2></div>
+    <div class="tbl-wrap mb4">
+      <table>
+        <thead><tr><th>افق</th><th class="ta-l">تعداد</th><th class="ta-l">دقت</th><th class="ta-l">فاصله از شانس</th></tr></thead>
+        <tbody>
+          <% bt.horizons.forEach(function (h) { %>
+          <tr>
+            <td class="td-name"><%= fa(h.horizon) %> ساعت</td>
+            <td class="ta-l"><%= fa(h.n) %></td>
+            <td class="ta-l <%= h.accPct >= 50 ? 'up' : 'down' %>"><%= fa(h.accPct) %>٪</td>
+            <td class="ta-l"><%= faSigned(h.z) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <blockquote class="desc desc-sm mb6">
+      بیشتر این کارنامه مربوط به افق سه‌ساعته است که <strong>بازنشسته شده</strong> — در آن بازه،
+      نوسان عادی بازار از هر سیگنالی که این موتور دارد بزرگ‌تر بود. افق فعلی ۲۴ ساعت است و
+      هنوز نمونه‌ی کافی برای قضاوت درباره‌اش جمع نشده.
+    </blockquote>
+    <% } %>
+
+    <% if (bt && bt.models && bt.models.length) { %>
+    <div class="page-head"><h2 class="sec-title">کدام مدل پایه واقعاً درست می‌گوید</h2></div>
+    <div class="tbl-wrap mb4">
+      <table>
+        <thead><tr><th>مدل</th><th class="ta-l">تعداد</th><th class="ta-l">دقت</th><th class="ta-l">فاصله از شانس</th><th class="ta-l">وزن فعلی</th></tr></thead>
+        <tbody>
+          <% bt.models.forEach(function (m) { %>
+          <tr>
+            <td class="td-name"><%= m.faLabel || m.model %></td>
+            <td class="ta-l"><%= fa(m.n) %></td>
+            <td class="ta-l <%= m.accPct >= 50 ? 'up' : 'down' %>"><%= fa(m.accPct) %>٪</td>
+            <td class="ta-l"><%= faSigned(m.z) %></td>
+            <td class="ta-l"><%= m.weightFactor != null ? '×' + fa(m.weightFactor) : '—' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <blockquote class="desc desc-sm mb6">
+      وزن هر مدل از همین کارنامه ساخته می‌شود، نه از یک عدد ثابت. مدلی که تاریخاً زیر مرز شانس
+      بوده، سهم کمتری در تصمیم نهایی می‌گیرد.
+    </blockquote>
+    <% } %>
+
+    <% if (bt && bt.calibration && bt.calibration.buckets.length) { %>
+    <div class="page-head"><h2 class="sec-title">کالیبراسیون: ادعا در برابر واقعیت</h2></div>
+    <div class="tbl-wrap mb4">
+      <table>
+        <thead><tr><th>اطمینان اعلام‌شده</th><th class="ta-l">دقت واقعی</th><th class="ta-l">تعداد</th><th class="ta-l">اختلاف</th></tr></thead>
+        <tbody>
+          <% bt.calibration.buckets.forEach(function (b) { %>
+          <tr>
+            <td class="td-name"><%= fa(b.claimed) %>٪</td>
+            <td class="ta-l"><%= fa(b.actual) %>٪</td>
+            <td class="ta-l"><%= fa(b.n) %></td>
+            <td class="ta-l"><%= faSigned(+(b.actual - b.claimed).toFixed(1)) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <blockquote class="desc desc-sm mb6">
+      کالیبراسیون خوب یعنی وقتی می‌گوییم «۷۰٪ مطمئنیم»، واقعاً ۷۰٪ مواقع درست باشیم.
+      به همین دلیل عدد اطمینان فعلاً کنار پیش‌بینی‌ها نمایش داده نمی‌شود: تا وقتی این ستون
+      نزدیک صفر نشده، آن عدد وعده‌ای می‌دهد که پشتش چیزی نیست.
+    </blockquote>
+    <% } %>
+
+    <div class="page-head"><h2 class="sec-title">این اعداد چطور به دست می‌آیند</h2></div>
+    <blockquote class="desc mb6">
+      هر پیش‌بینی وقتی ساخته می‌شود، قیمت پایه و زمان انقضایش ثبت می‌شود. در سررسید،
+      قیمت واقعی خوانده و با پیش‌بینی مقایسه می‌شود — بدون امکان بازنویسی گذشته.
+      «فاصله از شانس» همان آماره‌ی z است: مقدار بین منفی ۲ تا مثبت ۲ یعنی نتیجه می‌تواند
+      کاملاً تصادفی باشد؛ بیرون از این بازه یعنی الگویی واقعی وجود دارد.
+      <br><br>
+      <a href="/future">← بازگشت به ترند آینده</a>
+    </blockquote>
+
+  </div>
+</main>

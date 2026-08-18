@@ -92,20 +92,28 @@ function similarityModel(target, horizon, regime, topic) {
   const preds = (tdb.getPredictions('validated', null, 300) || []).filter(p => chainIds.has(p.chain_id) && p.target === target && p.time_horizon === horizon);
   const vals = preds.map(p => tdb.getValidation(p.id)).filter(Boolean);
   if (!vals.length) return null;
-  const excess = vals.map(v => v.excess_pct || 0);
-  const dirUp = excess.filter(x => x > 0).length;
-  const dirDown = excess.filter(x => x < 0).length;
+
+  // این مدل جهت را از excess_pct می‌خواند، که «مازاد بر مبنا»ست نه جهتِ حرکت.
+  // یک دارایی می‌تواند بالا برود ولی از مبنا عقب بماند (excess منفی) — و
+  // برعکس. نتیجه‌اش سیگنالی وارونه بود: سنجش روی ۱۷۵ نمونه دقت ۲۶٪ با
+  // z=-6.27 داد، یعنی این مدل به‌طور نظام‌مند خلافِ واقعیت می‌گفت.
+  // جهت باید از جهتِ واقعیِ ثبت‌شده بیاید، و اندازه از درصد واقعی.
+  const dirs = vals.map(v => v.actual_direction).filter(Boolean);
+  if (!dirs.length) return null;
+  const dirUp = dirs.filter(d => d === 'up').length;
+  const dirDown = dirs.filter(d => d === 'down').length;
   let direction = 'flat';
   if (dirUp > dirDown) direction = 'up';
   else if (dirDown > dirUp) direction = 'down';
   if (direction === 'flat') return null;   // بدون جهت غالب، شواهدی برای انتشار نیست
-  // میانه فقط روی نمونه‌هایی که با جهت غالب موافق‌اند، وگرنه مقدار می‌تواند
-  // علامتی مخالف جهتِ اعلام‌شده بگیرد
-  const agreeing = excess.filter(x => direction === 'up' ? x > 0 : x < 0);
-  const med = signedPct(direction, median(agreeing));
-  const agreement = Math.max(dirUp, dirDown) / vals.length;
-  const sufficiency = Math.min(vals.length / 5, 1);
-  return { direction, pct: med, confidence: agreement * sufficiency, sample_count: vals.length };
+
+  // اندازه از نمونه‌هایی که در همان جهت حرکت کرده‌اند
+  const mags = vals.filter(v => v.actual_direction === direction)
+    .map(v => Math.abs(Number(v.actual_pct) || 0));
+  const med = signedPct(direction, median(mags));
+  const agreement = Math.max(dirUp, dirDown) / dirs.length;
+  const sufficiency = Math.min(dirs.length / 5, 1);
+  return { direction, pct: med, confidence: agreement * sufficiency, sample_count: dirs.length };
 }
 
 // Model C — LLM Reasoning (structured)
@@ -204,12 +212,37 @@ function hasEvidence(m) {
 // ════════════════════════════════════════════════════════
 //  ENSEMBLE COMBINE  (§8.3)
 // ════════════════════════════════════════════════════════
+// وزن هر مدل از کارنامه‌ی سنجیده‌شده‌ی خودش می‌آید، نه از یک عدد ثابت.
+// مدلی که تاریخاً زیر مرز شانس بوده نباید هم‌وزن مدلی باشد که بالای آن است.
+// کش کوتاه چون در هر دور کرال چندین بار صدا زده می‌شود.
+let _mw = { at: 0, val: null };
+function measuredWeights() {
+  if (Date.now() - _mw.at < 10 * 60 * 1000 && _mw.val) return _mw.val;
+  const base = {
+    A: tdb.getWeight('w_model_a', 0.40), B: tdb.getWeight('w_model_b', 0.30),
+    C: tdb.getWeight('w_model_c', 0.30), D: tdb.getWeight('w_model_d', 0.20),
+  };
+  try {
+    const bt = require('./timeline-backtest');
+    for (const m of bt.byModel()) {
+      if (!base.hasOwnProperty(m.model)) continue;
+      if (m.n < 30) continue;                       // نمونه کم → وزن پایه بماند
+      // دقت ۵۰٪ → ضریب ۱؛ هرچه پایین‌تر، وزن کمتر. کف ۰٫۱ تا مدل کاملاً حذف نشود
+      const factor = clamp(m.accPct / 50, 0.1, 1.6);
+      base[m.model] = +(base[m.model] * factor).toFixed(4);
+    }
+  } catch (e) { /* اگر بک‌تست در دسترس نبود، وزن پایه */ }
+  _mw = { at: Date.now(), val: base };
+  return base;
+}
+
 function combine(A, B, C, D) {
+  const W = measuredWeights();
   const labeled = [
-    ['A', A, tdb.getWeight('w_model_a', 0.40)],
-    ['B', B, tdb.getWeight('w_model_b', 0.30)],
-    ['C', C, tdb.getWeight('w_model_c', 0.30)],
-    ['D', D, tdb.getWeight('w_model_d', 0.20)],
+    ['A', A, W.A],
+    ['B', B, W.B],
+    ['C', C, W.C],
+    ['D', D, W.D],
   ];
   // Models with no real evidence must not vote. Previously a model with
   // confidence 0 still won the direction argmax (all scores tied at 0), which is

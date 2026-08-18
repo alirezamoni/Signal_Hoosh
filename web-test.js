@@ -27,6 +27,8 @@ const commodityCrawler = require('./commodity-crawler');
 const insightsDB = require('./insights-db');
 const tlSkill    = require('./timeline-skill');
 const tlPredict  = require('./timeline-predict');
+const tlSignals  = require('./timeline-signals');
+const tlBacktest = require('./timeline-backtest');
 const blogDB     = require('./blog-db');
 const blogWriter = require('./blog-writer');
 const mdown      = require('./lib/markdown');
@@ -1495,13 +1497,47 @@ app.get('/future', (req, res) => {
   let regime = null;
   try { regime = timelineRO.prepare(`SELECT * FROM market_regimes ORDER BY rowid DESC LIMIT 1`).get(); } catch (e) {}
 
+  // سیگنال‌های ساختاری: اندازه‌گیری‌اند نه پیش‌بینی، پس دروازه‌ی مهارت
+  // شامل حالشان نمی‌شود — چیزی ادعا نمی‌کنند که ثابت نشده باشد.
+  let sig = { bubble: null, stress: null, commodities: [] };
+  try { sig = tlSignals.all(); } catch (e) { console.warn('[future/signals]', e.message); }
+
   page(res, 'future', '/future', {
     title: 'ترند آینده | زنجیره‌های علّی و پیش‌بینی بازار ایران — سیگنال هوش',
     desc: 'موتور کشف زنجیره‌های علّی: چه خبری چه بازاری را با چه تأخیری حرکت می‌دهد. پیش‌بینی دلار، سکه و طلا با سنجش شفاف دقت.',
     path: '/future'
   }, { predictions, chains, patterns, accuracy, indicators, archive, acc, confidence, regime, REGIME,
        brief, briefHistory, leadLag, leadLagMeta, sources, skill,
-       withheld, indicatorsDropped, MIN_ACC_SAMPLES });
+       withheld, indicatorsDropped, MIN_ACC_SAMPLES, sig });
+});
+
+// ── کارنامه و تشخیص کامل موتور ──
+const MODEL_FA = {
+  A: 'مدل الگوی تاریخی', B: 'مدل رویدادهای مشابه', C: 'مدل استدلال هوش مصنوعی',
+  D: 'پیش‌فرض دامنه‌ای',
+  'پایه:learned': 'پایه: یادگرفته', 'پایه:prior': 'پایه: پیش‌فرض',
+  'پایه:edge': 'پایه: یال کشف‌شده', 'پایه:نامشخص': 'پایه: نامشخص',
+};
+app.get('/future/accuracy', (req, res) => {
+  let bt = null;
+  try {
+    bt = tlBacktest.fullReport();
+    (bt.inversion || []).forEach(i => { i.label = symLabel(i.target); });
+    (bt.models || []).forEach(m => {
+      m.faLabel = MODEL_FA[m.model] || m.model;
+      // همان ضریبی که در ترکیب واقعاً اعمال می‌شود
+      if (['A', 'B', 'C', 'D'].includes(m.model) && m.n >= 30) {
+        m.weightFactor = +Math.max(0.1, Math.min(1.6, m.accPct / 50)).toFixed(2);
+      }
+    });
+  } catch (e) { console.warn('[future/accuracy]', e.message); }
+
+  page(res, 'future-accuracy', '/future', {
+    title: 'کارنامه‌ی موتور پیش‌بینی — دقت واقعی و کالیبراسیون | سیگنال هوش',
+    desc: 'دقت واقعی پیش‌بینی‌های بازار به تفکیک دارایی، افق زمانی و مدل — با مقایسه‌ی صریح در برابر پرتاب سکه و سنجش کالیبراسیون.',
+    path: '/future/accuracy',
+    crumb: 'کارنامه و تشخیص',
+  }, { bt });
 });
 
 // ── ارتباط با ما ──
@@ -2732,6 +2768,7 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/jobs', pri: '0.7', freq: 'daily' },
     { loc: '/polymarket', pri: '0.7', freq: 'daily' },
     { loc: '/future', pri: '0.6', freq: 'daily' },
+    { loc: '/future/accuracy', pri: '0.6', freq: 'daily' },
     { loc: '/blog', pri: '0.8', freq: 'daily' },
     { loc: '/contact', pri: '0.4', freq: 'monthly' },
     { loc: '/disclaimer', pri: '0.4', freq: 'monthly' }
