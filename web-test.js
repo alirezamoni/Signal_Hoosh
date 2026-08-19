@@ -1942,6 +1942,9 @@ function adminPage(req, res, extra) {
     used:    Number(setAll.ai_calls_used || 0) || 0,
     date:    setAll.ai_budget_date || '',
     modules: AI_MODULES.map(m => Object.assign({}, m, { value: setAll[m.key] || '' })),
+    // فقط نسخه‌ی ماسک‌شده به قالب می‌رود — کلید کامل هرگز رندر نمی‌شود
+    keyMask:   require('./lib/openrouter-key').mask(),
+    keySource: require('./lib/openrouter-key').source(),
   };
 
   // فهرست کامل OpenRouter (از کش، بدون انتظار شبکه). اگر هنوز واکشی
@@ -2213,6 +2216,16 @@ app.post('/admin/ai/save', adminGuard, (req, res) => {
 
     const lim = parseInt(String(b.ai_daily_limit || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
     if (!isNaN(lim) && lim >= 0 && lim <= 1000000) settingsDB.set('ai_daily_limit', lim);
+
+    // کلید فقط وقتی جایگزین می‌شود که واقعاً چیزی وارد شده باشد؛ ارسال خالی
+    // یعنی «دست نزن»، چون فرم هیچ‌وقت کلید فعلی را داخل input نمی‌گذارد.
+    // بعد از نوشتن، دسترسی فایل تنظیمات به ۶۰۰ محدود می‌شود — این فایل حالا
+    // یک راز دارد و پیش‌فرضش برای همه خواندنی بود.
+    const rawKey = String(b.openrouter_key || '').trim();
+    if (rawKey) {
+      settingsDB.set('openrouter_key', rawKey);
+      try { fs.chmodSync(path.join(__dirname, 'data', 'settings.json'), 0o600); } catch (e) {}
+    }
 
     backFrom(req, res, 'تنظیمات هوش مصنوعی ذخیره شد و بلافاصله اعمال می‌شود.');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }

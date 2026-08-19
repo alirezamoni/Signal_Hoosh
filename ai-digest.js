@@ -8,7 +8,7 @@ const path  = require('path');
 const aiClient = require('./lib/ai-client');
 
 const DATA_DIR = path.join(__dirname, 'data');
-const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
+const orKey = require('./lib/openrouter-key');
 
 const DIGEST_FILES = {
   '4h':  path.join(DATA_DIR, 'digest_4h.json'),
@@ -139,7 +139,7 @@ async function refresh24h() {
 }
 
 function startDigestScheduler() {
-  if (!OPENROUTER_KEY) { console.log('[digest] no OPENROUTER_KEY, skipping'); return; }
+  if (!orKey.get()) { console.log('[digest] کلید OpenRouter تنظیم نشده، رد شد'); return; }
 
   // اجرای اولیه بعد از ۳۰ ثانیه
   setTimeout(() => {

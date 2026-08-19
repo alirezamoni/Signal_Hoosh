@@ -10,7 +10,7 @@ const newsDB = require('./news-db');
 const aiClient = require('./lib/ai-client');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
+const orKey = require('./lib/openrouter-key');
 
 // کانال‌های پیش‌فرض — بعداً از DB می‌خونه
 const DEFAULT_CHANNELS = [];
@@ -264,7 +264,7 @@ async function addChannel(tg_id, username, title) {
 
 // ── گزارش عصر ──────────────────────────────────────────
 async function generateDigest() {
-  if (!OPENROUTER_KEY) return;
+  if (!orKey.get()) return;
   const news = newsDB.getNewsSince(240);
   if (news.length < 3) { console.log('[news-bot] not enough news for digest'); return; }
 

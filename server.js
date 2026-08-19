@@ -486,7 +486,7 @@ let _modelsCacheTime = 0;
 async function fetchOpenRouterModels() {
   if (_modelsCache && Date.now() - _modelsCacheTime < 30*60*1000) return _modelsCache;
   return new Promise(resolve => {
-    const KEY = process.env.OPENROUTER_KEY || '';
+    const KEY = require('./lib/openrouter-key').get();
     require('https').get({
       hostname:'openrouter.ai',
       path:'/api/v1/models?output_modalities=text&sort=most-popular',

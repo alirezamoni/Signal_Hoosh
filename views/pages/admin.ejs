@@ -551,6 +551,23 @@
                     <input class="input" id="aiLimit" name="ai_daily_limit" type="number" min="0" max="1000000" value="<%= ai.limit %>" style="direction:ltr;text-align:left;">
                     <div class="hint">مجموع فراخوانی همه‌ی بخش‌ها در یک شبانه‌روز. عدد بالاتر یعنی هزینه/مصرف بیشتر.</div></div>
                 </div>
+
+                <div class="field" style="margin-top:var(--s3);">
+                  <label class="label" for="orKey">کلید API اوپن‌روتر</label>
+                  <input class="input" id="orKey" name="openrouter_key" type="password" autocomplete="new-password"
+                         placeholder="<%= ai.keyMask ? 'کلید فعلی ' + ai.keyMask + ' — برای تعویض، کلید تازه را اینجا بچسبانید' : 'sk-or-v1-…  (هیچ کلیدی ذخیره نشده)' %>"
+                         style="direction:ltr;text-align:left;">
+                  <div class="hint">
+                    <% if (ai.keySource === 'panel') { %>
+                      کلید از همین پنل خوانده می‌شود و در <code>data/settings.json</code> ذخیره است — بیرون از گیت و بیرون از کد.
+                    <% } else if (ai.keySource === 'env') { %>
+                      ⚠ کلید هنوز از فایل <code>.env</code> روی سرور خوانده می‌شود. یک کلید تازه اینجا وارد کنید تا مدیریتش کاملاً به پنل منتقل شود.
+                    <% } else { %>
+                      ⚠ هیچ کلیدی تنظیم نشده — همه‌ی بخش‌های هوش مصنوعی خاموش‌اند.
+                    <% } %>
+                    خالی بگذارید تا کلید فعلی دست‌نخورده بماند. کلید کامل هیچ‌وقت در این صفحه نمایش داده نمی‌شود و تغییرش بدون راه‌اندازی دوباره اعمال می‌شود.
+                  </div>
+                </div>
               </div>
             </section>
 
