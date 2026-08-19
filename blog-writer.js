@@ -88,9 +88,10 @@ async function generateFor(day, opts) {
   const f = facts.gather(d);
   if (!facts.isEnough(f) && !o.force) return { ok: false, reason: 'داده‌ی کافی برای این روز جمع نشده است' };
 
-  if (aiClient.isPaused()) return { ok: false, reason: 'سهمیه‌ی روزانه‌ی مدل تمام شده — بعداً دوباره تلاش کنید' };
-
+  // زنجیره اول حساب می‌شود تا isPaused بداند مدل پولی در دسترس هست یا نه؛
+  // وگرنه بسته‌شدن سهمیه‌ی رایگان جلوی مدل پولی وبلاگ را هم می‌گرفت.
   const models = aiClient.getModels('ai_model_blog');
+  if (aiClient.isPaused(models)) return { ok: false, reason: 'سهمیه‌ی روزانه‌ی مدل تمام شده — بعداً دوباره تلاش کنید' };
   const out = await aiClient.callJSON(buildPrompt(f), {
     max_tokens: 3000,
     tag: 'blog-writer',
@@ -98,7 +99,10 @@ async function generateFor(day, opts) {
     // مدل‌های رایگان گاهی JSON ناقص یا متن انگلیسی برمی‌گردانند؛ متن کوتاه به‌درد نمی‌خورد
     validate: j => j && typeof j.title === 'string' && typeof j.body === 'string' && j.body.length > 400,
   });
-  if (!out) return { ok: false, reason: 'مدل خروجی معتبری برنگرداند' };
+  if (!out) {
+    const why = aiClient.explainFailure && aiClient.explainFailure();
+    return { ok: false, reason: why || 'مدل خروجی معتبری برنگرداند' };
+  }
 
   const title = clean(out.title, 120);
   const body  = String(out.body || '').trim();
