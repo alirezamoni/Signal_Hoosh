@@ -1967,6 +1967,8 @@ function adminPage(req, res, extra) {
     rules, messages, blocked, users, chNews, chFin, ai, models, modelsMeta, freeModels, dbs, sec, goldPlatforms,
     blogPosts, blogStats,
     blogPrompt: blogWriter.getPrompt(),
+    // سقف تقویمِ فرم «ساخت پیش‌نویس» — روز آینده انتخاب‌شدنی نباشد
+    blogToday: blogWriter.tehranDay(),
     blogPromptIsDefault: !String(setAll.blog_prompt || '').trim(),
     blogHour: Number(setAll.blog_hour == null ? 23 : setAll.blog_hour),
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
@@ -2210,7 +2212,7 @@ app.post('/admin/ai/save', adminGuard, (req, res) => {
     for (const k in wanted) settingsDB.set(k, wanted[k]);
 
     const lim = parseInt(String(b.ai_daily_limit || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
-    if (!isNaN(lim) && lim >= 0 && lim <= 10000) settingsDB.set('ai_daily_limit', lim);
+    if (!isNaN(lim) && lim >= 0 && lim <= 1000000) settingsDB.set('ai_daily_limit', lim);
 
     backFrom(req, res, 'تنظیمات هوش مصنوعی ذخیره شد و بلافاصله اعمال می‌شود.');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
