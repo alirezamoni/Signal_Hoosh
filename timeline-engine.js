@@ -68,6 +68,26 @@ function applySurprise(severity, actualValue, expectedValue) {
 // ════════════════════════════════════════════════════════
 //  NEWS WAVE  (§5.1)
 // ════════════════════════════════════════════════════════
+// امضای پایدار یک خوشه‌ی خبری.
+//
+// چرا نه خود topic: کلید dedup قبلی، موضوعی بود که AI تولید می‌کرد — و AI
+// برای یک خوشه‌ی یکسان هر بار رشته‌ی کمی متفاوت می‌داد، پس dedup قابل اتکا
+// نبود. مهم‌تر اینکه برای گرفتن آن کلید، *اول* باید فراخوانی AI انجام می‌شد؛
+// یعنی هزینه پرداخت می‌شد و بعد نتیجه دور ریخته می‌شد.
+//
+// این امضا از پرتکرارترین توکن‌های خودِ خوشه ساخته می‌شود: قطعی است، به AI
+// نیازی ندارد، و با اضافه یا کم شدن چند خبر به خوشه تغییر نمی‌کند.
+function clusterSignature(cluster) {
+  const freq = {};
+  for (const it of cluster) {
+    for (const w of tokenize(it.text_fa || it.text || '')) freq[w] = (freq[w] || 0) + 1;
+  }
+  const top = Object.entries(freq)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5).map(([w]) => w).sort();
+  return top.length ? top.join('|') : null;
+}
+
 async function detectNewsWave() {
   let items;
   try { items = newsDB().getNewsSince(30); } catch (e) { return; }
@@ -94,6 +114,14 @@ async function detectNewsWave() {
     const isWave = (channels.size >= 3 && within15) || cluster.length >= 5;
     if (!isWave) continue;
 
+    // ── dedup پیش از هر هزینه‌ای ────────────────────────────────────
+    // پنجره‌ی خبرها ۳۰ دقیقه است و پنجره‌ی dedup هم ۳۰ دقیقه؛ یعنی یک موج در
+    // هر اجرای حلقه دوباره دیده می‌شود. تا پیش از این، هر بار یک فراخوانی AI
+    // خرج می‌شد و بلافاصله بعدش dedup نتیجه را دور می‌ریخت. با بازه‌ی ۶۰ ثانیه
+    // این یعنی تا ۳۰ فراخوانی برای یک موج، که ۲۹ تایش هدر بود.
+    const sig = clusterSignature(cluster);
+    if (sig && tdb.getRecentBySig('news', sig, 30)) { _waveSkipped++; continue; }
+
     // topic extraction via AI (≤5 Persian words)
     const sample = cluster.slice(0, 6).map(c => (c.text_fa || c.text || '').slice(0, 120)).join(' | ');
     let topic = null;
@@ -101,7 +129,8 @@ async function detectNewsWave() {
       const parsed = await ai.callStructured(
         `متن خبری زیر را در یک عبارت موضوعی ۵ کلمه‌ای فارسی خلاصه کن (بدون نقطه).\n${sample}\nفقط JSON: {"topic":"..."}`);
       topic = parsed?.topic || null;
-    } catch (e) {}
+      _waveAiCalls++;
+    } catch (e) { _waveAiCalls++; }
 
     // Fallback: keyword-based topic extraction when AI is unavailable (rate-limited)
     if (!topic) {
@@ -146,7 +175,7 @@ async function detectNewsWave() {
       source: 'news', node_key: 'news', event_type: 'news_wave',
       title, topic: topic || null, severity, direction: null, magnitude: cluster.length,
       surprise_score: surprise, expected_value: expectedFreq,
-      data: JSON.stringify({ count: cluster.length, channels: channels.size, sample }),
+      data: JSON.stringify({ count: cluster.length, channels: channels.size, sample, sig }),
       detected_at: nowIso(),
     });
     // touch source last_event for involved channels
@@ -633,6 +662,11 @@ function toFaNum(n) { return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹
 //  SCHEDULER
 // ════════════════════════════════════════════════════════
 let _running = false;
+// شمارنده‌ی تشخیصی: چند خوشه‌ی تکراری پیش از رسیدن به AI متوقف شدند.
+// هر واحدش یک فراخوانی سهمیه است که خرج نشده.
+let _waveSkipped = 0;
+let _waveAiCalls = 0;
+
 async function fastLoop() {
   if (_running) return;
   _running = true;
@@ -658,6 +692,9 @@ async function regimeLoop() {
 async function cascadeLoop() {
   try { await assembleCascades(); } catch (e) { console.warn('[tl-engine] cascadeLoop error:', e.message); }
 }
+
+// گزارش ساعتی مصرف: نسبت فراخوانی‌های انجام‌شده به خوشه‌های رد شده
+function waveStats() { return { aiCalls: _waveAiCalls, skipped: _waveSkipped }; }
 
 function graphLoop() {
   try { require('./timeline-graph').runDiscovery(); } catch (e) { console.warn('[tl-engine] graphLoop error:', e.message); }
@@ -691,7 +728,16 @@ function startScheduler() {
   setInterval(learnLoop, tdb.getWeight('validation_interval_min', 10) * 60 * 1000);
   setInterval(cleanupLoop, 24 * 60 * 60 * 1000);   // روزی یک‌بار، مثل بقیه‌ی دیتابیس‌ها
 
-  console.log('[tl-engine] scheduler started — fast:60s, trend:5m, regime:30m, cascade:2m, graph:30m, learn:10m');
+  // مقادیر واقعی خوانده می‌شوند، نه متن ثابت — این خط تنها جایی است که
+  // یک نفر موقع اشکال‌یابی به آن نگاه می‌کند و نباید دروغ بگوید.
+  console.log('[tl-engine] scheduler started — ' + [
+    'fast:' + tdb.getWeight('fast_loop_interval_sec', 60) + 's',
+    'trend:5m',
+    'regime:' + tdb.getWeight('regime_interval_min', 30) + 'm',
+    'cascade:' + tdb.getWeight('cascade_interval_min', 2) + 'm',
+    'graph:' + tdb.getWeight('graph_discovery_interval_min', 30) + 'm',
+    'learn:' + tdb.getWeight('validation_interval_min', 10) + 'm',
+  ].join(', '));
 }
 
 module.exports = {

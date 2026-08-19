@@ -409,6 +409,17 @@ function getLatestByNodeTopic(nodeKey, topic, minutes) {
     ORDER BY detected_at DESC LIMIT 1
   `).get(nodeKey, topic, topic, isoMinutesAgo(minutes || 30));
 }
+// خوشه‌ی خبری تکراری را با امضای پایدارش پیدا می‌کند، پیش از آنکه هزینه‌ی
+// استخراج موضوع با AI پرداخت شود. فیلتر زمانی روی ایندکس detected_at می‌نشیند،
+// پس LIKE فقط روی رویدادهای همان بازه اجرا می‌شود.
+function getRecentBySig(nodeKey, sig, minutes) {
+  if (!sig) return null;
+  return db.prepare(`
+    SELECT id, topic FROM timeline_events
+    WHERE node_key=? AND detected_at >= ? AND data LIKE ?
+    ORDER BY detected_at DESC LIMIT 1
+  `).get(nodeKey, isoMinutesAgo(minutes || 30), '%"sig":"' + sig + '"%');
+}
 function countEventsByNode(nodeKey, minutes) {
   const r = db.prepare(`
     SELECT COUNT(*) c FROM timeline_events
@@ -979,7 +990,7 @@ module.exports = {
   // decay
   decayedWeight, recomputeDecay,
   // events
-  insertEvent, getEvent, getEvents, getEventsSince, getUnlinkedEvents, getLatestByNodeTopic, countEventsByNode,
+  insertEvent, getEvent, getEvents, getEventsSince, getUnlinkedEvents, getLatestByNodeTopic, getRecentBySig, countEventsByNode,
   // source reliability
   getReliabilityForSource, getSourceReliabilityList, countSourceReliability, upsertSourceReliability, adjustSourceAccuracy,
   // edges
