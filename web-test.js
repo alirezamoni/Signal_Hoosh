@@ -780,7 +780,14 @@ app.get('/news/:id', (req, res, next) => {
     desc: txt.description(text),
     path: '/news/' + id,
     ogType: 'article',
-    image: media.first || null
+    image: media.first || null,
+    // سایت‌مپ از قبل خبرِ زیر ۳۰۰ نویسه را معرفی نمی‌کرد، ولی صفحات آرشیوِ
+    // روز به تک‌تکشان لینک می‌دهند؛ پس گوگل هر ۵۷ هزارتا را کشف می‌کرد،
+    // بودجه‌ی خزش را رویشان می‌سوزاند و آخرش ایندکس نمی‌کرد — همان انبوه
+    // «Discovered/Crawled – currently not indexed» در سرچ کنسول.
+    // حالا خودِ صفحه هم همان آستانه را اعلام می‌کند. follow می‌ماند تا
+    // مسیر خزش به خبرهای باکیفیت و صفحات دیگر قطع نشود.
+    robots: text.length < 300 ? 'noindex, follow' : null
   }, { n, headline, bodyParas: paras, media, related, fin }, {
     '@context': 'https://schema.org', '@type': 'NewsArticle',
     headline,
@@ -2843,7 +2850,9 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /admin\n' +
     'Disallow: /legacy\n' +
     'Disallow: /news/page/\n' +
-    'Disallow: /blog/page/\n\n' +
+    'Disallow: /blog/page/\n' +
+    'Disallow: /*?q=\n' +
+    'Disallow: /*&sort=\n\n' +
     'Sitemap: ' + SITE + '/sitemap.xml\n'
   );
 });
