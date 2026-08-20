@@ -2857,7 +2857,39 @@ app.get('/robots.txt', (req, res) => {
   );
 });
 
+/**
+ * تازه‌ترین زمانِ واقعیِ داده‌ی هر بخش، برای lastmod.
+ *
+ * گوگل صراحتاً changefreq و priority را نادیده می‌گیرد و تنها چیزی که از
+ * سایت‌مپ برای تصمیمِ «کِی دوباره بیایم» استفاده می‌کند lastmod است. تا حالا
+ * صفحات اصلی — یعنی همان‌هایی که ساعتی عوض می‌شوند — اصلاً lastmod نداشتند و
+ * برای گوگل هیچ نشانه‌ای از تازگی نمی‌فرستادند.
+ *
+ * ⚠️ lastmodِ نادرست از نداشتنش بدتر است: اگر گوگل ببیند تاریخ‌ها با واقعیت
+ * نمی‌خوانند، lastmod کل دامنه را برای همیشه نادیده می‌گیرد. برای همین اینجا
+ * فقط زمانِ واقعیِ آخرین رکورد هر بخش خوانده می‌شود و اگر پرس‌وجو شکست خورد
+ * هیچ lastmod ای گذاشته نمی‌شود.
+ */
+function sectionTouchedAt() {
+  const out = {};
+  const put = (key, fn) => { try { const v = fn(); if (v) { const d = new Date(v); if (!isNaN(d)) out[key] = d.toISOString(); } } catch (e) {} };
+  put('/news',    () => newsRO.prepare('SELECT MAX(published_at) v FROM news').get().v);
+  put('/trends',  () => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'trends.db'), { readonly: true }).prepare('SELECT MAX(captured_at) v FROM trend_snapshots').get().v);
+  put('/finance', () => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'finance.db'), { readonly: true }).prepare('SELECT MAX(timestamp) v FROM finance_snapshots').get().v);
+  put('/cars',    () => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'cars.db'), { readonly: true }).prepare('SELECT MAX(captured_at) v FROM car_snapshots').get().v);
+  put('/market',  () => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'market.db'), { readonly: true }).prepare('SELECT MAX(snap_date) v FROM snapshots').get().v);
+  put('/jobs',    () => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'jobs.db'), { readonly: true }).prepare('SELECT MAX(snap_date) v FROM job_snapshots').get().v);
+  put('/property',() => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'property.db'), { readonly: true }).prepare('SELECT MAX(captured_at) v FROM property_snapshots').get().v);
+  put('/blog',    () => new (require('better-sqlite3'))(path.join(__dirname, 'data', 'blog.db'), { readonly: true }).prepare("SELECT MAX(COALESCE(updated_at, published_at)) v FROM blog_posts WHERE status='published'").get().v);
+  // خانه هرچه تازه‌تر از همه — صفحه‌ی اول همه‌ی بخش‌ها را نشان می‌دهد
+  const all = Object.values(out).sort();
+  if (all.length) out['/'] = all[all.length - 1];
+  out['/news/archive'] = out['/news'];
+  return out;
+}
+
 app.get('/sitemap.xml', (req, res) => {
+  const touched = sectionTouchedAt();
   const urls = [
     { loc: '/', pri: '1.0', freq: 'hourly' },
     { loc: '/trends', pri: '0.9', freq: 'hourly' },
@@ -2890,7 +2922,8 @@ app.get('/sitemap.xml', (req, res) => {
   // صفحه‌ی هر منطقه‌ی تهران — ۲۲ صفحه‌ی مستقل و قابل ایندکس
   try {
     for (const r of propDB.getRegions()) {
-      items += `<url><loc>${SITE}/property/${r.slug}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
+      const rm = r.updated_at ? new Date(r.updated_at) : null;
+      items += `<url><loc>${SITE}/property/${r.slug}</loc>` + (rm && !isNaN(rm) ? `<lastmod>${rm.toISOString()}</lastmod>` : '') + `<changefreq>daily</changefreq><priority>0.7</priority></url>`;
     }
   } catch (e) {}
 
@@ -2929,7 +2962,7 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml').send(
     '<?xml version="1.0" encoding="UTF-8"?>' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
-    urls.map(u => `<url><loc>${SITE}${u.loc}</loc><changefreq>${u.freq}</changefreq><priority>${u.pri}</priority></url>`).join('') +
+    urls.map(u => `<url><loc>${SITE}${u.loc}</loc>` + (touched[u.loc] ? `<lastmod>${touched[u.loc]}</lastmod>` : '') + `<changefreq>${u.freq}</changefreq><priority>${u.pri}</priority></url>`).join('') +
     items + '</urlset>'
   );
 });
