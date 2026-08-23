@@ -248,7 +248,7 @@
           <section class="panel mb4">
             <div class="panel-body-flush">
               <% g.list.forEach(function (c) { %>
-              <form method="POST" action="/admin/channels/<%= c.id %>/save" class="ch-row">
+              <form method="POST" action="/admin/channels/<%= c.id %>/save" class="ch-row"<%= c.active === 0 ? ' style="opacity:.55;"' : '' %>>
                 <input type="hidden" name="kind" value="<%= g.kind %>">
                 <% if (c.photo_url) { %>
                   <img class="avatar" src="<%= c.photo_url %>" alt="<%= c.title || '' %>" width="38" height="38" loading="lazy">
@@ -264,6 +264,11 @@
                   <span style="font-size:var(--fs-xs);">ترجمه</span>
                 </label>
                 <button class="btn btn-sm btn-acc" type="submit">ذخیره</button>
+                <button class="btn btn-sm" type="submit" name="on" value="<%= c.active === 0 ? '1' : '0' %>"
+                        formaction="/admin/channels/<%= c.id %>/toggle"
+                        title="<%= c.active === 0 ? 'جمع‌آوری از این کانال را دوباره روشن کن' : 'جمع‌آوری را متوقف کن (تاریخچه می‌ماند)' %>">
+                  <%= c.active === 0 ? 'روشن کردن' : 'خاموش کردن' %>
+                </button>
                 <button class="btn btn-sm" type="submit" formaction="/admin/channels/<%= c.id %>/delete"
                         onclick="return confirm('کانال «<%= c.title || c.username %>» از فهرست جمع‌آوری حذف شود؟')">حذف</button>
               </form>

@@ -75,7 +75,11 @@ function upsertChannel(tg_id, username, title, category, photo_url, needs_transl
     ? (needs_translation ? 1 : 0)
     : (existing && existing.needs_translation != null ? existing.needs_translation : 1);
   if (existing) {
-    db.prepare('UPDATE channels SET tg_id=?,username=?,title=?,category=?,photo_url=?,needs_translation=?,active=1 WHERE id=?')
+    // ⚠️ قبلاً اینجا active=1 نوشته می‌شد. چون این تابع با هر پیام رسیده صدا
+    // زده می‌شود، هر کانالی که ادمین خاموش کرده بود با اولین خبر بعدی دوباره
+    // روشن می‌شد — یعنی دکمه‌ی خاموش‌کردن عملاً کار نمی‌کرد. همان اشتباهی که
+    // برای needs_translation هم رخ داده بود. حالا وضعیت فعال دست‌نخورده می‌ماند.
+    db.prepare('UPDATE channels SET tg_id=?,username=?,title=?,category=?,photo_url=?,needs_translation=? WHERE id=?')
       .run(tg_id, username, title, category||'خبرگزاری‌ها', photo_url||null, nt, existing.id);
     return existing.id;
   }
@@ -107,6 +111,17 @@ function deleteChannel(id) {
 
 function getChannels() {
   return db.prepare('SELECT * FROM channels WHERE active=1 ORDER BY title').all();
+}
+
+/** همه‌ی کانال‌ها، از جمله خاموش‌ها — فقط برای پنل مدیریت.
+ *  جمع‌آوری همچنان از getChannels() می‌خواند، پس خاموش یعنی واقعاً خاموش. */
+function getAllChannels() {
+  return db.prepare('SELECT * FROM channels ORDER BY active DESC, title').all();
+}
+
+/** روشن/خاموش کردن جمع‌آوری از یک کانال، بدون از دست رفتن تاریخچه‌اش */
+function setChannelActive(id, on) {
+  db.prepare('UPDATE channels SET active=? WHERE id=?').run(on ? 1 : 0, id);
 }
 
 function getChannelByTgId(tg_id) {
@@ -316,4 +331,4 @@ function deleteNews(id) {
   if (row && row.media_url) removeMediaFiles([...new Set(mediaFilesOf(row.media_url))]);
 }
 
-module.exports = { mediaFilesOf, removeMediaFiles, upsertChannel, updateChannel, deleteChannel, getChannels, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup, getNewsIdsWithBase64Media, getNewsMediaUrl, updateMediaUrl };
+module.exports = { mediaFilesOf, removeMediaFiles, upsertChannel, updateChannel, deleteChannel, getChannels, getAllChannels, setChannelActive, getChannelByTgId, saveNews, deleteNews, getLatestNews, getNewsSince, saveDigest, getLatestDigest, getNewsStats, cleanup, getNewsIdsWithBase64Media, getNewsMediaUrl, updateMediaUrl };

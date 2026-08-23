@@ -1939,7 +1939,8 @@ function adminPage(req, res, extra) {
   } catch (e) { console.warn('[admin/blog]', e.message); }
 
   let chNews = [], chFin = [];
-  try { chNews = newsDB.getChannels() || []; } catch (e) {}
+  // پنل باید خاموش‌ها را هم نشان دهد تا بشود دوباره روشنشان کرد
+  try { chNews = (newsDB.getAllChannels ? newsDB.getAllChannels() : newsDB.getChannels()) || []; } catch (e) {}
   try { chFin  = financeDB.getFinanceChannels() || []; } catch (e) {}
 
   const setAll = (() => { try { return settingsDB.getAll() || {}; } catch (e) { return {}; } })();
@@ -2158,6 +2159,22 @@ app.post('/admin/channels/:id/save', adminGuard, (req, res) => {
       needs_translation: b.needs_translation ? 1 : 0,
     });
     backFrom(req, res, 'کانال «' + String(b.title || '').trim() + '» ذخیره شد.');
+  } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
+});
+
+// روشن/خاموش کردن جمع‌آوری. جدا از «حذف» است: حذف کانال را از فهرست
+// می‌برد، این فقط جمع‌آوری را متوقف می‌کند و تاریخچه و تنظیماتش می‌ماند.
+app.post('/admin/channels/:id/toggle', adminGuard, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const on = String((req.body || {}).on || '') === '1';
+  try {
+    if ((req.body || {}).kind === 'finance') {
+      if (financeDB.setFinanceChannelActive) financeDB.setFinanceChannelActive(id, on);
+      else return backFrom(req, res, null, 'روشن/خاموش برای کانال مالی پیاده نشده است');
+    } else {
+      newsDB.setChannelActive(id, on);
+    }
+    backFrom(req, res, on ? 'جمع‌آوری از این کانال روشن شد.' : 'جمع‌آوری از این کانال خاموش شد.');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 
