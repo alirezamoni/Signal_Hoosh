@@ -2479,7 +2479,11 @@ function archiveQuery(where, params, pg) {
     ).all(...params, ARCH_PAGE, offset);
   } catch (e) { console.warn('[archive]', e.message); }
   rows.forEach(r => { r.isNew = false; r.hot = false; });
-  return { total, rows, pages: Math.max(1, Math.ceil(total / ARCH_PAGE)) };
+  const pages = Math.max(1, Math.ceil(total / ARCH_PAGE));
+  // outOfRange یعنی این شماره‌ی صفحه اصلاً وجود ندارد. صداکننده باید ۴۰۴
+  // بدهد، وگرنه ?page=45..500 روی هر منبع و هر روز، صفحه‌ی خالی با کد ۲۰۰
+  // می‌سازد: یک فضای خزش عملاً بی‌نهایت از صفحات تهی و قابل ایندکس.
+  return { total, rows, pages, outOfRange: pg > pages };
 }
 
 // ── هاب بایگانی، و جستجو ──
@@ -2547,7 +2551,7 @@ app.get('/news/archive/:date', (req, res, next) => {
   const pg = Math.max(1, Math.min(parseInt(req.query.page, 10) || 1, 500));
 
   const r = archiveQuery("COALESCE(n.blocked,0)=0 AND substr(n.published_at,1,10)=?", [date], pg);
-  if (!r.total) return next();
+  if (!r.total || r.outOfRange) return next();
 
   const days = archiveDays(null);
   const idx = days.findIndex(d => d.day === date);
@@ -2582,7 +2586,7 @@ app.get('/news/source/:username', (req, res, next) => {
   if (!ch) return next();
 
   const r = archiveQuery('COALESCE(n.blocked,0)=0 AND n.channel_id=?', [ch.id], pg);
-  if (!r.total) return next();
+  if (!r.total || r.outOfRange) return next();
 
   const name = ch.title || ch.username;
   page(res, 'archive-list', '/news', {
