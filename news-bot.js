@@ -87,29 +87,103 @@ function detectLang(text) {
 }
 
 // ── ترجمه با AI ──────────────────────────────────────────
+/**
+ * ترجمه‌ی خبر به فارسی.
+ *
+ * مسیر اول همان اندپوینت غیررسمی گوگل‌ترنسلیت است چون رایگان است. ولی
+ * غیررسمی یعنی گوگل هر وقت خواست IP را می‌بندد — و بست: از ۱ شهریور ۱۴۰۵
+ * این سرور HTTP 429 با یک صفحه‌ی HTML «Sorry...» می‌گیرد. کد قدیمی همان
+ * HTML را JSON.parse می‌کرد و با «Unexpected token '<'» می‌افتاد، برای هر
+ * خبر، بی‌آنکه مسیر دیگری داشته باشد؛ نتیجه ۳٬۷۵۳ خبر ترجمه‌نشده بود.
+ *
+ * حالا وقتی گوگل بلاک می‌کند یک قطع‌کننده برای ۳۰ دقیقه بالا می‌رود تا
+ * بی‌خود هر خبر یک درخواست شکست‌خورده نخورد، و ترجمه با مدل هوش مصنوعیِ
+ * خودمان انجام می‌شود. هزینه‌اش ناچیز است (هر خبر چند صد توکن) و کیفیت
+ * فارسی‌اش هم از gtx بهتر است.
+ */
+let _gtxBlockedUntil = 0;
+
+function _translateViaGoogle(text, fromLang) {
+  const sl = fromLang === 'ar' ? 'ar' : fromLang === 'en' ? 'en' : 'auto';
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=fa&dt=t&q=${encodeURIComponent(text.slice(0, 1000))}`;
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        // ۴۲۹/۴۰۳ یعنی بلاک شده‌ایم — این را جدا از خطای پارس می‌شناسیم تا
+        // قطع‌کننده فقط برای بلاکِ واقعی بالا برود.
+        if (res.statusCode === 429 || res.statusCode === 403) return reject(new Error('blocked:' + res.statusCode));
+        try {
+          const j = JSON.parse(d);
+          resolve(j[0].map(x => x[0]).filter(Boolean).join('') || null);
+        } catch (e) { reject(new Error('blocked:badbody')); }
+      });
+    }).on('error', reject).setTimeout(15000, function () { this.destroy(); reject(new Error('timeout')); });
+  });
+}
+
+async function _translateViaAI(text, fromLang) {
+  const src = fromLang === 'ar' ? 'عربی' : fromLang === 'en' ? 'انگلیسی' : 'زبان اصلی';
+  const out = await aiClient.callText(
+    'متن زیر را از ' + src + ' به فارسی روان و خبری ترجمه کن. فقط خودِ ترجمه را بنویس، بدون توضیح، بدون نقل‌قول و بدون تکرار متن اصلی.\n\n' + text.slice(0, 1500),
+    {
+      system: 'تو مترجم خبری فارسی هستی. خروجی‌ات فقط متن ترجمه‌شده است.',
+      max_tokens: 900,
+      tag: 'translate',
+      models: aiClient.getModels('ai_model_news'),
+    }
+  );
+  return _cleanTranslation(out);
+}
+
+/**
+ * مدل‌ها — مخصوصاً رایگان‌ها — ترجمه را لای تزئینات می‌پیچند:
+ * «**ترجمه رسمی/خبری:**» بعد متن داخل ** **. اگر خام ذخیره شود، همان
+ * ستاره‌ها روی سایت و در فید نمایش داده می‌شوند.
+ */
+function _cleanTranslation(out) {
+  if (!out) return null;
+  let t = String(out).trim();
+
+  // خط اولِ برچسب‌مانند («ترجمه:»، «**ترجمه خبری:**» و مانندش) را بردار
+  const lines = t.split('\n');
+  while (lines.length > 1) {
+    const first = lines[0].replace(/[*_#>\s]/g, '');
+    if (first === '' || (/^(ترجمه|ترجمهرسمی|ترجمهخبری|Translation)/.test(first) && /:$/.test(first))) {
+      lines.shift();
+    } else break;
+  }
+  t = lines.join('\n').trim();
+
+  t = t.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');       // بولد و سرتیتر
+  t = t.replace(/^["'«»]+|["'«»]+$/g, '').trim();           // گیومه‌ی دورتادور
+  t = t.replace(/\n{3,}/g, '\n\n');                        // خط خالی اضافه
+
+  return t.length > 3 ? t : null;
+}
+
 async function translateText(text, fromLang) {
   if (!text || text.length < 10) return null;
+
+  if (Date.now() >= _gtxBlockedUntil) {
+    try {
+      const r = await _translateViaGoogle(text, fromLang);
+      if (r) return r;
+    } catch (e) {
+      if (String(e.message).startsWith('blocked')) {
+        _gtxBlockedUntil = Date.now() + 30 * 60 * 1000;
+        console.warn('[news-bot] گوگل‌ترنسلیت بلاک کرد (' + e.message + ') — ۳۰ دقیقه با مدل هوش مصنوعی ترجمه می‌شود');
+      } else {
+        console.warn('[news-bot] translate error:', e.message);
+      }
+    }
+  }
+
   try {
-    const sl = fromLang === 'ar' ? 'ar' : fromLang === 'en' ? 'en' : 'auto';
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=fa&dt=t&q=${encodeURIComponent(text.slice(0, 1000))}`;
-    const result = await new Promise((resolve, reject) => {
-      https.get(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      }, res => {
-        let d = '';
-        res.on('data', c => d += c);
-        res.on('end', () => {
-          try {
-            const j = JSON.parse(d);
-            const translated = j[0].map(x => x[0]).filter(Boolean).join('');
-            resolve(translated || null);
-          } catch(e) { reject(e); }
-        });
-      }).on('error', reject).setTimeout(15000, function(){ this.destroy(); reject(new Error('timeout')); });
-    });
-    return result;
-  } catch(e) {
-    console.warn('[news-bot] translate error:', e.message);
+    return await _translateViaAI(text, fromLang);
+  } catch (e) {
+    console.warn('[news-bot] ترجمه با مدل هم نشد:', e.message);
     return null;
   }
 }
