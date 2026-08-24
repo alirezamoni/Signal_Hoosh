@@ -19,6 +19,7 @@ const carDB     = require('./car-db');
 const marketDB  = require('./market-db');
 const jobDB     = require('./job-db');
 const polyDB    = require('./polymarket-db');
+const simLib    = require('./lib/series-similarity');
 const trendDB   = require('./trend-db');
 const goldDB    = require('./gold-db');
 const propDB    = require('./property-db');
@@ -1040,7 +1041,16 @@ app.get('/trends/:slug', (req, res, next) => {
   });
 });
 
+// بازه‌های قابل انتخاب. سطلِ زمانی با بازه بزرگ می‌شود وگرنه نمودار ۳۰ روزه
+// ده‌ها هزار نقطه می‌شود و هم SVG سنگین می‌شود هم چیزی از آن خوانده نمی‌شود.
+const FIN_RANGES = [
+  { key: '24h', label: '۲۴ ساعت', hours: 24,  bucketMin: 15 },
+  { key: '7d',  label: '۷ روز',   hours: 168, bucketMin: 60 },
+  { key: '30d', label: '۳۰ روز',  hours: 720, bucketMin: 240 },
+];
+
 app.get('/finance', (req, res) => {
+  const range = FIN_RANGES.find(r => r.key === String(req.query.range || '')) || FIN_RANGES[0];
   let rows = [], messages = [], channels = [];
   try { rows = (financeDB.getLatest() || []).map(f => {
     // تاریخچه‌ی ۲۴ ساعته برای اسپارک‌لاین
@@ -1049,7 +1059,7 @@ app.get('/finance', (req, res) => {
       const h = financeDB.getSparkline ? financeDB.getSparkline(f.symbol) : null;
       hist = Array.isArray(h) ? h.map(x => (typeof x === 'object' ? (x.price || x.value) : x)) : [];
       if (!hist.length && financeDB.getHistory) {
-        hist = (financeDB.getHistory(f.symbol, 24) || []).map(x => x.price);
+        hist = (financeDB.getHistory(f.symbol, range.hours) || []).map(x => x.price);
       }
     } catch (e) {}
     return finRow(f, { hist: hist.filter(x => x != null) });
@@ -1077,7 +1087,16 @@ app.get('/finance', (req, res) => {
 
   // نمودار مشترک: همه‌ی پلتفرم‌ها روی یک محور تا اختلافشان دیده شود
   try {
-    const series = (goldDB.getSeries(24) || []).filter(s => s.points.length > 1);
+    const raw = (goldDB.getSeries(range.hours) || []).filter(s => s.points.length > 1);
+    // نمونه‌کاهی روی همان شبکه‌ای که تحلیل شباهت استفاده می‌کند، تا نمودار و
+    // آمار دقیقاً یک داده را ببینند.
+    const series = raw.map(s => {
+      const m = simLib.bucketize(s.points, range.bucketMin * 60 * 1000);
+      const keys = [...m.keys()].sort((a, b) => a - b);
+      return Object.assign({}, s, {
+        points: keys.map(k => ({ t: k * range.bucketMin * 60 * 1000, v: m.get(k) })),
+      });
+    }).filter(s => s.points.length > 1);
     if (series.length) {
       const all = series.flatMap(s => s.points);
       const vs = all.map(p => p.v);
@@ -1125,12 +1144,32 @@ app.get('/finance', (req, res) => {
       .filter(g => g.items.length);
   } catch (e) { console.warn('[finance/commodity]', e.message); }
 
+  // ── چه کسی شبیه چه کسی حرکت می‌کند ──
+  // همبستگی روی تغییر درصدی گرفته می‌شود، نه قیمت خام: قیمت خام همه‌ی
+  // طلافروشی‌ها تقریباً یکی است و r همیشه ~۱ درمی‌آید که چیزی نمی‌گوید.
+  let goldSim = null, finSim = null;
+  try {
+    const gs = (goldDB.getSeries(range.hours) || [])
+      .map(s => ({ key: s.slug || s.name_fa, label: s.name_fa, points: s.points }));
+    if (gs.length > 1) goldSim = simLib.compare(gs, { bucketMin: range.bucketMin });
+  } catch (e) { console.warn('[finance/sim-gold]', e.message); }
+
+  try {
+    const fs_ = (rows || []).map(r => ({
+      key: r.symbol, label: r.name || r.symbol,
+      points: (financeDB.getHistory(r.symbol, range.hours) || [])
+        .map(x => ({ t: x.timestamp, v: x.price })),
+    })).filter(s => s.points.length > 1);
+    if (fs_.length > 1) finSim = simLib.compare(fs_, { bucketMin: range.bucketMin });
+  } catch (e) { console.warn('[finance/sim-fin]', e.message); }
+
   page(res, 'finance', '/finance', {
     title: 'ترند بازارهای مالی | قیمت لحظه‌ای دلار، طلا، سکه و انس — سیگنال هوش',
     desc: 'رصد لحظه‌ای بازارهای موازی ایران: دلار آزاد، طلای ۱۸ عیار، سکه امامی و انس جهانی طلا، همراه با جریان اخبار مالی کانال‌های تلگرام.',
     path: '/finance'
   }, { rows, kpi: rows.slice(0, 4), messages, channels, goldRows, goldChart, goldUpdated, goldSpread,
-       commodityGroups, commodityStatus });
+       commodityGroups, commodityStatus,
+       range, ranges: FIN_RANGES, goldSim, finSim });
 });
 
 app.get('/cars', (req, res) => {

@@ -69,6 +69,79 @@
       </table>
     </div>
 
+    <%
+       /* «چه کسی شبیه چه کسی حرکت می‌کند» — همبستگی روی تغییر درصدی.
+          روی قیمت خام همه‌ی طلافروشی‌ها r همیشه ~۱ درمی‌آید و بی‌معناست. */
+       function simBadge(r) { return r >= 0.7 ? 'badge-up' : (r >= 0.4 ? 'badge-warn' : 'badge-flat'); }
+    %>
+    <% if (goldSim && goldSim.pairs && goldSim.pairs.length) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h3 class="panel-title">شباهت حرکت طلافروشی‌ها</h3>
+        <span class="panel-link"><%= fa(goldSim.count) %> پلتفرم · <%= fa(goldSim.pairs.length) %> جفت</span>
+      </div>
+      <blockquote class="desc desc-sm" style="margin:var(--s3) var(--pad-panel) 0;">
+        هم‌بستگی روی <strong>تغییر درصدی</strong> حساب شده، نه قیمت خام. عدد نزدیک به ۱ یعنی
+        دو پلتفرم پابه‌پای هم بالا و پایین می‌روند؛ «اختلاف سطح» می‌گوید با وجود همین
+        هم‌حرکتی، یکی چقدر گران‌تر می‌فروشد.
+      </blockquote>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>گران‌تر</th><th>هم‌حرکت با</th><th class="ta-l">شباهت</th><th class="ta-l">اختلاف سطح</th></tr></thead>
+          <tbody>
+            <% goldSim.pairs.slice(0, 10).forEach(function (p) { %>
+            <tr>
+              <td class="td-name"><%= p.aLabel %></td>
+              <td class="td-name dim"><%= p.bLabel %></td>
+              <td class="ta-l"><span class="badge <%= simBadge(p.corr) %>"><%= fa(p.corr.toFixed(2)) %></span></td>
+              <td class="ta-l"><%= p.gapPct == null ? '—' : '+' + fa(p.gapPct.toFixed(2)) + '٪' %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% if (goldSim.loners && goldSim.loners.length) { %>
+      <div class="panel-foot">
+        مستقل از بقیه:
+        <% goldSim.loners.forEach(function (l, i) { %><strong><%= l.label %></strong><%= i < goldSim.loners.length - 1 ? '، ' : '' %><% }); %>
+        — قیمت‌گذاری‌شان با هیچ پلتفرم دیگری هم‌حرکت نیست (بیشترین شباهت زیر ۰٫۳).
+      </div>
+      <% } %>
+    </section>
+    <% } %>
+
+    <% if (finSim && finSim.pairs && finSim.pairs.length) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h3 class="panel-title">شباهت حرکت بازارها</h3>
+        <span class="panel-link">بازه‌ی <%= range.label %></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>بازار</th><th>هم‌حرکت با</th><th class="ta-l">شباهت</th></tr></thead>
+          <tbody>
+            <% finSim.pairs.slice(0, 6).forEach(function (p) { %>
+            <tr>
+              <td class="td-name"><%= p.aLabel %></td>
+              <td class="td-name dim"><%= p.bLabel %></td>
+              <td class="ta-l"><span class="badge <%= simBadge(p.corr) %>"><%= fa(p.corr.toFixed(2)) %></span></td>
+            </tr>
+            <% }); %>
+            <% var neg = finSim.pairs.filter(function (p) { return p.corr < -0.1; }).slice(0, 3); %>
+            <% neg.forEach(function (p) { %>
+            <tr>
+              <td class="td-name"><%= p.aLabel %></td>
+              <td class="td-name dim"><%= p.bLabel %></td>
+              <td class="ta-l"><span class="badge badge-down"><%= fa(p.corr.toFixed(2)) %></span></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">عدد منفی یعنی خلاف جهت هم حرکت می‌کنند.</div>
+    </section>
+    <% } %>
+
     <% if (goldRows.length) { %>
     <div class="page-head between wrap">
       <h2 class="sec-title">ترند قیمت پلتفرم‌های طلا</h2>
@@ -103,11 +176,16 @@
     <% if (goldChart) { %>
     <section class="panel mb4">
       <div class="panel-head">
-        <h3 class="panel-title">روند ۲۴ ساعت گذشته</h3>
+        <h3 class="panel-title">روند <%= range.label %> گذشته</h3>
         <span class="panel-link"><%= fa(num(goldChart.vMin)) %> تا <%= fa(num(goldChart.vMax)) %> تومان</span>
       </div>
+      <div class="panel-bar">
+        <% ranges.forEach(function (r) { %>
+        <a class="filt <%= r.key === range.key ? 'on' : '' %>" href="/finance?range=<%= r.key %>#gold"><%= r.label %></a>
+        <% }); %>
+      </div>
       <div class="panel-body-pad">
-        <svg class="gold-chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="روند قیمت طلا در پلتفرم‌ها">
+        <svg id="gold" class="gold-chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="روند قیمت طلا در پلتفرم‌ها">
           <% goldChart.lines.forEach(function (l) { %>
           <polyline points="<%= l.d %>" fill="none" stroke="hsl(<%= l.hue %> 70% 55%)" stroke-width="1.6"
                     stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
