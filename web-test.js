@@ -1042,6 +1042,39 @@ app.get('/trends/:slug', (req, res, next) => {
   });
 });
 
+/**
+ * کش تحلیل شباهت، به ازای هر بازه. TTL کوتاه‌تر از دوره‌ی کرالر است تا
+ * داده هیچ‌وقت بیش از یک چرخه عقب نماند.
+ */
+const _finSimCache = new Map();
+const FIN_SIM_TTL = 4 * 60 * 1000;
+
+function getFinSim(range) {
+  const hit = _finSimCache.get(range.key);
+  if (hit && Date.now() - hit.at < FIN_SIM_TTL) return hit;
+
+  let goldSim = null, finSim = null;
+  try {
+    const gs = (goldDB.getSeries(range.hours) || [])
+      .map(s => ({ key: s.slug || s.name_fa, label: s.name_fa, points: s.points }));
+    if (gs.length > 1) goldSim = simLib.compare(gs, { bucketMin: range.bucketMin });
+  } catch (e) { console.warn('[finance/sim-gold]', e.message); }
+
+  try {
+    const syms = financeDB.getLatest() || [];
+    const fs_ = syms.map(r => ({
+      key: r.symbol, label: r.name || r.symbol,
+      points: (financeDB.getHistory(r.symbol, range.hours) || [])
+        .map(x => ({ t: x.timestamp, v: x.price })),
+    })).filter(s => s.points.length > 1);
+    if (fs_.length > 1) finSim = simLib.compare(fs_, { bucketMin: range.bucketMin });
+  } catch (e) { console.warn('[finance/sim-fin]', e.message); }
+
+  const out = { goldSim, finSim, at: Date.now() };
+  _finSimCache.set(range.key, out);
+  return out;
+}
+
 // بازه‌های قابل انتخاب. سطلِ زمانی با بازه بزرگ می‌شود وگرنه نمودار ۳۰ روزه
 // ده‌ها هزار نقطه می‌شود و هم SVG سنگین می‌شود هم چیزی از آن خوانده نمی‌شود.
 const FIN_RANGES = [
@@ -1148,21 +1181,15 @@ app.get('/finance', (req, res) => {
   // ── چه کسی شبیه چه کسی حرکت می‌کند ──
   // همبستگی روی تغییر درصدی گرفته می‌شود، نه قیمت خام: قیمت خام همه‌ی
   // طلافروشی‌ها تقریباً یکی است و r همیشه ~۱ درمی‌آید که چیزی نمی‌گوید.
-  let goldSim = null, finSim = null;
-  try {
-    const gs = (goldDB.getSeries(range.hours) || [])
-      .map(s => ({ key: s.slug || s.name_fa, label: s.name_fa, points: s.points }));
-    if (gs.length > 1) goldSim = simLib.compare(gs, { bucketMin: range.bucketMin });
-  } catch (e) { console.warn('[finance/sim-gold]', e.message); }
-
-  try {
-    const fs_ = (rows || []).map(r => ({
-      key: r.symbol, label: r.name || r.symbol,
-      points: (financeDB.getHistory(r.symbol, range.hours) || [])
-        .map(x => ({ t: x.timestamp, v: x.price })),
-    })).filter(s => s.points.length > 1);
-    if (fs_.length > 1) finSim = simLib.compare(fs_, { bucketMin: range.bucketMin });
-  } catch (e) { console.warn('[finance/sim-fin]', e.message); }
+  //
+  // ⚠️ این محاسبه سنگین است: برای بازه‌ی ۳۰ روزه باید ده‌ها هزار نقطه از دو
+  // دیتابیس خوانده، سطل‌بندی و ۵۵+۴۵ جفت همبستگی حساب شود. وقتی روی *هر
+  // درخواست* اجرا می‌شد، TTFB صفحه به ۲٫۳ ثانیه رسید — ده‌ها برابر بقیه‌ی
+  // صفحات (/property حدود ۰٫۰۱ ثانیه). چون کرالر طلا هر ~۹ دقیقه و مالی هر
+  // ~۳ دقیقه می‌نویسد، نتیجه چند دقیقه معتبر می‌ماند و کش‌کردنش هیچ تازگی‌ای
+  // را از دست نمی‌دهد.
+  const simCached = getFinSim(range);
+  const goldSim = simCached.goldSim, finSim = simCached.finSim;
 
   page(res, 'finance', '/finance', {
     title: 'ترند بازارهای مالی | قیمت لحظه‌ای دلار، طلا، سکه و انس — سیگنال هوش',
