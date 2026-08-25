@@ -20,6 +20,7 @@ const marketDB  = require('./market-db');
 const jobDB     = require('./job-db');
 const polyDB    = require('./polymarket-db');
 const simLib    = require('./lib/series-similarity');
+const statsDB   = require('./stats-db');
 const trendDB   = require('./trend-db');
 const goldDB    = require('./gold-db');
 const propDB    = require('./property-db');
@@ -301,6 +302,15 @@ app.set('views', path.join(__dirname, 'views'));
 
 // پشت nginx هستیم — بدون این، rate-limit همه‌ی کاربران را یک IP می‌بیند
 app.set('trust proxy', 1);
+
+// ⚠️ باید *قبل* از همه‌ی مسیرها بنشیند. اکسپرس به ترتیب ثبت تطبیق می‌دهد،
+// پس اگر این پایین‌تر از app.get('/') باشد، ریشه‌ی زیردامنه به صفحه‌ی خانه
+// می‌رسد و این هرگز اجرا نمی‌شود. statsPage پایین‌تر تعریف شده ولی چون
+// اعلان تابع است، موقع درخواست در دسترس است.
+app.use((req, res, next) => {
+  if (/^data\./i.test(req.hostname || '') && (req.path === '/' || req.path === '')) return statsPage(req, res);
+  next();
+});
 
 /**
  * نسخه‌گذاری فایل‌های استاتیک.
@@ -2928,8 +2938,30 @@ app.get('/property/:slug', (req, res, next) => {
   });
 });
 
+// ── صفحه‌ی آمار (زیردامنه‌ی data.) ──
+// عمداً noindex است: صفحه‌ی معرفی داخلی است، نه محتوای سایت، و نباید با
+// صفحات اصلی بر سر همان عبارت‌ها رقابت کند. bare هم هست تا نوار تب و فوتر
+// سایت نیاید — این صفحه مستقل ارائه می‌شود.
+function statsPage(req, res) {
+  let s = null;
+  try { s = statsDB.get(); } catch (e) { console.warn('[stats]', e.message); }
+  if (!s) return res.status(503).send('آمار هنوز آماده نیست');
+  page(res, 'stats', '', {
+    title: 'سیگنال هوش در یک نگاه — آمار سامانه',
+    desc: 'نمای کلی داده‌ها، جمع‌آورنده‌ها و زیرساخت سیگنال هوش.',
+    path: '/', noindex: true, bare: true
+  }, { s });
+}
+
+app.get('/stats', statsPage);
+
 // ── robots و sitemap ──
 app.get('/robots.txt', (req, res) => {
+  // زیردامنه‌ی آمار کلاً از خزش بیرون است — نه محتوای سایت است نه باید
+  // با صفحات اصلی بر سر عبارت‌ها رقابت کند.
+  if (/^data\./i.test(req.hostname || '')) {
+    return res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+  }
   res.type('text/plain').send(
     'User-agent: *\n' +
     'Allow: /\n' +

@@ -662,6 +662,7 @@ app.listen(PORT, HOST, () => {
   require('./insights-brief').startBriefScheduler(6);
   // وبلاگ — فقط پیش‌نویس می‌سازد و شبی یک فراخوانی مدل می‌برد؛ انتشار با ادمین است
   try { require('./blog-writer').startBlogScheduler(5 * 60 * 1000); } catch (e) { console.warn('[warn] blog-writer not started:', e.message); }
+  try { require('./stats-db').startStatsScheduler(); } catch (e) { console.warn('[warn] stats not started:', e.message); }
   // تحلیل همبستگی سنگین است و داده‌اش روزانه عوض می‌شود — شبی یک‌بار کافی است
   setTimeout(() => { try { require('./insights-leadlag').run(); } catch (e) { console.warn('[leadlag]', e.message); } }, 8 * 60 * 1000);
   setInterval(() => { try { require('./insights-leadlag').run(); } catch (e) { console.warn('[leadlag]', e.message); } }, 24 * 3600 * 1000);

@@ -1,0 +1,156 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <div class="page-head">
+      <h1 class="page-title">سیگنال هوش در یک نگاه</h1>
+      <p class="page-sub">
+        مانیتور خودکار بازارها و افکار عمومی ایران ·
+        عددها روزی یک‌بار از خودِ سامانه خوانده می‌شوند ·
+        آخرین بروزرسانی <%= timeAgo(s.builtAt) %>
+      </p>
+    </div>
+
+    <!-- ══════ سرفصل ══════ -->
+    <div class="grid g4 mb4">
+      <div class="kpi">
+        <div class="kpi-label">جمع‌آورنده‌ی مستقل</div>
+        <div class="kpi-val accent"><%= fa(s.totals.crawlers) %></div>
+        <div class="kpi-note">۲۴ ساعته، هر کدام یک بازار</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">نقطه‌ی داده</div>
+        <div class="kpi-val up"><%= fa(num(s.totals.points)) %></div>
+        <div class="kpi-note">همه تاریخی، نه فقط لحظه‌ای</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">خبر جمع‌آوری‌شده</div>
+        <div class="kpi-val"><%= fa(num(s.news.total)) %></div>
+        <div class="kpi-note up">▲ <%= fa(num(s.news.perDay)) %> خبر تازه در روز</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">بخش زنده</div>
+        <div class="kpi-val"><%= fa(s.totals.sections) %></div>
+        <div class="kpi-note">از ترند سرچ تا پیش‌بینی</div>
+      </div>
+    </div>
+
+    <!-- ══════ اخبار ══════ -->
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">بخش اخبار</h2>
+        <span class="panel-link">قلب سامانه</span>
+      </div>
+      <blockquote class="desc desc-sm" style="margin:var(--s3) var(--pad-panel) 0;">
+        اخبار با پروتکل <strong>MTProto</strong> و یک اکانت واقعی خوانده می‌شود، نه Bot API.
+        به همین دلیل می‌تواند کانال‌هایی را بخواند که ادمینشان نیست — کاری که با ربات تلگرام ممکن نیست.
+      </blockquote>
+      <div class="panel-body">
+        <div class="drow"><div class="drow-main"><span class="drow-name">کل خبر</span></div>
+          <div class="drow-val"><span><%= fa(num(s.news.total)) %></span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">۲۴ ساعت گذشته</span></div>
+          <div class="drow-val"><span><%= fa(num(s.news.day)) %></span><span class="badge badge-up">زنده</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">کانال فعال</span></div>
+          <div class="drow-val"><span><%= fa(s.news.channels) %></span><span class="drow-sub"><%= fa(s.news.categories) %> دسته</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">ترجمه‌شده به فارسی</span></div>
+          <div class="drow-val"><span><%= fa(num(s.news.translated)) %></span><span class="drow-sub">از <%= fa(s.news.translating) %> کانال غیرفارسی</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">همراه عکس یا ویدیو</span></div>
+          <div class="drow-val"><span><%= fa(num(s.news.media)) %></span></div></div>
+      </div>
+    </section>
+
+    <!-- ══════ جمع‌آورنده‌ها ══════ -->
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">ده جمع‌آورنده، هر کدام یک بازار</h2>
+        <span class="panel-link">همه خودکار</span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>منبع</th><th class="ta-l">دوره‌ی جمع‌آوری</th><th class="ta-l">حجم داده</th></tr></thead>
+          <tbody>
+            <% s.crawlers.forEach(function (c) { %>
+            <tr>
+              <td class="td-name"><%= c.label %></td>
+              <td class="ta-l"><span class="badge <%= c.every.indexOf('دقیقه') > 0 || c.every.indexOf('لحظه') === 0 ? 'badge-up' : 'badge-flat' %>"><%= c.every %></span></td>
+              <td class="ta-l dim"><%= fa(c.sizeMB) %> مگابایت</td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">هر جمع‌آورنده از پنل مدیریت به‌صورت دستی هم قابل اجراست.</div>
+    </section>
+
+    <!-- ══════ حجم هر بخش ══════ -->
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">داده‌ی هر بخش</h2>
+        <span class="panel-link"><%= fa(num(s.totals.points)) %> نقطه در مجموع</span>
+      </div>
+      <div class="panel-body">
+        <% var mx = s.sections[0] ? s.sections[0].rows : 1; %>
+        <% s.sections.forEach(function (x, i) { %>
+        <div class="drow">
+          <div class="drow-main">
+            <span class="drow-rank"><%= fa(i + 1) %></span>
+            <span class="drow-name"><%= x.label %></span>
+          </div>
+          <div class="drow-val" style="flex:1;justify-content:flex-end;gap:var(--s3);">
+            <span class="ppk-bar" style="flex:1;max-width:220px;">
+              <span class="ppk-fill" style="width:<%= Math.max(2, Math.round((x.rows / mx) * 100)) %>%"></span>
+            </span>
+            <span style="min-width:74px;text-align:left;"><%= fa(num(x.rows)) %></span>
+            <span class="drow-sub" style="min-width:150px;"><%= x.note %></span>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- ══════ موتور پیش‌بینی ══════ -->
+    <% if (s.engine && s.engine.length) { %>
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">موتور پیش‌بینی که خودش را نمره می‌دهد</h2>
+        <span class="panel-link"><%= fa(s.engine.length) %> جدول اختصاصی</span>
+      </div>
+      <blockquote class="desc desc-sm" style="margin:var(--s3) var(--pad-panel) 0;">
+        سامانه پیش‌بینی می‌کند، بعد <strong>خودش بررسی می‌کند درست بوده یا نه</strong>،
+        کالیبراسیونش را می‌سنجد، و تشخیص می‌دهد مدلش کِی از واقعیت فاصله گرفته است.
+        کارنامه‌ی دقت هم عمومی است — کاری که اکثر داشبوردها نمی‌کنند.
+      </blockquote>
+      <div class="panel-body-pad">
+        <div class="row wrap" style="gap:6px;">
+          <% s.engine.forEach(function (t) { %>
+          <span class="tag" style="direction:ltr;font-size:var(--fs-xs);"><%= t %></span>
+          <% }); %>
+        </div>
+      </div>
+    </section>
+    <% } %>
+
+    <!-- ══════ فنی ══════ -->
+    <section class="panel mb4">
+      <div class="panel-head"><h2 class="panel-title">زیرساخت</h2></div>
+      <div class="panel-body">
+        <div class="drow"><div class="drow-main"><span class="drow-name">رندر سمت سرور، بدون build step</span></div>
+          <div class="drow-val"><span class="drow-sub">نه وبپک، نه React — HTML آماده</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">بارگذاری صفحه</span></div>
+          <div class="drow-val"><span class="badge badge-up">زیر ۰٫۱۵ ثانیه</span><span class="drow-sub">از لبه‌ی شبکه‌ی جهانی</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">کل پایگاه داده</span></div>
+          <div class="drow-val"><span><%= fa(s.totals.diskMB) %> مگابایت</span><span class="drow-sub">روی یک سرور دوهسته‌ای</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">ترجمه‌ی خودکار</span></div>
+          <div class="drow-val"><span class="drow-sub">دو مسیره — رایگان، و اگر قطع شد مدل هوش مصنوعی</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">وبلاگ روزانه</span></div>
+          <div class="drow-val"><span class="drow-sub">از داده‌ی همان روز نوشته می‌شود</span></div></div>
+        <div class="drow"><div class="drow-main"><span class="drow-name">پنل مدیریت</span></div>
+          <div class="drow-val"><span class="drow-sub">کاربران، کانال‌ها، فیلتر محتوا، انتخاب مدل، اجرای دستی</span></div></div>
+      </div>
+    </section>
+
+    <p class="center mt4">
+      <a class="btn btn-acc" href="https://signalhoosh.site/" target="_blank" rel="noopener">مشاهده‌ی سایت ↗</a>
+    </p>
+
+  </div>
+</main>
