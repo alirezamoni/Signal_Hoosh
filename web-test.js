@@ -2973,6 +2973,17 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /blog/page/\n' +
     'Disallow: /*?q=\n' +
     'Disallow: /*&sort=\n\n' +
+    // خزنده‌های تحلیل بک‌لینک و اسکرپ تجاری. هیچ بازدیدکننده‌ای نمی‌آورند
+    // ولی ظرفیت یک سرور دوهسته‌ای را می‌خورند: در ۲۴ مرداد ~۵۰ هزار درخواست
+    // به /news/<id> خورد و همان روز نرخ خزش گوگل از ~۱۸۰۰ به ۷۲ افتاد، چون
+    // گوگل وقتی مبدأ کند می‌شود خودش عقب می‌کشد. ظرفیت باید سهم گوگل باشد.
+    'User-agent: AhrefsBot\nDisallow: /\n\n' +
+    'User-agent: SemrushBot\nDisallow: /\n\n' +
+    'User-agent: serpstatbot\nDisallow: /\n\n' +
+    'User-agent: DataForSeoBot\nDisallow: /\n\n' +
+    'User-agent: MJ12bot\nDisallow: /\n\n' +
+    'User-agent: DotBot\nDisallow: /\n\n' +
+    'User-agent: BLEXBot\nDisallow: /\n\n' +
     'Sitemap: ' + SITE + '/sitemap.xml\n'
   );
 });
