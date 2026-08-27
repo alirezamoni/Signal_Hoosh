@@ -3086,7 +3086,13 @@ app.get('/sitemap.xml', (req, res) => {
     // خبرِ کوتاه برای گوگل «محتوای نازک» است. از ۷۹ هزار خبر، حدود
     // ۲۵ هزارتا زیر ۱۲۰ نویسه‌اند؛ ایندکس شدن انبوهشان اعتبار کل دامنه
     // را پایین می‌آورد. فقط خبرهایی با متن کافی وارد سایت‌مپ می‌شوند.
-    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 AND LENGTH(COALESCE(text_fa, text)) >= 300 ORDER BY published_at DESC LIMIT 5000').all()) {
+    // سقف قبلاً ۵۰۰۰ بود، در حالی که ۲۲ هزار خبر واجد شرایط‌اند — یعنی
+    // ۱۷ هزار صفحه‌ی باکیفیت فقط از طریق خزیدن صفحات آرشیو پیدا می‌شدند که
+    // کند است. بعد از آسیبِ noindex (کامیت 96af336) بازیابی ایندکس به
+    // کشف دوباره‌ی همین صفحات وابسته است، پس معرفی مستقیمشان مهم است.
+    // سقف استاندارد سایت‌مپ ۵۰٬۰۰۰ آدرس / ۵۰ مگابایت است و با ۲۵ هزار آدرس
+    // و چند مگابایت، فاصله‌ی زیادی تا آن داریم.
+    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 AND LENGTH(COALESCE(text_fa, text)) >= 300 ORDER BY published_at DESC LIMIT 40000').all()) {
       items += `<url><loc>${SITE}/news/${r.id}</loc><lastmod>${new Date(r.published_at).toISOString()}</lastmod><changefreq>never</changefreq><priority>0.6</priority></url>`;
     }
   } catch (e) {}
