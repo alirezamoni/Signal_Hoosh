@@ -34,6 +34,8 @@ const tlBacktest = require('./timeline-backtest');
 const blogDB     = require('./blog-db');
 const blogWriter = require('./blog-writer');
 const mdown      = require('./lib/markdown');
+const blogFacts  = require('./blog-facts');
+const imageGen   = require('./lib/image-gen');
 const txt       = require('./lib/clean-text');
 const spam      = require('./lib/spam-filter');
 const auth      = require('./auth');
@@ -41,6 +43,7 @@ const db        = require('./db');
 const settingsDB = require('./settings-db');
 const aiClient   = require('./lib/ai-client');
 const orModels   = require('./lib/openrouter-models');
+const orImages   = require('./lib/openrouter-images');
 const cookieParser = require('cookie-parser');
 
 const app  = express();
@@ -2030,7 +2033,11 @@ function adminPage(req, res, extra) {
     // فقط نسخه‌ی ماسک‌شده به قالب می‌رود — کلید کامل هرگز رندر نمی‌شود
     keyMask:   require('./lib/openrouter-key').mask(),
     keySource: require('./lib/openrouter-key').source(),
+    // مدل تصویر از فهرست جداگانه‌ای می‌آید — lib/openrouter-images.js را ببینید
+    imageModel: setAll.ai_model_image || imageGen.DEFAULT_MODEL,
   };
+  const imgCache = orImages.list();
+  const imageModels = imgCache.models;
 
   // فهرست کامل OpenRouter (از کش، بدون انتظار شبکه). اگر هنوز واکشی
   // نشده باشد، دست‌کم مدل‌های پشتیبانِ خودِ برنامه نشان داده می‌شوند.
@@ -2058,7 +2065,12 @@ function adminPage(req, res, extra) {
     // سقف تقویمِ فرم «ساخت پیش‌نویس» — روز آینده انتخاب‌شدنی نباشد
     blogToday: blogWriter.tehranDay(),
     blogPromptIsDefault: !String(setAll.blog_prompt || '').trim(),
-    blogHour: Number(setAll.blog_hour == null ? 23 : setAll.blog_hour),
+    blogImagePrompt: blogWriter.getImagePrompt(),
+    blogImagePromptIsDefault: !String(setAll.blog_image_prompt || '').trim(),
+    blogHourMorning: blogWriter.slotHour('morning'),
+    blogHourEvening: blogWriter.slotHour('evening'),
+    imageModels,
+    imageModelsMeta: { fetchedAt: imgCache.fetchedAt, total: imageModels.length, cached: !!imgCache.fetchedAt },
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
     COMMODITY_MIN: commodityCrawler.MIN_INTERVAL_MIN, COMMODITY_MAX: commodityCrawler.MAX_INTERVAL_MIN,
     sys: systemInfo(dbs),
@@ -2312,6 +2324,12 @@ app.post('/admin/ai/save', adminGuard, (req, res) => {
       if (!v) { wanted[m.key] = ''; continue; }
       if (orModels.isKnown(v)) wanted[m.key] = v; else bad.push(v);
     }
+    // ⚠️ مدل تصویر عمداً با orImages سنجیده می‌شود نه orModels: مدل‌های
+    // تصویرساز اصلاً در فهرست مدل‌های چت نیستند و orModels.isKnown آن‌ها را
+    // رد می‌کرد. (sourceful/riverflow-v2.5-pro کار می‌کند ولی آنجا نیست.)
+    const img = String(b.ai_model_image || '').trim();
+    if (img) { if (orImages.isKnown(img)) wanted.ai_model_image = img; else bad.push(img + ' (مدل تصویر)'); }
+
     if (bad.length) return backFrom(req, res, null, 'این شناسه‌ها در فهرست OpenRouter نیستند: ' + bad.join('، '));
     for (const k in wanted) settingsDB.set(k, wanted[k]);
 
@@ -2335,8 +2353,11 @@ app.post('/admin/ai/save', adminGuard, (req, res) => {
 app.post('/admin/ai/refresh-models', adminGuard, async (req, res) => {
   try {
     const d = await orModels.refresh();
-    backFrom(req, res, 'فهرست مدل‌ها تازه شد — ' + d.models.length + ' مدل، ' +
-      d.models.filter(m => m.free).length + ' مورد رایگان.');
+    let imgN = 0;
+    try { imgN = (await orImages.refresh()).models.length; } catch (e) { console.warn('[or-images]', e.message); }
+    backFrom(req, res, 'فهرست مدل‌ها تازه شد — ' + d.models.length + ' مدل متنی، ' +
+      d.models.filter(m => m.free).length + ' مورد رایگان' +
+      (imgN ? '، و ' + imgN + ' مدل تصویر.' : '.'));
   } catch (e) { backFrom(req, res, null, 'واکشی فهرست ناموفق بود: ' + e.message); }
 });
 
@@ -2438,6 +2459,27 @@ app.post('/admin/blog/:id/publish', adminGuard, (req, res) => {
   } catch (e) { backToPost(res, id, null, 'خطا: ' + e.message); }
 });
 
+app.post('/admin/blog/:id/regen-cover', adminGuard, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const p = blogDB.byId(id);
+    if (!p) return backToPost(res, id, null, 'نوشته پیدا نشد');
+
+    const win = p.slot ? blogWriter.slotWindow(p.day, p.slot) : null;
+    const f = blogFacts.gather(p.day || blogWriter.tehranDay(), win);
+    const old = p.cover;
+
+    const r = await blogWriter.makeCover(id, f, p.title);
+    if (!r.ok) return backToPost(res, id, null, 'عکس ساخته نشد: ' + r.reason);
+
+    // عکس قبلی همان نوشته دیگر به‌کار نمی‌آید
+    if (old && old.indexOf('/blog-media/') === 0) {
+      try { fs.unlinkSync(path.join(BLOG_MEDIA_DIR, path.basename(old))); } catch (e) {}
+    }
+    backToPost(res, id, 'عکس تازه ساخته شد' + (r.cost ? ' — هزینه ' + r.cost.toFixed(3) + ' دلار' : ''));
+  } catch (e) { backToPost(res, id, null, 'خطا: ' + e.message); }
+});
+
 app.post('/admin/blog/:id/unpublish', adminGuard, (req, res) => {
   const id = parseInt(req.params.id, 10);
   try { blogDB.setStatus(id, 'draft'); backToPost(res, id, 'به پیش‌نویس برگشت'); }
@@ -2461,9 +2503,15 @@ app.post('/admin/blog/generate', adminGuard, async (req, res) => {
     const day = String((req.body && req.body.day) || '').trim() || blogWriter.tehranDay();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return backFrom(req, res, null, 'تاریخ نامعتبر است');
     const force = !!(req.body && req.body.force);
-    const r = await blogWriter.generateFor(day, { force });
-    if (r.ok) backFrom(req, res, (r.replaced ? 'پیش‌نویس بازنویسی شد' : 'پیش‌نویس ساخته شد') + ' — برای بررسی بازش کنید');
-    else backFrom(req, res, null, r.reason || 'ساخته نشد');
+    const slot = String((req.body && req.body.slot) || '').trim() || undefined;
+    const skipImage = !!(req.body && req.body.skip_image);
+    const r = await blogWriter.generateFor(day, { force, slot, skipImage });
+    if (!r.ok) return backFrom(req, res, null, r.reason || 'ساخته نشد');
+    const lbl = (blogWriter.SLOTS[r.slot] || {}).label || r.slot;
+    let msg = (r.replaced ? 'مطلب نوبت ' + lbl + ' بازنویسی و منتشر شد' : 'مطلب نوبت ' + lbl + ' منتشر شد') + ' — /blog/' + r.slug;
+    if (r.cover) msg += ' (عکس ساخته شد)';
+    else if (r.coverErr) msg += ' — ولی عکس ساخته نشد: ' + r.coverErr;
+    backFrom(req, res, msg);
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 
@@ -2473,9 +2521,19 @@ app.post('/admin/blog/settings', adminGuard, express.urlencoded({ extended: fals
     const prompt = String(b.blog_prompt || '').trim();
     // خالی گذاشتن یعنی «برگرد به پرامپت پیش‌فرض»
     settingsDB.set('blog_prompt', prompt);
-    const h = parseInt(String(b.blog_hour || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
-    if (!isNaN(h) && h >= 0 && h <= 23) settingsDB.set('blog_hour', h);
-    backFrom(req, res, prompt ? 'تنظیمات وبلاگ ذخیره شد' : 'پرامپت به حالت پیش‌فرض برگشت');
+    settingsDB.set('blog_image_prompt', String(b.blog_image_prompt || '').trim());
+
+    const hour = v => parseInt(String(v || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
+    const hm = hour(b.blog_hour_morning), he = hour(b.blog_hour_evening);
+    if (isNaN(hm) || isNaN(he) || hm < 0 || hm > 23 || he < 0 || he > 23) {
+      return backFrom(req, res, null, 'ساعت‌ها باید عددی بین ۰ تا ۲۳ باشند');
+    }
+    // نوبت شب باید بعد از نوبت صبح باشد، وگرنه بازه‌ی داده‌ها منفی می‌شود
+    if (he <= hm) return backFrom(req, res, null, 'ساعت نوبت شب باید بزرگ‌تر از ساعت نوبت صبح باشد');
+    settingsDB.set('blog_hour_morning', hm);
+    settingsDB.set('blog_hour_evening', he);
+
+    backFrom(req, res, 'تنظیمات وبلاگ ذخیره شد — انتشار روزانه ساعت ' + hm + ' و ' + he + ' به وقت تهران');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 

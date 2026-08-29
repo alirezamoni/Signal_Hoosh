@@ -39,6 +39,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_blog_day    ON blog_posts(day);
 `);
 
+// ── مهاجرت: از یک مطلب در روز به دو مطلب در روز ──────────────
+// تا پیش از این، «روز» کلید یکتای مطلب بود. حالا هر روز دو نوبت دارد
+// (صبح و شب) و هر نوبت بازه‌ی داده‌ی خودش را دارد، پس روز به‌تنهایی دیگر
+// کافی نیست. ستون‌ها با ALTER اضافه می‌شوند تا ۱۲ مطلب موجود دست‌نخورده
+// بمانند؛ آن‌ها slot خالی می‌گیرند و در منطق نوبت‌ها شرکت نمی‌کنند.
+{
+  const have = db.prepare("SELECT name FROM pragma_table_info('blog_posts')").all().map(c => c.name);
+  const add = (col, decl) => { if (!have.includes(col)) db.exec(`ALTER TABLE blog_posts ADD COLUMN ${col} ${decl}`); };
+  add('slot',     'TEXT');   // morning | evening | NULL برای مطالب قدیمی
+  add('win_from', 'TEXT');   // ابتدای بازه‌ی داده (ISO/UTC)
+  add('win_to',   'TEXT');   // انتهای بازه‌ی داده (ISO/UTC)
+  add('cover_cost', 'REAL'); // هزینه‌ی دلاری تولید عکس، برای ردیابی مصرف
+  db.exec('CREATE INDEX IF NOT EXISTS idx_blog_day_slot ON blog_posts(day, slot)');
+}
+
 // ── ساخت نامک (slug) ───────────────────────────────────────
 // گوگل نامک فارسی را بی‌مشکل ایندکس می‌کند و برای کاربر فارسی‌زبان هم
 // خواناتر از حروف‌نگاری لاتین است. فقط باید از نویسه‌های خطرناکِ مسیر پاک شود.
@@ -67,11 +82,12 @@ function create(p) {
   const slug = uniqueSlug(p.slug || p.title, null);
   const info = db.prepare(`
     INSERT INTO blog_posts
-      (slug, day, title, excerpt, body, cover, cover_alt, meta_title, meta_desc,
-       keywords, status, ai_model, created_at, updated_at, published_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      (slug, day, slot, win_from, win_to, title, excerpt, body, cover, cover_alt,
+       meta_title, meta_desc, keywords, status, ai_model, created_at, updated_at, published_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
-    slug, p.day || null, p.title, p.excerpt || null, p.body,
+    slug, p.day || null, p.slot || null, p.win_from || null, p.win_to || null,
+    p.title, p.excerpt || null, p.body,
     p.cover || null, p.cover_alt || null, p.meta_title || null, p.meta_desc || null,
     p.keywords || null, p.status || 'draft', p.ai_model || null, now, now,
     p.status === 'published' ? now : null
@@ -141,6 +157,21 @@ function listAll(limit = 60) {
 function existsForDay(day) {
   return db.prepare('SELECT * FROM blog_posts WHERE day=?').get(String(day || '')) || null;
 }
+/**
+ * آیا مطلبِ این نوبتِ این روز از قبل ساخته شده؟
+ * جای existsForDay را در زمان‌بند می‌گیرد: حالا روز دو نوبت دارد و
+ * وجودِ مطلب صبح نباید جلوی ساخته‌شدن مطلب شب را بگیرد.
+ */
+function existsForSlot(day, slot) {
+  return db.prepare('SELECT * FROM blog_posts WHERE day=? AND slot=?')
+           .get(String(day || ''), String(slot || '')) || null;
+}
+/** ثبت عکسِ تولیدشده. جدا از update() چون بعد از ساخت مطلب اجرا می‌شود. */
+function setCover(id, cover, alt, cost) {
+  db.prepare('UPDATE blog_posts SET cover=?, cover_alt=?, cover_cost=?, updated_at=? WHERE id=?')
+    .run(cover || null, alt || null, cost == null ? null : Number(cost), new Date().toISOString(), id);
+  return byId(id);
+}
 function stats() {
   return db.prepare(`SELECT
       COUNT(*) total,
@@ -159,6 +190,6 @@ function related(excludeId, limit = 3) {
 module.exports = {
   create, update, setStatus, remove,
   byId, bySlug, publishedBySlug, listPublished, countPublished, listAll,
-  existsForDay, stats, related, slugify, uniqueSlug,
+  existsForDay, existsForSlot, setCover, stats, related, slugify, uniqueSlug,
   _db: db,
 };

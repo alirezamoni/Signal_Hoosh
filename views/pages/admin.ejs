@@ -288,9 +288,12 @@
           </div>
 
           <blockquote class="desc desc-sm">
-            هر شب پس از ساعت <%= fa(blogHour) %> به وقت تهران، داده‌های مهم همه‌ی تب‌های همان روز به مدل داده می‌شود
-            و یک <strong>پیش‌نویس</strong> ساخته می‌شود. هیچ متنی خودکار منتشر نمی‌شود؛ شما آن را می‌خوانید،
-            در صورت نیاز اصلاح می‌کنید، عکس شاخص را اضافه می‌کنید و بعد منتشر می‌شود.
+            روزی <strong>دو مطلب</strong> خودکار نوشته و <strong>بی‌درنگ منتشر</strong> می‌شود — ساعت
+            <%= fa(blogHourMorning) %> و <%= fa(blogHourEvening) %> به وقت تهران. هر مطلب فقط داده‌های
+            <em>فاصله‌ی بین دو انتشار</em> را می‌بیند: نوبت صبح از ساعت <%= fa(blogHourEvening) %> دیشب تا
+            <%= fa(blogHourMorning) %> صبح، و نوبت شب از <%= fa(blogHourMorning) %> صبح تا <%= fa(blogHourEvening) %> شب.
+            عکس شاخص هم خودکار با مدل تصویر ساخته می‌شود؛ آپلود دستی لازم نیست.
+            اگر ساخت عکس شکست بخورد مطلب باز هم منتشر می‌شود و می‌توانید از صفحه‌ی ویرایش، عکس را دوباره بسازید.
             وبلاگ در تب‌های بالای سایت نیست و فقط از فوتر لینک دارد، ولی در سایت‌مپ و فید هست تا گوگل پیدایش کند.
           </blockquote>
 
@@ -302,14 +305,27 @@
                   <span class="label">تاریخِ داده‌ها (خالی = امروز)</span>
                   <input class="input" type="date" name="day" max="<%= blogToday %>" style="width:190px;direction:ltr;">
                 </label>
+                <label class="field" style="margin-bottom:0;">
+                  <span class="label">نوبت</span>
+                  <select class="input" name="slot" style="width:150px;">
+                    <option value="">نوبتِ جاری</option>
+                    <option value="morning">صبح (<%= fa(blogHourMorning) %>)</option>
+                    <option value="evening">شب (<%= fa(blogHourEvening) %>)</option>
+                  </select>
+                </label>
                 <label class="row" style="gap:6px;align-items:center;margin-bottom:0;">
                   <input type="checkbox" name="force" value="1">
-                  <span class="hint">اگر برای آن روز نوشته‌ای هست، بازنویسی شود</span>
+                  <span class="hint">اگر برای آن نوبت نوشته‌ای هست، بازنویسی شود</span>
                 </label>
-                <button class="btn btn-acc" type="submit">ساخت پیش‌نویس</button>
+                <label class="row" style="gap:6px;align-items:center;margin-bottom:0;">
+                  <input type="checkbox" name="skip_image" value="1">
+                  <span class="hint">بدون عکس (سریع‌تر و رایگان)</span>
+                </label>
+                <button class="btn btn-acc" type="submit">نوشتن و انتشار</button>
               </form>
               <div class="hint" style="margin-top:8px;">
-                ساخت متن چند ثانیه طول می‌کشد و یک فراخوانی از سهمیه‌ی روزانه‌ی مدل مصرف می‌کند.
+                ⏱ متن چند ثانیه و عکس حدود <strong>۲ دقیقه</strong> طول می‌کشد؛ تا پایان کار صفحه منتظر می‌ماند.
+                هر عکس حدود <strong>۰٫۱۵ دلار</strong> هزینه دارد. مطلب بلافاصله روی سایت منتشر می‌شود.
               </div>
             </div>
           </section>
@@ -317,7 +333,7 @@
           <section class="panel mb4">
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>عنوان</th><th class="ta-l">وضعیت</th><th class="ta-l">داده‌ها</th><th class="ta-l">حجم</th><th class="ta-l">عکس</th><th class="ta-l"></th></tr></thead>
+                <thead><tr><th>عنوان</th><th class="ta-l">وضعیت</th><th class="ta-l">نوبت</th><th class="ta-l">داده‌ها</th><th class="ta-l">حجم</th><th class="ta-l">عکس</th><th class="ta-l"></th></tr></thead>
                 <tbody>
                   <% blogPosts.forEach(function (p) { %>
                   <tr>
@@ -330,6 +346,7 @@
                         <%= p.status === 'published' ? 'منتشرشده' : 'پیش‌نویس' %>
                       </span>
                     </td>
+                    <td class="ta-l"><%= p.slot === 'morning' ? 'صبح' : (p.slot === 'evening' ? 'شب' : '—') %></td>
                     <td class="ta-l"><%= p.day ? faDay(p.day) : '—' %></td>
                     <td class="ta-l"><%= fa(p.words) %> کلمه</td>
                     <td class="ta-l"><%= p.cover ? '✓' : '—' %></td>
@@ -337,7 +354,7 @@
                   </tr>
                   <% }); %>
                   <% if (!blogPosts.length) { %>
-                  <tr><td colspan="6" class="dim center">هنوز نوشته‌ای ساخته نشده. با «ساخت دستی» بالا شروع کنید.</td></tr>
+                  <tr><td colspan="7" class="dim center">هنوز نوشته‌ای ساخته نشده. با «ساخت دستی» بالا شروع کنید.</td></tr>
                   <% } %>
                 </tbody>
               </table>
@@ -348,10 +365,20 @@
             <div class="panel-head"><h3 class="panel-title">پرامپت و زمان‌بندی</h3></div>
             <div class="panel-body-pad">
               <form method="POST" action="/admin/blog/settings">
-                <label class="field">
-                  <span class="label">ساعت نوشتن (به وقت تهران) — پس از این ساعت، مطلب آن روز ساخته می‌شود</span>
-                  <input class="input" type="number" name="blog_hour" min="0" max="23" value="<%= blogHour %>" style="width:110px;">
-                </label>
+                <div class="grid g2">
+                  <label class="field">
+                    <span class="label">ساعت نوبت صبح (به وقت تهران)</span>
+                    <input class="input" type="number" name="blog_hour_morning" min="0" max="23" value="<%= blogHourMorning %>" style="width:110px;">
+                  </label>
+                  <label class="field">
+                    <span class="label">ساعت نوبت شب (به وقت تهران)</span>
+                    <input class="input" type="number" name="blog_hour_evening" min="0" max="23" value="<%= blogHourEvening %>" style="width:110px;">
+                  </label>
+                </div>
+                <div class="hint" style="margin-bottom:var(--s3);">
+                  ساعت شب باید بزرگ‌تر از ساعت صبح باشد. فاصله‌ی بین این دو ساعت، دقیقاً همان بازه‌ای است
+                  که مطلب بعدی به داده‌هایش استناد می‌کند.
+                </div>
 
                 <label class="field">
                   <span class="label">
@@ -368,8 +395,29 @@
                     پرامپت سفارشی فعال است. برای برگشتن به پیش‌فرض، کادر را خالی کنید و ذخیره بزنید.
                   <% } %>
                 </div>
+                <label class="field">
+                  <span class="label">
+                    پرامپت ساخت عکس — <code>{{DATA}}</code> جای داده‌های فشرده‌ی بازه و
+                    <code>{{TITLE}}</code> جای عنوان مطلب را می‌گیرد.
+                  </span>
+                  <textarea class="input blog-editor" name="blog_image_prompt" rows="16"><%= blogImagePromptIsDefault ? '' : blogImagePrompt %></textarea>
+                </label>
+                <div class="hint" style="margin-bottom:var(--s3);">
+                  <% if (blogImagePromptIsDefault) { %>
+                    الان پرامپت تصویرِ پیش‌فرض استفاده می‌شود. برای برگشتن به پیش‌فرض، کادر را خالی کنید و ذخیره بزنید.
+                  <% } else { %>
+                    پرامپت تصویرِ سفارشی فعال است. برای برگشتن به پیش‌فرض، کادر را خالی کنید و ذخیره بزنید.
+                  <% } %>
+                  مدل تصویر در تب «هوش مصنوعی» انتخاب می‌شود.
+                </div>
                 <button class="btn btn-acc" type="submit">ذخیره‌ی تنظیمات وبلاگ</button>
               </form>
+              <% if (blogImagePromptIsDefault) { %>
+              <details class="sm-more" style="margin-top:var(--s4);">
+                <summary><span class="sm-more-open">دیدن پرامپت تصویرِ پیش‌فرض</span><span class="sm-more-close">بستن</span></summary>
+                <pre class="blog-prompt-view"><%= blogImagePrompt %></pre>
+              </details>
+              <% } %>
 
               <% if (blogPromptIsDefault) { %>
               <details class="sm-more" style="margin-top:var(--s4);">
@@ -595,6 +643,35 @@
                 <% }); %>
               </div>
               <div class="panel-foot">تغییر مدل بلافاصله اعمال می‌شود — نیازی به راه‌اندازی دوباره‌ی سرویس نیست.</div>
+            </section>
+
+            <section class="panel mb4">
+              <div class="panel-head">
+                <h3 class="panel-title">مدل ساخت تصویر</h3>
+                <span class="panel-link"><%= fa(imageModelsMeta.total) %> مدل</span>
+              </div>
+              <div class="panel-body-pad">
+                <datalist id="orImageModelsList">
+                  <% imageModels.forEach(function (m) { %>
+                  <option value="<%= m.id %>"><%= m.perImage ? '≈ ' + m.perImage + '$ هر تصویر' : m.name %></option>
+                  <% }); %>
+                </datalist>
+                <div class="field">
+                  <label class="label" for="aiImage">مدلی که عکس شاخص وبلاگ را می‌سازد</label>
+                  <input class="input" id="aiImage" name="ai_model_image" list="orImageModelsList"
+                         value="<%= ai.imageModel %>" style="direction:ltr;text-align:left;" autocomplete="off">
+                  <div class="hint">
+                    این فهرست جدا از مدل‌های متنی است و از اندپوینت مخصوص تصویرِ اوپن‌روتر می‌آید —
+                    مدل‌های تصویرساز اصلاً در فهرست مدل‌های چت نیستند.
+                    <% if (!imageModelsMeta.cached) { %>
+                      ⚠ فهرست هنوز واکشی نشده؛ فعلاً چند مدل تأییدشده نشان داده می‌شود.
+                      «تازه‌سازی فهرست مدل‌ها» را بزنید.
+                    <% } %>
+                    <br>هر تصویر هزینه دارد (مدل پیش‌فرض ≈ ۰٫۱۵ دلار) و با ۲ مطلب در روز
+                    ماهانه حدود ۹ دلار می‌شود. مدل‌های <code>-fast</code> ارزان‌ترند.
+                  </div>
+                </div>
+              </div>
             </section>
 
             <div class="row wrap" style="gap:var(--s2);">

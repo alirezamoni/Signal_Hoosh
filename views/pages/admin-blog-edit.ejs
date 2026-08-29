@@ -51,9 +51,17 @@
             <% } %>
           </div>
           <div>
+            <form method="POST" action="/admin/blog/<%= post.id %>/regen-cover" style="display:inline;"
+                  onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='در حال ساخت… (تا ۲ دقیقه)';">
+              <button class="btn btn-acc" type="submit">ساخت عکس با هوش مصنوعی</button>
+            </form>
             <input type="file" id="coverFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-            <button type="button" class="btn btn-acc" id="coverBtn">انتخاب عکس از رایانه</button>
-            <div class="hint" style="margin-top:8px;">JPG، PNG، WebP یا GIF — حداکثر ۴ مگابایت. اندازه‌ی پیشنهادی ۱۲۰۰×۶۳۰.</div>
+            <button type="button" class="btn" id="coverBtn">آپلود دستی از رایانه</button>
+            <div class="hint" style="margin-top:8px;">
+              ساخت با هوش مصنوعی حدود <strong>۲ دقیقه</strong> طول می‌کشد و ≈۰٫۱۵ دلار هزینه دارد؛
+              تا پایان کار صفحه منتظر می‌ماند. عکس قبلی جایگزین می‌شود.
+              <br>آپلود دستی: JPG، PNG، WebP یا GIF — حداکثر ۴ مگابایت. اندازه‌ی پیشنهادی ۱۲۰۰×۶۳۰.
+            </div>
             <div id="coverMsg" class="hint"></div>
           </div>
         </div>

@@ -17,6 +17,24 @@ const open = n => { try { return new Database(path.join(__dirname, 'data', n), {
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 /**
+ * مرزهای بازه باید دقیقاً هم‌قالبِ چیزی باشند که در جدول ذخیره شده، وگرنه
+ * مقایسه‌ی رشته‌ای در SQLite بی‌صدا یک ثانیه این‌ور و آن‌ور می‌شود.
+ * news.published_at به شکل «2026-08-29T05:54:48+00:00» است — یعنی افست
+ * صریح، نه Z. با همین قالب، مقایسه دقیق است و ایندکس idx_news_published
+ * هم استفاده می‌شود (برخلاف datetime() که ایندکس را از کار می‌اندازد).
+ */
+function newsStamp(iso) {
+  return new Date(iso).toISOString().replace(/\.\d{3}Z$/, '+00:00');
+}
+
+/** بازه را به شکل {from,to} استاندارد می‌کند؛ نبودِ بازه یعنی «کل آن روز». */
+function normWindow(day, win) {
+  if (win && win.from && win.to) return { from: win.from, to: win.to };
+  const d = day || todayStr();
+  return { from: d + 'T00:00:00.000Z', to: d + 'T23:59:59.999Z' };
+}
+
+/**
  * خبرهای مهم امروز.
  *
  * جدول news نه ستون بازدید دارد نه دسته، پس «مهم» را باید تخمین زد. طولِ متن
@@ -24,19 +42,20 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
  * بلندترین‌های روز برداشته می‌شوند و بعد به ترتیب زمانی مرتب می‌شوند تا مدل
  * روایت روز را از صبح تا شب ببیند، نه فقط ساعت آخر را.
  */
-function topNews(day, limit = 12) {
+function topNews(day, limit = 12, win) {
   const nw = open('news.db');
   if (!nw) return [];
+  const w = normWindow(day, win);
   let rows = [];
   try {
     rows = nw.prepare(`
       SELECT n.id, n.text, n.text_fa, n.published_at, c.title channel_title
       FROM news n LEFT JOIN channels c ON c.id = n.channel_id
-      WHERE substr(n.published_at,1,10)=? AND COALESCE(n.blocked,0)=0
+      WHERE n.published_at >= ? AND n.published_at < ? AND COALESCE(n.blocked,0)=0
         AND LENGTH(COALESCE(n.text_fa, n.text)) >= 160
       ORDER BY LENGTH(COALESCE(n.text_fa, n.text)) DESC
       LIMIT ?
-    `).all(day, limit);
+    `).all(newsStamp(w.from), newsStamp(w.to), limit);
     rows.sort((a, b) => String(a.published_at).localeCompare(String(b.published_at)));
   } catch (e) { console.warn('[blog-facts/news]', e.message); }
   nw.close();
@@ -80,15 +99,19 @@ function trendMoves(day) {
 }
 
 /** کالای جهانی — بزرگ‌ترین حرکت‌های روز */
-function commodities() {
+function commodities(win) {
   const cdb = open('commodity.db');
   if (!cdb) return [];
   let rows = [];
   try {
+    // captured_at اینجا قالب Z دارد (نه افست صریحِ جدول اخبار)، پس
+    // toISOString مستقیم درست است.
+    const from = win && win.from ? new Date(win.from).toISOString()
+                                 : new Date(Date.now() - 864e5).toISOString();
     const recent = cdb.prepare(`
       SELECT slug, name_en, category, unit, price, change_pct, captured_at
-      FROM commodity_snapshots WHERE captured_at >= datetime('now','-1 day') ORDER BY captured_at
-    `).all();
+      FROM commodity_snapshots WHERE captured_at >= ? ORDER BY captured_at
+    `).all(from);
     const last = new Map();
     for (const r of recent) last.set(r.slug, r);
     rows = [...last.values()]
@@ -138,21 +161,27 @@ function goldPlatforms() {
 }
 
 /** همه‌ی داده‌های روز، یک‌جا */
-function gather(day) {
+function gather(day, win) {
   const d = day || todayStr();
+  const w = normWindow(d, win);
   let base = {};
   try { base = require('./insights-brief').gatherFacts() || {}; } catch (e) { console.warn('[blog-facts/base]', e.message); }
+  // ترندهای جستجو عکس‌برداریِ روزانه‌اند و بازه‌ی ساعتی برایشان معنا ندارد،
+  // پس عمداً روی کل روز می‌مانند.
   const tm = trendMoves(d);
   return {
     day: d,
+    window: w,
+    slot: (win && win.slot) || null,
+    slotLabel: (win && win.slotLabel) || null,
     markets: base.markets || [],
     property: base.property || null,
     cars: base.cars || [],
     jobs: base.jobs || null,
     newsVolume: base.news || null,
     trends: tm,
-    news: topNews(d),
-    commodities: commodities(),
+    news: topNews(d, 12, w),
+    commodities: commodities(w),
     polymarket: polymarket(),
     gold: goldPlatforms(),
   };
@@ -172,7 +201,8 @@ function isEnough(f) {
 function toPromptBlock(f) {
   const L = [];
   const money = v => new Intl.NumberFormat('en-US').format(Math.round(v));
-  L.push('تاریخ داده‌ها: ' + f.day);
+  L.push('تاریخ داده‌ها: ' + f.day + (f.slotLabel ? ' — نوبت ' + f.slotLabel : ''));
+  if (f.window) L.push('بازه‌ی داده‌ها: ' + tehranRange(f.window));
 
   if ((f.news || []).length) {
     L.push('\n[خبرهای مهم امروز — به ترتیب زمانی]');
@@ -229,4 +259,65 @@ function toPromptBlock(f) {
   return L.join('\n');
 }
 
-module.exports = { gather, toPromptBlock, isEnough, topNews, trendMoves };
+/** بازه را به ساعت تهران و خوانا نشان می‌دهد */
+function tehranRange(w) {
+  const f = new Date(new Date(w.from).getTime() + 3.5 * 3600e3);
+  const t = new Date(new Date(w.to).getTime() + 3.5 * 3600e3);
+  const hh = d => String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+  return `از ${hh(f)} تا ${hh(t)} به وقت تهران`;
+}
+
+/**
+ * بلوک داده برای مدل تصویر — با toPromptBlock فرق دارد و باید فرق داشته باشد.
+ *
+ * درسِ آزمایش اول: بلوک کاملِ نویسنده ۵٬۴۰۰ نویسه بود و وقتی کورکورانه به
+ * ۲٬۵۰۰ بریده شد، فقط تیتر خبرها ماند و هیچ عددی به مدل نرسید — نتیجه یک
+ * اینفوگرافیک زیبا بود که همه‌ی سلول‌های عددی‌اش «--» داشت.
+ *
+ * پس اینجا برعکس عمل می‌شود: اعداد (که کوتاه‌اند و ستون فقرات یک داشبورد)
+ * همیشه کامل می‌آیند، و تنها چیزی که برای جا شدن کوتاه می‌شود متن خبرهاست.
+ */
+function toImageBlock(f, maxLen) {
+  const cap = maxLen || 1800;
+  const money = v => new Intl.NumberFormat('en-US').format(Math.round(v));
+  const num = [];
+
+  if (f.window) num.push('بازه: ' + tehranRange(f.window) + ' — ' + f.day);
+
+  const t = f.trends || {};
+  if ((t.topVolume || []).length) {
+    num.push('[پرجستجوترین‌ها] ' + t.topVolume.slice(0, 6).map(r => `${r.keyword} (${money(r.vol)})`).join(' · '));
+  }
+  if ((t.risers || []).length) {
+    num.push('[بیشترین رشد جستجو] ' + t.risers.slice(0, 5).map(r => `${r.keyword} +${r.growthPct}٪`).join(' · '));
+  }
+  if ((f.markets || []).length) {
+    num.push('[بازار مالی ۲۴ساعت] ' + f.markets.slice(0, 8).map(m => `${m.name} ${m.changePct > 0 ? '+' : ''}${m.changePct}٪`).join(' · '));
+  }
+  if (f.gold) {
+    num.push(`[طلای آنلاین] ارزان‌ترین ${f.gold.cheapest.name} ${money(f.gold.cheapest.price)} تومان · گران‌ترین ${f.gold.priciest.name} ${money(f.gold.priciest.price)} تومان · اختلاف ${f.gold.spreadPct}٪`);
+  }
+  if ((f.commodities || []).length) {
+    num.push('[کالای جهانی] ' + f.commodities.slice(0, 6).map(c => `${c.name} ${c.changePct > 0 ? '+' : ''}${c.changePct}٪`).join(' · '));
+  }
+  if (f.property) num.push(`[ملک تهران] میانگین متری ${f.property.avgMeterM} میلیون تومان · گران‌ترین ${f.property.topName} ${f.property.topMeterM}م · ارزان‌ترین ${f.property.cheapName} ${f.property.cheapMeterM}م`);
+  if ((f.cars || []).length) num.push('[خودرو] ' + f.cars.slice(0, 5).map(c => `${c.name} ${c.changePct > 0 ? '+' : ''}${c.changePct}٪`).join(' · '));
+  if (f.jobs) num.push(`[بازار کار] ${money(f.jobs.count)} آگهی فعال (${f.jobs.changePct > 0 ? '+' : ''}${f.jobs.changePct}٪ هفتگی)`);
+  if (f.newsVolume) num.push(`[حجم خبر این بازه] ${f.newsVolume.count} خبر`);
+
+  const numText = num.join('\n');
+  // هرچه از سقف باقی ماند سهم خبرهاست — نه برعکس
+  let left = cap - numText.length - 30;
+  const lines = [];
+  for (const n of (f.news || [])) {
+    if (left < 60 || lines.length >= 5) break;
+    let s = n.text.length > 110 ? n.text.slice(0, 110).replace(/\s+\S*$/, '') + '…' : n.text;
+    if (s.length + 4 > left) break;
+    lines.push(`${lines.length + 1}. ${s}`);
+    left -= s.length + 4;
+  }
+
+  return numText + (lines.length ? '\n\n[مهم‌ترین خبرهای این بازه]\n' + lines.join('\n') : '');
+}
+
+module.exports = { gather, toPromptBlock, toImageBlock, isEnough, topNews, trendMoves, normWindow };
