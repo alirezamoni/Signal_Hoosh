@@ -272,21 +272,28 @@
       <section class="panel">
         <div class="panel-head">
           <h2 class="panel-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            ترند آینده
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+            تازه‌ترین نوشته‌های وبلاگ
           </h2>
-          <a class="panel-link" href="/future">مشاهده همه ←</a>
+          <a class="panel-link" href="/blog">مشاهده همه ←</a>
         </div>
         <div class="panel-body">
-          <% future.forEach(function (p) { %>
-          <a class="drow" href="/future">
-            <div class="drow-main"><span class="drow-name"><%= p.label %></span></div>
-            <div class="drow-val"><span class="badge badge-acc"><%= p.horizon %></span></div>
+          <% blogHome.forEach(function (b) { %>
+          <a class="blog-row" href="/blog/<%= encodeURIComponent(b.slug) %>">
+            <% if (b.cover) { %>
+            <img class="blog-row-thumb" src="<%= b.cover %>" alt="<%= b.cover_alt || b.title %>" width="80" height="45" loading="lazy">
+            <% } else { %>
+            <span class="blog-row-thumb blog-cover-ph"></span>
+            <% } %>
+            <span class="blog-row-main">
+              <span class="blog-row-title"><%= b.title %></span>
+              <span class="blog-row-date"><%= faDay(b.published_at) %></span>
+            </span>
           </a>
           <% }); %>
-          <% if (!future.length) { %><div class="drow"><span class="dim">در حال جمع‌آوری داده</span></div><% } %>
+          <% if (!blogHome.length) { %><div class="drow"><span class="dim">هنوز نوشته‌ای منتشر نشده</span></div><% } %>
         </div>
-        <div class="panel-foot">زنجیره‌های علّی کشف‌شده از داده · آزمایشی</div>
+        <div class="panel-foot">تحلیل روزانه از داده‌های خود سایت · سه نوبت در روز</div>
       </section>
 
     </div>

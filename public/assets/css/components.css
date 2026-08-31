@@ -829,11 +829,62 @@ tbody tr:hover { background: var(--card-hover); }
 }
 
 .blog-article { max-width: 760px; margin-inline: auto; }
+/* عکس شاخص — قبلاً نسبت 1200/630 (=۱٫۹۰۵) با object-fit:cover تحمیل
+   می‌شد، ولی عکس‌های تولیدشده ۱۲۸۰×۷۲۰ (=۱٫۷۷۸) هستند؛ نتیجه بریده‌شدن
+   حدود ۷٪ از هر دو کناره بود. حالا نسبت با خودِ عکس می‌خواند و contain
+   تضمین می‌کند حتی عکس قدیمیِ با نسبت متفاوت هم کامل دیده شود. */
 .blog-hero {
-  width: 100%; aspect-ratio: 1200 / 630; object-fit: cover;
+  /* height:auto لازم است: صفت HTML ‏height="720"‎ به‌عنوان راهنمای ظاهری
+     روی ارتفاع می‌نشیند و اگر CSS ارتفاع را تعیین نکند، همان برنده می‌شود
+     و aspect-ratio بی‌اثر می‌ماند — نتیجه کادر ۷۶۰×۷۲۰ به‌جای ۷۶۰×۴۲۷ بود. */
+  width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: contain;
   border-radius: var(--r); border: 1px solid var(--border);
-  background: var(--inset); margin-block: var(--s4);
+  background: var(--inset); margin-block: var(--s4); display: block;
 }
+.blog-hero-btn {
+  display: block; width: 100%; padding: 0; border: 0;
+  background: none; cursor: zoom-in;
+}
+.blog-hero-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r); }
+
+/* نمای بزرگ عکس */
+.lightbox {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--s4); background: rgba(0, 0, 0, .9);
+  cursor: zoom-out;
+}
+.lightbox[hidden] { display: none; }
+.lightbox-img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; border-radius: var(--r); cursor: default;
+}
+.lightbox-close {
+  position: absolute; top: var(--s4); left: var(--s4);
+  width: 40px; height: 40px; border-radius: var(--r-pill);
+  border: 1px solid rgba(255, 255, 255, .28); background: rgba(0, 0, 0, .55);
+  color: #fff; font-size: 22px; line-height: 1; cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(0, 0, 0, .8); }
+
+/* ردیف نوشته‌ی وبلاگ در صفحه‌ی خانه — هم‌شکل .drow ولی با بندانگشتی */
+.blog-row {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--pad-row) var(--pad-panel);
+  transition: background var(--dur) var(--ease);
+}
+a.blog-row:hover { background: var(--card-hover); }
+.blog-row-thumb {
+  width: 80px; height: 45px; object-fit: cover; flex-shrink: 0; display: block;
+  border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--inset);
+}
+.blog-row-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.blog-row-title {
+  font-size: var(--fs-base); color: var(--text); line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.blog-row-date { font-size: var(--fs-xs); color: var(--faint); }
+@media (max-width: 480px) { .blog-row-thumb { width: 64px; height: 36px; } }
 .blog-foot {
   margin-top: var(--s6); padding-top: var(--s4);
   border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 2;

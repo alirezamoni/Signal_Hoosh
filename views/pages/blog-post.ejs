@@ -16,7 +16,9 @@
       </div>
 
       <% if (post.cover) { %>
-      <img class="blog-hero" src="<%= post.cover %>" alt="<%= post.cover_alt || post.title %>" width="1200" height="630">
+      <button type="button" class="blog-hero-btn" id="heroZoom" aria-label="بزرگ‌نمایی عکس">
+        <img class="blog-hero" src="<%= post.cover %>" alt="<%= post.cover_alt || post.title %>" width="1280" height="720">
+      </button>
       <% } %>
 
       <% if (post.excerpt) { %>
@@ -48,6 +50,43 @@
         <% }); %>
       </div>
     </section>
+    <% } %>
+
+    <% if (post.cover) { %>
+    <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="نمای بزرگ عکس">
+      <button type="button" class="lightbox-close" aria-label="بستن">&times;</button>
+      <img class="lightbox-img" src="" alt="">
+    </div>
+    <script>
+    (function () {
+      var btn = document.getElementById('heroZoom');
+      var lb  = document.getElementById('lightbox');
+      if (!btn || !lb) return;
+      var big = lb.querySelector('.lightbox-img');
+      var src = btn.querySelector('img');
+      var closeBtn = lb.querySelector('.lightbox-close');
+
+      function open() {
+        big.src = src.currentSrc || src.src;
+        big.alt = src.alt;
+        lb.hidden = false;
+        document.body.style.overflow = 'hidden';
+        closeBtn.focus();
+      }
+      function close() {
+        lb.hidden = true;
+        big.removeAttribute('src');
+        document.body.style.overflow = '';
+        btn.focus();
+      }
+      btn.addEventListener('click', open);
+      // کلیک روی خودِ عکس نباید ببندد؛ هر جای دیگر ببندد
+      lb.addEventListener('click', function (e) { if (e.target !== big) close(); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !lb.hidden) close();
+      });
+    })();
+    </script>
     <% } %>
 
     <% if (related && related.length) { %>

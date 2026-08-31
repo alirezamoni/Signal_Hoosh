@@ -671,7 +671,10 @@ app.get('/', (req, res) => {
     ticker, finance, cars, market, poly, jobs, carCount,
     news, newsStats: newsStats(), trends: trendRows(10),
     property: propertyHome(),
-    future: [],
+    // «ترند آینده» اینجا همیشه آرایه‌ی خالی می‌گرفت و کادرش همیشه
+    // «در حال جمع‌آوری داده» نشان می‌داد. جایش را به وبلاگ داد که
+    // تنها محتوای اصیل سایت است و تا حالا فقط از فوتر لینک داشت.
+    blogHome: (() => { try { return blogDB.listPublished(4, 0) || []; } catch (e) { return []; } })(),
     updatedAt: faDate(new Date().toISOString())
   }, {
     '@context': 'https://schema.org', '@type': 'WebSite',
