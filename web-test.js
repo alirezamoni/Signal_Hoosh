@@ -1805,6 +1805,10 @@ app.get('/blog/:slug', (req, res, next) => {
   const words = mdown.plain(post.body).split(/\s+/).filter(Boolean).length;
   const readMin = Math.max(1, Math.round(words / 200));
   const related = blogDB.related(post.id, 3);
+  // مقاله‌های قبلیِ همین موضوع — هم برای خواننده مفید است هم خوشه‌ی
+  // موضوعی می‌سازد که گوگل برای فهم ارتباط صفحه‌ها به آن تکیه می‌کند
+  let chain = [];
+  try { chain = blogDB.trendChain ? blogDB.trendChain(post.id, 4) : []; } catch (e) {}
   const desc = post.meta_desc || post.excerpt || mdown.plain(post.body, 155);
   // layout خودش SITE را جلوی seo.image می‌گذارد، پس اینجا باید مسیر نسبی بماند؛
   // ولی JSON-LD نشانی مطلق می‌خواهد.
@@ -1816,7 +1820,7 @@ app.get('/blog/:slug', (req, res, next) => {
     path: '/blog/' + post.slug,
     image: post.cover || null,
     ogType: 'article',
-  }, { post, bodyHtml, readMin, related }, [{
+  }, { post, bodyHtml, readMin, related, chain }, [{
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: post.title,
@@ -2069,6 +2073,11 @@ function adminPage(req, res, extra) {
     blogImagePromptIsDefault: !String(setAll.blog_image_prompt || '').trim(),
     blogHourMorning: blogWriter.slotHour('morning'),
     blogHourEvening: blogWriter.slotHour('evening'),
+    blogHourTrend:   blogWriter.slotHour('trend'),
+    blogTrendPrompt: blogWriter.getTrendPrompt(),
+    blogTrendPromptIsDefault: !String(setAll.blog_trend_prompt || '').trim(),
+    blogTrendImagePrompt: blogWriter.getTrendImagePrompt(),
+    blogTrendImagePromptIsDefault: !String(setAll.blog_trend_image_prompt || '').trim(),
     imageModels,
     imageModelsMeta: { fetchedAt: imgCache.fetchedAt, total: imageModels.length, cached: !!imgCache.fetchedAt },
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
@@ -2465,11 +2474,11 @@ app.post('/admin/blog/:id/regen-cover', adminGuard, async (req, res) => {
     const p = blogDB.byId(id);
     if (!p) return backToPost(res, id, null, 'نوشته پیدا نشد');
 
-    const win = p.slot ? blogWriter.slotWindow(p.day, p.slot) : null;
-    const f = blogFacts.gather(p.day || blogWriter.tehranDay(), win);
     const old = p.cover;
 
-    const r = await blogWriter.makeCover(id, f, p.title);
+    // regenCover خودش می‌داند مطلب مروری است یا مقاله‌ی ترندمحور، و اگر
+    // مدل تصویر موضوع را رد کند با پرامپت نمادین دوباره تلاش می‌کند.
+    const r = await blogWriter.regenCover(id);
     if (!r.ok) return backToPost(res, id, null, 'عکس ساخته نشد: ' + r.reason);
 
     // عکس قبلی همان نوشته دیگر به‌کار نمی‌آید
@@ -2508,6 +2517,14 @@ app.post('/admin/blog/generate', adminGuard, async (req, res) => {
     const r = await blogWriter.generateFor(day, { force, slot, skipImage });
     if (!r.ok) return backFrom(req, res, null, r.reason || 'ساخته نشد');
     const lbl = (blogWriter.SLOTS[r.slot] || {}).label || r.slot;
+    if (r.trend) {
+      return backFrom(req, res,
+        `مقاله‌ی ترند «${r.trend.keyword}» منتشر شد — /blog/${r.slug} · ` +
+        `${r.trend.vol} جستجو، ${r.trend.news} خبر از ${r.trend.sources} منبع، ` +
+        `${r.trend.qualified} موضوع واجد شرایط از ${r.trend.considered} ترند` +
+        (r.trend.continued ? ' · به‌روزرسانی موضوع قبلی' : '') +
+        (r.cover ? ' · عکس ساخته شد' : (r.coverErr ? ' · عکس ساخته نشد: ' + r.coverErr : '')));
+    }
     let msg = (r.replaced ? 'مطلب نوبت ' + lbl + ' بازنویسی و منتشر شد' : 'مطلب نوبت ' + lbl + ' منتشر شد') + ' — /blog/' + r.slug;
     if (r.cover) msg += ' (عکس ساخته شد)';
     else if (r.coverErr) msg += ' — ولی عکس ساخته نشد: ' + r.coverErr;
@@ -2524,16 +2541,21 @@ app.post('/admin/blog/settings', adminGuard, express.urlencoded({ extended: fals
     settingsDB.set('blog_image_prompt', String(b.blog_image_prompt || '').trim());
 
     const hour = v => parseInt(String(v || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
-    const hm = hour(b.blog_hour_morning), he = hour(b.blog_hour_evening);
-    if (isNaN(hm) || isNaN(he) || hm < 0 || hm > 23 || he < 0 || he > 23) {
+    const hm = hour(b.blog_hour_morning), he = hour(b.blog_hour_evening), ht = hour(b.blog_hour_trend);
+    if ([hm, he, ht].some(v => isNaN(v) || v < 0 || v > 23)) {
       return backFrom(req, res, null, 'ساعت‌ها باید عددی بین ۰ تا ۲۳ باشند');
     }
-    // نوبت شب باید بعد از نوبت صبح باشد، وگرنه بازه‌ی داده‌ها منفی می‌شود
+    // ترتیب نوبت‌ها باید صعودی باشد، وگرنه بازه‌ی داده‌ها منفی می‌شود و
+    // activeSlot هم نمی‌تواند تشخیص دهد کدام نوبت سررسید شده است.
     if (he <= hm) return backFrom(req, res, null, 'ساعت نوبت شب باید بزرگ‌تر از ساعت نوبت صبح باشد');
+    if (ht <= he) return backFrom(req, res, null, 'ساعت نوبت ترند باید بزرگ‌تر از ساعت نوبت شب باشد');
     settingsDB.set('blog_hour_morning', hm);
     settingsDB.set('blog_hour_evening', he);
+    settingsDB.set('blog_hour_trend', ht);
+    settingsDB.set('blog_trend_prompt', String(b.blog_trend_prompt || '').trim());
+    settingsDB.set('blog_trend_image_prompt', String(b.blog_trend_image_prompt || '').trim());
 
-    backFrom(req, res, 'تنظیمات وبلاگ ذخیره شد — انتشار روزانه ساعت ' + hm + ' و ' + he + ' به وقت تهران');
+    backFrom(req, res, 'تنظیمات وبلاگ ذخیره شد — انتشار روزانه ساعت ' + hm + '، ' + he + ' و ' + ht + ' به وقت تهران');
   } catch (e) { backFrom(req, res, null, 'خطا: ' + e.message); }
 });
 

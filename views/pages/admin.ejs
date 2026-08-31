@@ -292,6 +292,9 @@
             <%= fa(blogHourMorning) %> و <%= fa(blogHourEvening) %> به وقت تهران. هر مطلب فقط داده‌های
             <em>فاصله‌ی بین دو انتشار</em> را می‌بیند: نوبت صبح از ساعت <%= fa(blogHourEvening) %> دیشب تا
             <%= fa(blogHourMorning) %> صبح، و نوبت شب از <%= fa(blogHourMorning) %> صبح تا <%= fa(blogHourEvening) %> شب.
+            ساعت <%= fa(blogHourTrend) %> هم یک <strong>مقاله‌ی ترندمحور</strong> منتشر می‌شود:
+            پرجستجوترین موضوع ۲۴ ساعت گذشته انتخاب و با خبرهای واقعیِ همان موضوع نوشته می‌شود.
+            اگر هیچ ترندی حداقل ۳ خبر از ۲ منبع نداشته باشد، عمداً چیزی نوشته نمی‌شود.
             عکس شاخص هم خودکار با مدل تصویر ساخته می‌شود؛ آپلود دستی لازم نیست.
             اگر ساخت عکس شکست بخورد مطلب باز هم منتشر می‌شود و می‌توانید از صفحه‌ی ویرایش، عکس را دوباره بسازید.
             وبلاگ در تب‌های بالای سایت نیست و فقط از فوتر لینک دارد، ولی در سایت‌مپ و فید هست تا گوگل پیدایش کند.
@@ -311,6 +314,7 @@
                     <option value="">نوبتِ جاری</option>
                     <option value="morning">صبح (<%= fa(blogHourMorning) %>)</option>
                     <option value="evening">شب (<%= fa(blogHourEvening) %>)</option>
+                    <option value="trend">ترند (<%= fa(blogHourTrend) %>)</option>
                   </select>
                 </label>
                 <label class="row" style="gap:6px;align-items:center;margin-bottom:0;">
@@ -346,7 +350,7 @@
                         <%= p.status === 'published' ? 'منتشرشده' : 'پیش‌نویس' %>
                       </span>
                     </td>
-                    <td class="ta-l"><%= p.slot === 'morning' ? 'صبح' : (p.slot === 'evening' ? 'شب' : '—') %></td>
+                    <td class="ta-l"><%= p.slot === 'morning' ? 'صبح' : (p.slot === 'evening' ? 'شب' : (p.slot === 'trend' ? 'ترند' : '—')) %></td>
                     <td class="ta-l"><%= p.day ? faDay(p.day) : '—' %></td>
                     <td class="ta-l"><%= fa(p.words) %> کلمه</td>
                     <td class="ta-l"><%= p.cover ? '✓' : '—' %></td>
@@ -373,6 +377,10 @@
                   <label class="field">
                     <span class="label">ساعت نوبت شب (به وقت تهران)</span>
                     <input class="input" type="number" name="blog_hour_evening" min="0" max="23" value="<%= blogHourEvening %>" style="width:110px;">
+                  </label>
+                  <label class="field">
+                    <span class="label">ساعت نوبت ترند (به وقت تهران)</span>
+                    <input class="input" type="number" name="blog_hour_trend" min="0" max="23" value="<%= blogHourTrend %>" style="width:110px;">
                   </label>
                 </div>
                 <div class="hint" style="margin-bottom:var(--s3);">
@@ -410,8 +418,34 @@
                   <% } %>
                   مدل تصویر در تب «هوش مصنوعی» انتخاب می‌شود.
                 </div>
+                <label class="field">
+                  <span class="label">
+                    پرامپت مقاله‌ی ترندمحور — <code>{{KEYWORD}}</code> موضوع برنده،
+                    <code>{{DATA}}</code> داده‌ی ترند و خبرها، و <code>{{CONTINUITY}}</code>
+                    دستور «به‌روزرسانی» وقتی همین موضوع قبلاً پوشش داده شده.
+                  </span>
+                  <textarea class="input blog-editor" name="blog_trend_prompt" rows="16"><%= blogTrendPromptIsDefault ? '' : blogTrendPrompt %></textarea>
+                </label>
+
+                <label class="field">
+                  <span class="label">
+                    پرامپت عکسِ مقاله‌ی ترندمحور — <code>{{KEYWORD}}</code>،
+                    <code>{{TITLE}}</code> و <code>{{DATA}}</code> جایگزین می‌شوند.
+                  </span>
+                  <textarea class="input blog-editor" name="blog_trend_image_prompt" rows="12"><%= blogTrendImagePromptIsDefault ? '' : blogTrendImagePrompt %></textarea>
+                </label>
+                <div class="hint" style="margin-bottom:var(--s3);">
+                  هر کادر را خالی بگذارید تا پرامپت پیش‌فرض همان بخش استفاده شود.
+                </div>
+
                 <button class="btn btn-acc" type="submit">ذخیره‌ی تنظیمات وبلاگ</button>
               </form>
+              <% if (blogTrendPromptIsDefault) { %>
+              <details class="sm-more" style="margin-top:var(--s4);">
+                <summary><span class="sm-more-open">دیدن پرامپت پیش‌فرض مقاله‌ی ترند</span><span class="sm-more-close">بستن</span></summary>
+                <pre class="blog-prompt-view"><%= blogTrendPrompt %></pre>
+              </details>
+              <% } %>
               <% if (blogImagePromptIsDefault) { %>
               <details class="sm-more" style="margin-top:var(--s4);">
                 <summary><span class="sm-more-open">دیدن پرامپت تصویرِ پیش‌فرض</span><span class="sm-more-close">بستن</span></summary>

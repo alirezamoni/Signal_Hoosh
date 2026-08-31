@@ -51,7 +51,11 @@ db.exec(`
   add('win_from', 'TEXT');   // ابتدای بازه‌ی داده (ISO/UTC)
   add('win_to',   'TEXT');   // انتهای بازه‌ی داده (ISO/UTC)
   add('cover_cost', 'REAL'); // هزینه‌ی دلاری تولید عکس، برای ردیابی مصرف
+  add('trend_key', 'TEXT');  // کلیدواژه‌ی موضوعِ مقاله‌ی ترندمحور
+  add('trend_vol', 'INTEGER');
+  add('parent_id', 'INTEGER'); // مقاله‌ی قبلیِ همین موضوع، برای زنجیره‌ی ادامه‌دار
   db.exec('CREATE INDEX IF NOT EXISTS idx_blog_day_slot ON blog_posts(day, slot)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_blog_trend ON blog_posts(trend_key, published_at DESC)');
 }
 
 // ── ساخت نامک (slug) ───────────────────────────────────────
@@ -82,11 +86,14 @@ function create(p) {
   const slug = uniqueSlug(p.slug || p.title, null);
   const info = db.prepare(`
     INSERT INTO blog_posts
-      (slug, day, slot, win_from, win_to, title, excerpt, body, cover, cover_alt,
+      (slug, day, slot, win_from, win_to, trend_key, trend_vol, parent_id,
+       title, excerpt, body, cover, cover_alt,
        meta_title, meta_desc, keywords, status, ai_model, created_at, updated_at, published_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     slug, p.day || null, p.slot || null, p.win_from || null, p.win_to || null,
+    p.trend_key || null, p.trend_vol == null ? null : Number(p.trend_vol),
+    p.parent_id == null ? null : Number(p.parent_id),
     p.title, p.excerpt || null, p.body,
     p.cover || null, p.cover_alt || null, p.meta_title || null, p.meta_desc || null,
     p.keywords || null, p.status || 'draft', p.ai_model || null, now, now,
@@ -166,6 +173,53 @@ function existsForSlot(day, slot) {
   return db.prepare('SELECT * FROM blog_posts WHERE day=? AND slot=?')
            .get(String(day || ''), String(slot || '')) || null;
 }
+/**
+ * آخرین مقاله‌ی ترندمحور درباره‌ی همین موضوع در N روز اخیر.
+ *
+ * تطبیق دو مرحله‌ای است چون کلیدواژه‌ی ترند روزبه‌روز کمی فرق می‌کند
+ * («لارک» امروز، «حمله به لارک» فردا): اول تطبیق دقیق trend_key، بعد
+ * جستجوی کلیدواژه داخل موضوع یا عنوان مقاله‌های قبلی.
+ */
+function recentTrendArticle(trendKey, days) {
+  const k = String(trendKey || '').trim();
+  if (!k) return null;
+  const since = new Date(Date.now() - (days || 3) * 864e5).toISOString();
+
+  let row = db.prepare(`
+    SELECT * FROM blog_posts
+    WHERE slot='trend' AND status='published' AND trend_key = ? AND published_at >= ?
+    ORDER BY published_at DESC LIMIT 1`).get(k, since);
+
+  if (!row) {
+    row = db.prepare(`
+      SELECT * FROM blog_posts
+      WHERE slot='trend' AND status='published' AND published_at >= ?
+        AND (trend_key LIKE ? OR ? LIKE '%'||trend_key||'%' OR title LIKE ?)
+      ORDER BY published_at DESC LIMIT 1`).get(since, '%'+k+'%', k, '%'+k+'%');
+  }
+  if (!row) return null;
+
+  const days_ago = Math.floor((Date.now() - new Date(row.published_at).getTime()) / 864e5);
+  return Object.assign({}, row, { daysAgo: days_ago });
+}
+
+/** زنجیره‌ی مقاله‌های یک موضوع — برای نمایش «پیشینه» زیر مقاله */
+function trendChain(postId, limit) {
+  const p = byId(postId);
+  if (!p || !p.trend_key) return [];
+  return db.prepare(`
+    SELECT id, slug, title, published_at FROM blog_posts
+    WHERE slot='trend' AND status='published' AND trend_key = ? AND id IS NOT ?
+    ORDER BY published_at DESC LIMIT ?`).all(p.trend_key, postId, limit || 4);
+}
+
+function setTrendMeta(id, key, vol, parentId) {
+  db.prepare('UPDATE blog_posts SET trend_key=?, trend_vol=?, parent_id=?, updated_at=? WHERE id=?')
+    .run(key || null, vol == null ? null : Number(vol), parentId == null ? null : Number(parentId),
+         new Date().toISOString(), id);
+  return byId(id);
+}
+
 /** ثبت عکسِ تولیدشده. جدا از update() چون بعد از ساخت مطلب اجرا می‌شود. */
 function setCover(id, cover, alt, cost) {
   db.prepare('UPDATE blog_posts SET cover=?, cover_alt=?, cover_cost=?, updated_at=? WHERE id=?')
@@ -191,5 +245,6 @@ module.exports = {
   create, update, setStatus, remove,
   byId, bySlug, publishedBySlug, listPublished, countPublished, listAll,
   existsForDay, existsForSlot, setCover, stats, related, slugify, uniqueSlug,
+  recentTrendArticle, trendChain, setTrendMeta,
   _db: db,
 };
