@@ -376,21 +376,44 @@ function clean(s, max) {
  * @returns {Promise<{ok:boolean, cover?:string, cost?:number, reason?:string}>}
  */
 async function makeCover(postId, f, title, override) {
-  try {
-    const prompt = (override && override.prompt) || buildImagePrompt(f, title);
-    const r = await imageGen.generate(prompt);
-    if (!r.ok) return { ok: false, reason: r.reason };
+  const o = override || {};
 
-    if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
-    const name = `post-${postId}-${Date.now()}.${r.ext}`;
-    fs.writeFileSync(path.join(MEDIA_DIR, name), r.buf);
+  // یک تلاش: تولید، ذخیره روی دیسک، ثبت در دیتابیس
+  const attempt = async prompt => {
+    try {
+      const r = await imageGen.generate(prompt);
+      if (!r.ok) return { ok: false, reason: r.reason };
 
-    const cover = '/blog-media/' + name;
-    blogDB.setCover(postId, cover, clean(title, 200), r.cost);
-    return { ok: true, cover, cost: r.cost };
-  } catch (e) {
-    return { ok: false, reason: e.message };
+      if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
+      const name = `post-${postId}-${Date.now()}.${r.ext}`;
+      fs.writeFileSync(path.join(MEDIA_DIR, name), r.buf);
+
+      const cover = '/blog-media/' + name;
+      blogDB.setCover(postId, cover, clean(title, 200), r.cost);
+      return { ok: true, cover, cost: r.cost };
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    }
+  };
+
+  // هر تلاش شمرده می‌شود تا جاروی زمان‌بند بی‌نهایت روی یک مطلب هزینه نکند
+  try { blogDB.bumpCoverTries(postId); } catch (e) {}
+
+  let r = await attempt(o.prompt || buildImagePrompt(f, title));
+
+  // ⚠️ این تلاش دوباره قبلاً فقط در مسیر مقاله‌ی ترند بود، نه در مطلب صبح و
+  // شب — و نتیجه‌اش مطلب #۲۴ بود که بدون عکس منتشر شد. موضوعات جنگی
+  // پرترافیک‌ترین ترندهای ایران‌اند و مدل تصویر مرتب ۴۲۲ می‌دهد، پس این
+  // مسیر باید برای هر سه نوبت باشد. حالا در makeCover است تا هیچ فراخوانی
+  // از قلم نیفتد.
+  if (!r.ok && isContentRefusal(r.reason)) {
+    const kw = o.safeKeyword || clean(title, 80);
+    console.warn('[blog] مدل تصویر محتوا را رد کرد — تلاش دوباره با پرامپت نمادین');
+    try { blogDB.bumpCoverTries(postId); } catch (e) {}
+    r = await attempt(SAFE_IMAGE_PROMPT.split('{{KEYWORD}}').join(kw));
+    if (r.ok) r.safeFallback = true;
   }
+  return r;
 }
 
 /**
@@ -586,16 +609,8 @@ async function generateTrendArticle(d, o, existing) {
       .split('{{KEYWORD}}').join(w.keyword)
       .split('{{TITLE}}').join(title)
       .replace('{{DATA}}', trendBlock(w).slice(0, 1400));
-    let c = await makeCover(id, null, title, { prompt: ip });
-
-    // موضوع رد شد؟ یک بار با پرامپت نمادینِ بدون جزئیات خبری دوباره.
-    if (!c.ok && isContentRefusal(c.reason)) {
-      console.warn(`[blog/ترند] مدل تصویر موضوع را رد کرد — تلاش دوباره با پرامپت نمادین`);
-      c = await makeCover(id, null, title, {
-        prompt: SAFE_IMAGE_PROMPT.split('{{KEYWORD}}').join(w.keyword),
-      });
-      if (c.ok) c.safeFallback = true;
-    }
+    // تلاش دوباره حالا داخل خودِ makeCover است؛ فقط کلیدواژه را می‌دهیم
+    const c = await makeCover(id, null, title, { prompt: ip, safeKeyword: w.keyword });
 
     if (c.ok) { cover = c.cover; cost = c.cost || 0; }
     else { coverErr = c.reason; console.warn(`[blog/ترند] عکس ساخته نشد: ${c.reason}`); }
@@ -662,14 +677,7 @@ async function regenCover(postId) {
       .split('{{TITLE}}').join(p.title)
       .replace('{{DATA}}', block);
 
-    let c = await makeCover(postId, null, p.title, { prompt: ip });
-    if (!c.ok && isContentRefusal(c.reason)) {
-      c = await makeCover(postId, null, p.title, {
-        prompt: SAFE_IMAGE_PROMPT.split('{{KEYWORD}}').join(kw),
-      });
-      if (c.ok) c.safeFallback = true;
-    }
-    return c;
+    return makeCover(postId, null, p.title, { prompt: ip, safeKeyword: kw });
   }
 
   // مطلب مروری: همان داشبورد داده‌ی بازه‌ی خودش
@@ -684,15 +692,41 @@ async function regenCover(postId) {
 const CHECK_MS = 10 * 60 * 1000;
 let _running = false;
 
+/**
+ * مطلبی که منتشر شده ولی عکسش ساخته نشد، در تیک‌های بعدی دوباره تلاش
+ * می‌شود. سقف تلاش در blog-db کنترل می‌شود و هر تیک حداکثر یک مطلب را
+ * برمی‌دارد، تا هزینه بیش از یک عکس در هر ۱۰ دقیقه نشود.
+ */
+async function sweepMissingCovers() {
+  let list = [];
+  try { list = blogDB.coverlessRecent(48, 1, 3) || []; } catch (e) { return; }
+  if (!list.length) return;
+
+  const p = list[0];
+  // الحاق ساده‌ی رشته و نه template literal: علامت دلار چسبیده به بک‌تیک
+  // یک بار همین فایل را شکست.
+  console.log('[blog] مطلب #' + p.id + ' بدون عکس است (تلاش ' + p.tries + ') — تلاش دوباره');
+  const c = await regenCover(p.id);
+  if (c.ok) {
+    console.log('[blog] عکس #' + p.id + ' ساخته شد' +
+      (c.safeFallback ? ' (پرامپت نمادین)' : '') +
+      ' — ' + (c.cost || 0).toFixed(3) + ' دلار');
+  } else {
+    console.warn('[blog] عکس #' + p.id + ' باز هم ساخته نشد: ' + c.reason);
+  }
+}
+
 async function tick() {
   if (_running) return;                  // تولید عکس ~۲ دقیقه است؛ تیک‌ها نباید روی هم بیفتند
   _running = true;
   try {
     const now = tehranNow();
     const slot = activeSlot(now);
-    if (!slot) return;
     const d = tehranDay(now);
-    if (blogDB.existsForSlot(d, slot)) return;
+
+    // اگر نوبتی سررسید نشده یا مطلبش از قبل هست، تیک صرف جبرانِ عکس‌های
+    // جامانده می‌شود. هر تیک یکی از این دو کار را می‌کند، نه هر دو.
+    if (!slot || blogDB.existsForSlot(d, slot)) { await sweepMissingCovers(); return; }
 
     const r = await generateFor(d, { slot });
     if (r.ok) {
@@ -718,7 +752,7 @@ function startBlogScheduler(delayMs) {
 }
 
 module.exports = {
-  generateFor, generateTrendArticle, startBlogScheduler, makeCover, regenCover,
+  generateFor, generateTrendArticle, startBlogScheduler, makeCover, regenCover, sweepMissingCovers,
   getPrompt, getImagePrompt, getTrendPrompt, getTrendImagePrompt,
   DEFAULT_PROMPT, DEFAULT_IMAGE_PROMPT, DEFAULT_TREND_PROMPT, DEFAULT_TREND_IMAGE_PROMPT,
   tehranDay, tehranNow, slotWindow, activeSlot, slotHour, trendBlock,

@@ -54,6 +54,9 @@ db.exec(`
   add('trend_key', 'TEXT');  // کلیدواژه‌ی موضوعِ مقاله‌ی ترندمحور
   add('trend_vol', 'INTEGER');
   add('parent_id', 'INTEGER'); // مقاله‌ی قبلیِ همین موضوع، برای زنجیره‌ی ادامه‌دار
+  // شمارنده‌ی تلاش برای ساخت عکس. بدون سقف، جاروی خودکار هر ۱۰ دقیقه روی
+  // مطلبی که مدل تصویر مدام ردش می‌کند ۰٫۱۵ دلار می‌سوزاند — روزی ۲۱ دلار.
+  add('cover_tries', 'INTEGER');
   db.exec('CREATE INDEX IF NOT EXISTS idx_blog_day_slot ON blog_posts(day, slot)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_blog_trend ON blog_posts(trend_key, published_at DESC)');
 }
@@ -220,6 +223,24 @@ function setTrendMeta(id, key, vol, parentId) {
   return byId(id);
 }
 
+/**
+ * مطالبِ منتشرشده‌ی اخیر که عکس ندارند و هنوز سقف تلاش را رد نکرده‌اند.
+ * جاروی زمان‌بند از این استفاده می‌کند تا شکستِ گذرای مدل تصویر جبران شود.
+ */
+function coverlessRecent(hours, limit, maxTries) {
+  const since = new Date(Date.now() - (hours || 48) * 3600e3).toISOString();
+  return db.prepare(`
+    SELECT id, day, slot, title, COALESCE(cover_tries,0) tries FROM blog_posts
+    WHERE status='published' AND (cover IS NULL OR cover='')
+      AND published_at >= ? AND COALESCE(cover_tries,0) < ?
+    ORDER BY published_at DESC LIMIT ?`).all(since, maxTries || 3, limit || 1);
+}
+
+/** هر تلاش — موفق یا ناموفق — شمرده می‌شود، وگرنه سقف بی‌معنا است. */
+function bumpCoverTries(id) {
+  db.prepare('UPDATE blog_posts SET cover_tries = COALESCE(cover_tries,0) + 1 WHERE id=?').run(id);
+}
+
 /** ثبت عکسِ تولیدشده. جدا از update() چون بعد از ساخت مطلب اجرا می‌شود. */
 function setCover(id, cover, alt, cost) {
   db.prepare('UPDATE blog_posts SET cover=?, cover_alt=?, cover_cost=?, updated_at=? WHERE id=?')
@@ -246,5 +267,6 @@ module.exports = {
   byId, bySlug, publishedBySlug, listPublished, countPublished, listAll,
   existsForDay, existsForSlot, setCover, stats, related, slugify, uniqueSlug,
   recentTrendArticle, trendChain, setTrendMeta,
+  coverlessRecent, bumpCoverTries,
   _db: db,
 };

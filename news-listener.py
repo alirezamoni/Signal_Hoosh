@@ -41,16 +41,29 @@ def load_finance_channels():
     except: pass
     return []
 
-def post_node(path, payload):
+def post_node(path, payload, _retry=True):
+    """
+    ⚠️ مهلت قبلاً ۱۵ ثانیه بود. پیلود خبر شامل عکس یا ویدئوی base64 است و
+    روی شبکه‌ی کند، POST وسط ارسالِ بدنه قطع می‌شد — سمت نود
+    «BadRequestError: request aborted» و اینجا «HTTP Error 500». حالا مهلت
+    ۶۰ ثانیه است و اگر باز هم شکست خورد یک بار بدون مدیا فرستاده می‌شود،
+    چون متنِ خبر مهم‌تر از عکسش است.
+    """
     try:
         data = json.dumps(payload).encode('utf-8')
         req = Request(NODE_BASE + path, data=data,
             headers={'Content-Type':'application/json','X-Internal-Secret':NODE_SECRET},
             method='POST')
-        with urlopen(req, timeout=15) as r:
+        with urlopen(req, timeout=60) as r:
             return r.status == 200
     except Exception as e:
         log.warning(f'post_node {path} error: {e}')
+        if _retry and isinstance(payload, dict) and payload.get('media_list'):
+            slim = dict(payload)
+            slim['media_list'] = []
+            slim['media_type'] = None
+            log.info(f'post_node {path}: تلاش دوباره بدون مدیا')
+            return post_node(path, slim, _retry=False)
         return False
 
 def get_media_type(message):
@@ -109,49 +122,46 @@ async def main():
     me = await client.get_me()
     log.info(f'Logged in as: {me.username or me.id}')
 
-    # آپدیت عکس پروفایل کانال‌های خبری
+    # ⚠️ این بخش قبلاً همین‌جا و به‌صورت مسدودکننده اجرا می‌شد: برای هر ۲۴
+    # کانال یک get_entity و یک دانلود عکس پروفایل، بدون هیچ مهلتی. اگر یکی
+    # از دانلودها گیر می‌کرد — که ۱ سپتامبر ۲۰۲۶ افتاد — اجرا هرگز به
+    # run_until_disconnected نمی‌رسید. پروسه زنده می‌ماند، به تلگرام وصل بود
+    # و لاگ می‌داد، PM2 هم online می‌دیدش، ولی ۳٫۷ ساعت هیچ خبری ذخیره نشد.
+    #
+    # عکس پروفایل کانال تزئینی است و نباید جلوی جریان خبر را بگیرد، پس حالا
+    # تسک پس‌زمینه است و هر کانال مهلت مستقل دارد.
     channels = load_channels()
     log.info(f'Watching {len(channels)} news channels: {channels}')
-    for ch in channels:
-        try:
-            entity = await client.get_entity(ch)
-            chat_id = str(entity.id)
-            if not chat_id.startswith('-'):
-                chat_id = f'-100{chat_id}'
-            username = getattr(entity, 'username', None)
-            photo_b64 = await get_channel_photo_b64(client, entity)
-            post_node('/internal/channel-info', {
-                'tg_id': chat_id,
-                'channel_title': getattr(entity, 'title', ch),
-                'channel_username': f'@{username}' if username else ch,
-                'photo_b64': photo_b64,
-            })
-            log.info(f'channel info sent: {getattr(entity,"title",ch)} (photo: {"yes" if photo_b64 else "no"})')
-            await asyncio.sleep(1)
-        except Exception as e:
-            log.warning(f'channel info {ch}: {e}')
-
-    # آپدیت عکس پروفایل کانال‌های مالی
     fin_channels = load_finance_channels()
     log.info(f'Watching {len(fin_channels)} finance channels: {fin_channels}')
-    for ch in fin_channels:
-        try:
-            entity = await client.get_entity(ch)
-            chat_id = str(entity.id)
-            if not chat_id.startswith('-'):
-                chat_id = f'-100{chat_id}'
-            username = getattr(entity, 'username', None)
-            photo_b64 = await get_channel_photo_b64(client, entity)
-            post_node('/internal/finance-channel-info', {
-                'tg_id': chat_id,
-                'channel_title': getattr(entity, 'title', ch),
-                'channel_username': f'@{username}' if username else ch,
-                'photo_b64': photo_b64,
-            })
-            log.info(f'finance channel info sent: {getattr(entity,"title",ch)} (photo: {"yes" if photo_b64 else "no"})')
+
+    async def _send_channel_info(ch, endpoint, label):
+        entity = await client.get_entity(ch)
+        chat_id = str(entity.id)
+        if not chat_id.startswith('-'):
+            chat_id = f'-100{chat_id}'
+        username = getattr(entity, 'username', None)
+        photo_b64 = await get_channel_photo_b64(client, entity)
+        post_node(endpoint, {
+            'tg_id': chat_id,
+            'channel_title': getattr(entity, 'title', ch),
+            'channel_username': f'@{username}' if username else ch,
+            'photo_b64': photo_b64,
+        })
+        log.info(f'{label}: {getattr(entity,"title",ch)} (photo: {"yes" if photo_b64 else "no"})')
+
+    async def bootstrap_channel_info():
+        jobs = ([(c, '/internal/channel-info', 'channel info sent') for c in channels] +
+                [(c, '/internal/finance-channel-info', 'finance channel info sent') for c in fin_channels])
+        for ch, endpoint, label in jobs:
+            try:
+                await asyncio.wait_for(_send_channel_info(ch, endpoint, label), timeout=20)
+            except asyncio.TimeoutError:
+                log.warning(f'channel info {ch}: مهلت ۲۰ ثانیه تمام شد — رد شد')
+            except Exception as e:
+                log.warning(f'channel info {ch}: {e}')
             await asyncio.sleep(1)
-        except Exception as e:
-            log.warning(f'finance channel info {ch}: {e}')
+        log.info('channel info bootstrap finished')
 
     # بافر برای آلبوم‌های چندعکسه (grouped_id تلگرام)
     album_buffer = {}  # grouped_id -> {msgs: [], timer: None}
@@ -277,7 +287,10 @@ async def main():
         except Exception as e:
             log.warning(f'handler error: {e}')
 
+    # اول اعلام آمادگی، بعد کارهای تزئینی. ترتیب اینجا عمدی است: اگر
+    # بوت‌استرپ گیر کند، جریان خبر همچنان برقرار است.
     log.info('Listening for new messages...')
+    asyncio.create_task(bootstrap_channel_info())
     await client.run_until_disconnected()
 
 if __name__ == '__main__':

@@ -674,4 +674,8 @@ app.listen(PORT, HOST, () => {
   migrateMediaToDisk().catch(console.error);
   try { require('./timeline-engine').startScheduler(); } catch(e) { console.warn('[warn] timeline-engine not started:', e.message); }
   try { require('./timeline-alerts').startScheduler(5 * 60 * 1000); } catch(e) { console.warn('[warn] timeline-alerts not started:', e.message); }
+
+  // نگهبان جریان خبر: شنونده می‌تواند «زنده ولی بی‌کار» بماند و PM2 آن را
+  // نمی‌بیند. تنها نشانه‌ی قابل اتکا خودِ داده است.
+  try { require('./lib/listener-watchdog').start(5 * 60 * 1000); } catch(e) { console.warn('[warn] listener-watchdog not started:', e.message); }
 });
