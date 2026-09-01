@@ -897,6 +897,37 @@
         <section class="admin-sec <%= sec === 'system' ? 'on' : '' %>" id="sec-system">
           <div class="sec-head"><h2 class="sec-title">وضعیت سامانه</h2></div>
 
+            <section class="panel mb4">
+              <div class="panel-head">
+                <h3 class="panel-title">پشتیبان‌گیری و دانلود</h3>
+                <% if (backupEst) { %><span class="panel-link">داده <%= backupEst.dataOnlyH %> · کامل <%= backupEst.fullH %></span><% } %>
+              </div>
+              <div class="panel-body-pad">
+                <div class="row wrap" style="gap:var(--s3);">
+                  <a class="btn btn-acc" href="/admin/backup/data" download>دانلود پشتیبان داده<% if (backupEst) { %> (<%= backupEst.dataOnlyH %>)<% } %></a>
+                  <a class="btn" href="/admin/backup/full" download
+                     onclick="return confirm('پشتیبان کامل شامل همه‌ی فایل‌های رسانه است و حجمش زیاد است. بسته به سرعت اینترنت ممکن است ده‌ها دقیقه طول بکشد و اگر اتصال قطع شود باید از اول شروع شود.\n\nادامه می‌دهید؟')">
+                    دانلود پشتیبان کامل<% if (backupEst) { %> (<%= backupEst.fullH %>)<% } %>
+                  </a>
+                </div>
+                <div class="hint" style="margin-top:var(--s3);line-height:2;">
+                  <strong>پشتیبان داده</strong> همه‌ی دیتابیس‌ها، تنظیمات، کاربران، کلیدها، پیکربندی nginx و کد را دارد —
+                  یعنی هرچه برای بالا آوردن سایت از صفر لازم است، جز فایل‌های رسانه. سریع و مطمئن است.
+                  <br>
+                  <strong>پشتیبان کامل</strong> علاوه بر آن، عکس‌ها و ویدئوهای اخبار را هم دارد
+                  <% if (backupEst) { %>(<%= backupEst.mediaH %> رسانه)<% } %>.
+                  <br>
+                  دیتابیس‌ها با روش امنِ خودِ SQLite کپی می‌شوند، پس حتی وسط نوشتن هم نسخه‌ی سالم می‌گیرید.
+                  آرشیو روی سرور ساخته نمی‌شود و مستقیم به مرورگر شما جریان پیدا می‌کند.
+                  <br>
+                  <span class="down">⚠ این فایل کلیدهای زنده دارد (OpenRouter، ربات تلگرام، JWT). جای امن نگهش دارید و در فضای ابری عمومی نگذارید.</span>
+                  <br>
+                  راهنمای بازگردانی داخل آرشیو، در فایل <code>RESTORE.md</code> است.
+                </div>
+              </div>
+              <div class="panel-foot">پشتیبان خودکار هم هر شب ساعت ۳:۳۰ روی خود سرور گرفته می‌شود و ۱۴ نسخه نگه داشته می‌شود.</div>
+            </section>
+
           <div class="grid g4 mb4">
             <div class="kpi"><div class="kpi-label">فضای دیسک</div><div class="kpi-val <%= sys.diskPct > 85 ? 'down' : 'up' %>"><%= fa(sys.diskPct) %>٪</div><div class="kpi-note"><%= fa(sys.freeGB) %> از <%= fa(sys.totalGB) %> گیگ آزاد</div></div>
             <div class="kpi"><div class="kpi-label">حافظه‌ی این سرویس</div><div class="kpi-val"><%= fa(sys.memMB) %><span class="dim" style="font-size:var(--fs-md);"> MB</span></div><div class="kpi-note">RSS پروسه‌ی وب</div></div>

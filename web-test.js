@@ -34,6 +34,7 @@ const tlBacktest = require('./timeline-backtest');
 const blogDB     = require('./blog-db');
 const blogWriter = require('./blog-writer');
 const mdown      = require('./lib/markdown');
+const backupLib  = require('./lib/backup');
 const blogFacts  = require('./blog-facts');
 const imageGen   = require('./lib/image-gen');
 const txt       = require('./lib/clean-text');
@@ -2083,6 +2084,7 @@ function adminPage(req, res, extra) {
     blogTrendImagePromptIsDefault: !String(setAll.blog_trend_image_prompt || '').trim(),
     imageModels,
     imageModelsMeta: { fetchedAt: imgCache.fetchedAt, total: imageModels.length, cached: !!imgCache.fetchedAt },
+    backupEst: (() => { try { return backupLib.estimate(); } catch (e) { return null; } })(),
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
     COMMODITY_MIN: commodityCrawler.MIN_INTERVAL_MIN, COMMODITY_MAX: commodityCrawler.MAX_INTERVAL_MIN,
     sys: systemInfo(dbs),
@@ -2145,6 +2147,30 @@ app.post('/admin/login', loginLimiter, (req, res) => {
 app.get('/admin/logout', (req, res) => { res.clearCookie('token'); res.redirect('/admin/login'); });
 
 app.get('/admin', adminGuard, (req, res) => adminPage(req, res, { user: req.user }));
+
+// ══ پشتیبان‌گیری ══
+// آرشیو مستقیم به پاسخ لوله می‌شود و هیچ‌وقت روی دیسک ساخته نمی‌شود —
+// سرور فقط ۱۳ گیگ آزاد دارد و پشتیبان کامل ~۳٫۸ گیگ است.
+async function sendBackup(req, res, full) {
+  try {
+    const name = await backupLib.streamArchive(res, { full }, req);
+    console.log('[backup] شروع دانلود ' + name + ' توسط کاربر ' + (req.user && req.user.id));
+  } catch (e) {
+    console.error('[backup]', e.message);
+    if (!res.headersSent) res.status(500).send('ساخت پشتیبان ناموفق بود: ' + e.message);
+  }
+}
+
+app.get('/admin/backup/data', adminGuard, (req, res) => {
+  // بدون مهلت: ساخت عکس دیتابیس‌ها چند ثانیه و انتقال چند دقیقه طول می‌کشد
+  req.setTimeout(0); res.setTimeout(0);
+  sendBackup(req, res, false);
+});
+
+app.get('/admin/backup/full', adminGuard, (req, res) => {
+  req.setTimeout(0); res.setTimeout(0);
+  sendBackup(req, res, true);
+});
 
 app.post('/admin/messages/:id/read', adminGuard, (req, res) => {
   try { msgDB.prepare('UPDATE messages SET read=1 WHERE id=?').run(req.params.id); } catch (e) {}
