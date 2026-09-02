@@ -66,7 +66,7 @@
         </div>
         <div class="panel-body">
           <% trends.forEach(function (t, i) { %>
-          <a class="drow" href="https://www.google.com/search?q=<%= encodeURIComponent(t.keyword) %>" target="_blank" rel="noopener">
+          <a class="drow" href="/trends/<%= encodeURIComponent(kwSlug(t.keyword)) %>">
             <div class="drow-main"><span class="drow-rank"><%= fa(i + 1) %></span><span class="drow-name"><%= t.keyword %></span></div>
             <div class="drow-val">
               <% if (t.vol) { %><span><%= fa(t.vol) %></span><% } %>
@@ -76,7 +76,7 @@
           <% }); %>
           <% if (!trends.length) { %><div class="drow"><span class="dim">داده‌ای موجود نیست</span></div><% } %>
         </div>
-        <div class="panel-foot">منبع: Google Trends · با کلیک، جستجو در گوگل باز می‌شود</div>
+        <div class="panel-foot">منبع: Google Trends · با کلیک، روند و اخبار همان عبارت را می‌بینید</div>
       </section>
 
     </div>
