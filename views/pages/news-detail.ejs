@@ -94,6 +94,23 @@
           </div>
         </section>
 
+        <% if (typeof kwLinks !== 'undefined' && kwLinks && kwLinks.length) { %>
+        <section class="panel mb4">
+          <div class="panel-head">
+            <h2 class="panel-title">روند جستجوی این موضوع</h2>
+            <a class="panel-link" href="/trends">ترند سرچ ←</a>
+          </div>
+          <div class="panel-body">
+            <% kwLinks.forEach(function (k) { %>
+            <a class="drow" href="/trends/<%= encodeURIComponent(k.slug) %>">
+              <div class="drow-main"><span class="drow-name"><%= k.keyword %></span></div>
+              <div class="drow-val"><span class="drow-sub">حجم و نمودار</span></div>
+            </a>
+            <% }); %>
+          </div>
+        </section>
+        <% } %>
+
         <% if (fin && fin.length) { %>
         <section class="panel">
           <div class="panel-head"><h2 class="panel-title">بازار در این لحظه</h2><a class="panel-link" href="/finance">همه ←</a></div>

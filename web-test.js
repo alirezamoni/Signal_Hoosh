@@ -792,6 +792,24 @@ app.get('/news/:id', (req, res, next) => {
       FROM news n LEFT JOIN channels c ON c.id=n.channel_id
       WHERE n.id != ? ORDER BY n.published_at DESC LIMIT 4`).all(id);
   } catch (e) {}
+  // عبارت‌های ترندی که در متن همین خبر آمده‌اند. فهرست کلیدواژه‌ها
+  // ۱۰ دقیقه کش است و بر اساس حجم مرتب، پس اولین تطبیق‌ها همان‌هایی‌اند
+  // که بیشترین تقاضای جستجو را دارند.
+  let kwLinks = [];
+  try {
+    const seenSlug = new Set();
+    for (const k of keywordIndex()) {
+      const kw = String(k.keyword || '');
+      // عبارت کوتاهِ تک‌کلمه‌ای داخل کلمات دیگر هم پیدا می‌شود («قطر» در
+      // «قطره»)، پس فقط عبارت‌های به‌قدر کافی مشخص لینک می‌شوند
+      if (kw.length < 5 && kw.indexOf(' ') === -1) continue;
+      if (seenSlug.has(k.slug) || text.indexOf(kw) === -1) continue;
+      seenSlug.add(k.slug);
+      kwLinks.push({ keyword: kw, slug: k.slug });
+      if (kwLinks.length >= 4) break;
+    }
+  } catch (e) { kwLinks = []; }
+
   let fin = [];
   try { fin = (financeDB.getLatest() || []).slice(0, 4); } catch (e) {}
 
@@ -809,7 +827,7 @@ app.get('/news/:id', (req, res, next) => {
     // درس: آستانه‌ی کیفی باید با داده‌ی کلیکِ همان صفحات تنظیم شود و
     // پله‌پله اعمال شود، نه یک‌جا روی اکثریت سایت.
     robots: null
-  }, { n, headline, bodyParas: paras, media, related, fin }, {
+  }, { n, headline, bodyParas: paras, media, related, fin, kwLinks }, {
     '@context': 'https://schema.org', '@type': 'NewsArticle',
     headline,
     datePublished: n.published_at,
