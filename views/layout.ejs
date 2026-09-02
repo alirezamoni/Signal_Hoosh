@@ -19,7 +19,11 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:image" content="<%= SITE + (seo.image || ASSETS.og_default) %>">
 <meta name="twitter:card" content="summary_large_image">
-<% if (seo.robots) { %><meta name="robots" content="<%= seo.robots %>"><% } else if (seo.noindex) { %><meta name="robots" content="noindex, nofollow"><% } %>
+<%# noindex باید follow بماند. با nofollow، صفحه‌ی ۲ به بعدِ فهرست‌ها
+      به گوگل می‌گفت لینک‌ها را دنبال نکن — و /trends/keywords?p=2..46 تنها
+      جایی است که ۲٬۳۵۰ صفحه‌ی ترند از آن لینک می‌گیرند. یعنی خودِ صفحه
+      ایندکس نشود ولی مسیر کشف باز بماند. %>
+<% if (seo.robots) { %><meta name="robots" content="<%= seo.robots %>"><% } else if (seo.noindex) { %><meta name="robots" content="noindex, follow"><% } %>
 <% if (typeof jsonld !== 'undefined' && jsonld) { %>
 <script type="application/ld+json"><%- JSON.stringify(jsonld) %></script>
 <% } %>

@@ -35,6 +35,7 @@ const blogDB     = require('./blog-db');
 const blogWriter = require('./blog-writer');
 const mdown      = require('./lib/markdown');
 const backupLib  = require('./lib/backup');
+const sitemapNews = require('./lib/sitemap-news');
 const blogFacts  = require('./blog-facts');
 const imageGen   = require('./lib/image-gen');
 const txt       = require('./lib/clean-text');
@@ -2767,8 +2768,29 @@ app.get('/news/source/:username', (req, res, next) => {
   if (!u) return next();
   const pg = Math.max(1, Math.min(parseInt(req.query.page, 10) || 1, 500));
 
+  // ⚠️ channels.username با پیشوند @ ذخیره می‌شود («@mehrnews») ولی این
+  // مسیر @ را از آدرس حذف می‌کند، پس تطبیق ساده هیچ‌وقت جواب نمی‌داد و هر
+  // ۲۰ آدرس /news/source/ که در سایت‌مپ بود ۴۰۴ می‌داد. هر دو شکل پذیرفته
+  // می‌شود تا آدرس‌های قدیمیِ ایندکس‌شده هم نشکنند.
+  // ⚠️ دو مشکل اینجا با هم بودند و هر دو باعث ۴۰۴ می‌شدند:
+  //
+  // ۱. channels.username با پیشوند @ ذخیره می‌شود («@mehrnews») ولی مسیر
+  //    @ را از آدرس حذف می‌کند، پس تطبیق ساده هرگز جواب نمی‌داد.
+  // ۲. جدول channels ردیف تکراری دارد — «@Khabar_Fouri» هم id=1 است با صفر
+  //    خبر، هم یک ردیف دیگر با ۳٬۵۳۶ خبر. get() اولی را برمی‌داشت،
+  //    archiveQuery صفر می‌داد و مسیر next() می‌زد.
+  //
+  // پس هر دو شکلِ نام پذیرفته می‌شود و از میان تکراری‌ها، ردیفی که واقعاً
+  // خبر دارد انتخاب می‌شود. idx_news_channel این شمارش را ارزان می‌کند.
   let ch = null;
-  try { ch = newsRO.prepare('SELECT * FROM channels WHERE username=? COLLATE NOCASE').get(u); } catch (e) {}
+  try {
+    ch = newsRO.prepare(`
+      SELECT c.* FROM channels c
+      WHERE c.username = ? COLLATE NOCASE OR c.username = '@' || ? COLLATE NOCASE
+      ORDER BY (SELECT COUNT(*) FROM news n WHERE n.channel_id = c.id) DESC,
+               c.active DESC, c.id DESC
+      LIMIT 1`).get(u, u);
+  } catch (e) {}
   if (!ch) return next();
 
   const r = archiveQuery('COALESCE(n.blocked,0)=0 AND n.channel_id=?', [ch.id], pg);
@@ -3128,7 +3150,33 @@ function sectionTouchedAt() {
   return out;
 }
 
+/**
+ * ایندکس سایت‌مپ. با ۶۶ هزار خبر از سقف ۵۰٬۰۰۰ آدرسِ یک فایل رد می‌شویم،
+ * پس باید چند فایل شود. ایندکس جداگانه این مزیت را هم دارد که گوگل برای
+ * هر فایل lastmod مستقل می‌بیند و فایلِ خبرهای تازه را بیشتر می‌خواند.
+ */
 app.get('/sitemap.xml', (req, res) => {
+  const n = sitemapNews.shardCount();
+  const now = new Date().toISOString();
+  const parts = ['/sitemap-main.xml'];
+  for (let i = 0; i < n; i++) parts.push('/sitemap-news-' + i + '.xml');
+  res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+    parts.map(p => `<sitemap><loc>${SITE}${p}</loc><lastmod>${now}</lastmod></sitemap>`).join('') +
+    '</sitemapindex>'
+  );
+});
+
+app.get('/sitemap-news-:n.xml', (req, res, next) => {
+  const n = parseInt(req.params.n, 10);
+  if (!isFinite(n) || n < 0) return next();
+  const xml = sitemapNews.shardXml(n, SITE);
+  if (!xml) return next();
+  res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(xml);
+});
+
+app.get('/sitemap-main.xml', (req, res) => {
   const touched = sectionTouchedAt();
   const urls = [
     { loc: '/', pri: '1.0', freq: 'hourly' },
@@ -3187,25 +3235,20 @@ app.get('/sitemap.xml', (req, res) => {
       items += `<url><loc>${SITE}/news/archive/${d.day}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
     }
     for (const s of archiveSources(null)) {
-      items += `<url><loc>${SITE}/news/source/${s.username}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
+      // @ باید برداشته شود، وگرنه آدرس ساخته‌شده با آنچه مسیر می‌پذیرد نمی‌خواند
+      const uname = String(s.username || '').replace(/^@/, '');
+      if (uname) items += `<url><loc>${SITE}/news/source/${uname}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
     }
   } catch (e) {}
 
-  try {
-    // خبرِ کوتاه برای گوگل «محتوای نازک» است. از ۷۹ هزار خبر، حدود
-    // ۲۵ هزارتا زیر ۱۲۰ نویسه‌اند؛ ایندکس شدن انبوهشان اعتبار کل دامنه
-    // را پایین می‌آورد. فقط خبرهایی با متن کافی وارد سایت‌مپ می‌شوند.
-    // سقف قبلاً ۵۰۰۰ بود، در حالی که ۲۲ هزار خبر واجد شرایط‌اند — یعنی
-    // ۱۷ هزار صفحه‌ی باکیفیت فقط از طریق خزیدن صفحات آرشیو پیدا می‌شدند که
-    // کند است. بعد از آسیبِ noindex (کامیت 96af336) بازیابی ایندکس به
-    // کشف دوباره‌ی همین صفحات وابسته است، پس معرفی مستقیمشان مهم است.
-    // سقف استاندارد سایت‌مپ ۵۰٬۰۰۰ آدرس / ۵۰ مگابایت است و با ۲۵ هزار آدرس
-    // و چند مگابایت، فاصله‌ی زیادی تا آن داریم.
-    for (const r of newsRO.prepare('SELECT id, published_at FROM news WHERE COALESCE(blocked,0)=0 AND LENGTH(COALESCE(text_fa, text)) >= 300 ORDER BY published_at DESC LIMIT 40000').all()) {
-      items += `<url><loc>${SITE}/news/${r.id}</loc><lastmod>${new Date(r.published_at).toISOString()}</lastmod><changefreq>never</changefreq><priority>0.6</priority></url>`;
-    }
-  } catch (e) {}
-  res.type('application/xml').send(
+  // ⚠️ حلقه‌ی خبر از اینجا برداشته شد و به lib/sitemap-news.js رفت.
+  //
+  // شرط قبلی «LENGTH(...) >= 300» بر این فرض بود که خبر کوتاه محتوای نازک
+  // است. داده‌ی سرچ کنسول خلافش را ثابت کرد: از ۱۸ صفحه‌ی پرکلیک، ۱۲ تا
+  // زیر ۳۰۰ نویسه بودند. و چون صفحه‌ی آرشیو روز فقط ۴۰ خبر از ۲٬۶۰۰ خبرِ
+  // آن روز را لینک می‌کند، نبودن در سایت‌مپ یعنی نبودن هیچ مسیر کشف —
+  // آن شرط عملاً ۴۶ هزار صفحه را از ایندکس بیرون نگه می‌داشت.
+  res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(
     '<?xml version="1.0" encoding="UTF-8"?>' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
     urls.map(u => `<url><loc>${SITE}${u.loc}</loc>` + (touched[u.loc] ? `<lastmod>${touched[u.loc]}</lastmod>` : '') + `<changefreq>${u.freq}</changefreq><priority>${u.pri}</priority></url>`).join('') +

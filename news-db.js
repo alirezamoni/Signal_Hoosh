@@ -313,7 +313,11 @@ function cleanup() {
   const files = [];
   for (const row of doomed) files.push(...mediaFilesOf(row.media_url));
 
-  const r = db.prepare(`DELETE FROM news WHERE published_at < datetime('now','-30 days')`).run();
+  // ⚠️ قبلاً ۳۰ روز بود. یعنی هر صفحه‌ای که گوگل ایندکس می‌کرد ظرف یک ماه
+  // ۴۰۴ می‌شد و سایت هرگز سرمایه‌ی ایندکس انباشته نمی‌کرد — صفحه‌ای که
+  // ۳۰ کلیک گرفته بود در روز ۳۱ می‌مرد. هزینه‌ی نگه‌داشتن ~۱٫۷ گیگ در سال
+  // است و ۱۳ گیگ فضای آزاد داریم.
+  const r = db.prepare(`DELETE FROM news WHERE published_at < datetime('now','-365 days')`).run();
   if (r.changes) console.log(`[news-db] cleanup: ${r.changes} old news removed`);
 
   // حالا که ردیف‌ها حذف شده‌اند، فایل‌های بی‌ارجاع را از دیسک پاک کن
