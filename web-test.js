@@ -279,7 +279,11 @@ function page(res, tpl, active, seo, data, jsonld) {
   // بدون این، هر بازدیدکننده مستقیم به سرور می‌خورد و زیر ترافیک، همین
   // نقطه اول از همه‌جا کم می‌آورد.
   if (!seo || !seo.noindex) {
-    res.set('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=600');
+    // s-maxage یکسانِ ۱۲۰ ثانیه برای همه یعنی گوگل‌بات روی صفحاتی که اصلاً عوض
+    // نمی‌شوند (خبرِ منتشرشده، نوشته‌ی وبلاگ) تقریباً همیشه به مبدأ می‌خورد.
+    // زمان پاسخ اندازه‌گیری‌شده ~۱٫۵ ثانیه است و مستقیم از بودجه‌ی خزش کم می‌کند.
+    const sMax = (seo && Number.isFinite(seo.sMaxAge)) ? seo.sMaxAge : 120;
+    res.set('Cache-Control', 'public, max-age=30, s-maxage=' + sMax + ', stale-while-revalidate=600');
   } else {
     res.set('Cache-Control', 'no-store');
   }
@@ -826,7 +830,9 @@ app.get('/news/:id', (req, res, next) => {
     // ریزش شدید کلیک در سرچ کنسول دیده شد.
     // درس: آستانه‌ی کیفی باید با داده‌ی کلیکِ همان صفحات تنظیم شود و
     // پله‌پله اعمال شود، نه یک‌جا روی اکثریت سایت.
-    robots: null
+    robots: null,
+    // خبرِ منتشرشده دیگر عوض نمی‌شود؛ لبه می‌تواند یک روز نگهش دارد
+    sMaxAge: 86400
   }, { n, headline, bodyParas: paras, media, related, fin, kwLinks }, {
     '@context': 'https://schema.org', '@type': 'NewsArticle',
     headline,
@@ -1799,10 +1805,15 @@ app.get('/disclaimer', (req, res) => {
 
 const BLOG_PER_PAGE = 12;
 
-function blogListPage(req, res, pageNum) {
+function blogListPage(req, res, pageNum, next) {
   const total = blogDB.countPublished();
   const pages = Math.max(1, Math.ceil(total / BLOG_PER_PAGE));
-  const p = Math.min(Math.max(1, pageNum || 1), pages);
+  // شماره‌ی فراتر از آخرین صفحه‌ی واقعی قبلاً clamp می‌شد، یعنی /blog/page/99
+  // محتوای صفحه‌ی آخر را با کد ۲۰۰ و canonical خودش برمی‌گرداند — همان فضای
+  // خزشِ بی‌پایانی که در 18c624a برای بایگانی بسته شد. اینجا هم ۴۰۴ می‌دهد.
+  const want = Math.max(1, pageNum || 1);
+  if (want > pages && next) return next();
+  const p = Math.min(want, pages);
   const posts = blogDB.listPublished(BLOG_PER_PAGE, (p - 1) * BLOG_PER_PAGE)
     .map(x => Object.assign({}, x, { excerptText: x.excerpt || mdown.plain(x.body, 180) }));
 
@@ -1821,8 +1832,8 @@ function blogListPage(req, res, pageNum) {
   });
 }
 
-app.get('/blog', (req, res) => blogListPage(req, res, 1));
-app.get('/blog/page/:n', (req, res) => blogListPage(req, res, parseInt(req.params.n, 10) || 1));
+app.get('/blog', (req, res, next) => blogListPage(req, res, 1, next));
+app.get('/blog/page/:n', (req, res, next) => blogListPage(req, res, parseInt(req.params.n, 10) || 1, next));
 
 // فید — مسیرش باید پیش از /blog/:slug تعریف شود وگرنه slug آن را می‌بلعد
 app.get('/blog/rss.xml', (req, res) => {
@@ -1868,6 +1879,8 @@ app.get('/blog/:slug', (req, res, next) => {
     path: '/blog/' + post.slug,
     image: post.cover || null,
     ogType: 'article',
+    // نوشته از پنل ویرایش‌پذیر است، پس یک ساعت — نه یک روزِ خبر
+    sMaxAge: 3600,
   }, { post, bodyHtml, readMin, related, chain }, [{
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -3143,8 +3156,11 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /internal/\n' +
     'Disallow: /admin\n' +
     'Disallow: /legacy\n' +
+    // /news/page/ قطعه‌ی HTML اسکرول بی‌نهایت است، نه صفحه‌ی مستقل — مسدود می‌ماند.
+    // ولی /blog/page/ صفحه‌ی واقعی است و «noindex, follow» می‌فرستد. تا وقتی
+    // robots مسدودش کند گوگل نه آن تگ را می‌بیند و نه — مهم‌تر — لینک‌های داخل
+    // صفحه‌بندی را دنبال می‌کند، یعنی سایت‌مپ تنها مسیر کشف نوشته‌ها می‌ماند.
     'Disallow: /news/page/\n' +
-    'Disallow: /blog/page/\n' +
     'Disallow: /*?q=\n' +
     'Disallow: /*&sort=\n\n' +
     // خزنده‌های تحلیل بک‌لینک و اسکرپ تجاری. هیچ بازدیدکننده‌ای نمی‌آورند
