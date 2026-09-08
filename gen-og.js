@@ -24,6 +24,15 @@ const FONTS = {
 
 const TABS = ['ترند سرچ', 'ترند اخبار', 'ترند مالی', 'ترند ملک', 'ترند خودرو', 'پیش‌بینی ترند'];
 
+// عنوان و زیرعنوان از خط فرمان، تا همین قالبِ جاافتاده برای تصویر هر
+// بخش هم استفاده شود. بدون آرگومان دقیقاً همان تصویر قبلی ساخته می‌شود.
+// در عنوان، *متن* به رنگ تأکید درمی‌آید.
+const TITLE_HTML = process.argv[3]
+  ? process.argv[3].replace(/\*(.+?)\*/g, '<span class="hl">$1</span>')
+  : 'مانیتور هوشمند <span class="hl">داده‌های ایران</span>';
+const SUBTITLE = process.argv[4]
+  || 'دلار، طلا، بورس و ارز دیجیتال، ترند جست‌وجو و اخبار، قیمت ملک و خودرو، بازار کار و پیش‌بینی — همه در یک داشبورد زنده و رایگان.';
+
 const html = `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -97,8 +106,8 @@ body {
       <div class="live"><i></i>زنده</div>
     </div>
 
-    <div class="title">مانیتور هوشمند <span class="hl">داده‌های ایران</span></div>
-    <div class="subtitle">دلار، طلا، بورس و ارز دیجیتال، ترند جست‌وجو و اخبار، قیمت ملک و خودرو، بازار کار و پیش‌بینی — همه در یک داشبورد زنده و رایگان.</div>
+    <div class="title">${TITLE_HTML}</div>
+    <div class="subtitle">${SUBTITLE}</div>
 
     <div class="pills">${TABS.map(t => `<span class="pill">${t}</span>`).join('')}</div>
 

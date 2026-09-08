@@ -336,6 +336,15 @@ function assetVersion(rel) {
 }
 const ASSETS = {
   og_default: '/og-default.png?v=' + assetVersion('og-default.png'),
+  // تا قبل از این همه‌ی صفحات یک تصویر مشترک داشتند، پس هر لینکی که در
+  // تلگرام و واتساپ پخش می‌شد عیناً یکسان دیده می‌شد و هیچ نشانه‌ای از
+  // محتوای صفحه نمی‌داد. اگر فایل بخشی نبود کلیدش ساخته نمی‌شود و
+  // به‌صورت خودکار به og_default برمی‌گردد.
+  og_section: ['trends','news','finance','property','cars','market','jobs','polymarket','future']
+    .reduce((m, k) => {
+      try { m['/' + k] = '/og-' + k + '.png?v=' + assetVersion('og-' + k + '.png'); } catch (e) {}
+      return m;
+    }, {}),
   tokens:     '/assets/css/tokens.css?v='     + assetVersion('assets/css/tokens.css'),
   base:       '/assets/css/base.css?v='       + assetVersion('assets/css/base.css'),
   components: '/assets/css/components.css?v=' + assetVersion('assets/css/components.css'),
@@ -1033,18 +1042,64 @@ app.get('/trends/:slug', (req, res, next) => {
 
   // خبرهای همان بازه که این عبارت در متنشان آمده — محدود به بازه‌ی
   // فعال بودن کلیدواژه، وگرنه LIKE روی ۸۰ هزار خبر کند می‌شود
+  // ⚠️ قبلاً فقط عبارتِ کامل با LIKE جستجو می‌شد. برای عبارت‌های چندکلمه‌ای
+  // این هرگز چیزی پیدا نمی‌کند، چون هیچ خبری «جایگاههای پرسپولیس درمقابل
+  // استقلال خوزستان» را عیناً در متنش ندارد. اثرش در سرچ کنسول:
+  //
+  //   صفحه‌ی خبردار  («خلبان»)        CTR ۴٫۸۲٪
+  //   صفحه‌ی بی‌خبر  (عبارت بلند)     CTR ۰٫۰۳٪ ← ۸٬۲۱۸ ایمپرشن، ۲ کلیک
+  //
+  // چون بدون خبر، عنوان به «روند جستجو» سقوط می‌کند و کسی که دنبال خودِ
+  // موضوع است کلیک نمی‌زند. پس اگر عبارت کامل جواب نداد، روی توکن‌های
+  // بامعنا برمی‌گردیم و خبری را می‌پذیریم که دست‌کم دو تای آن‌ها را دارد:
+  // «پرسپولیس» و «استقلال» پیدا می‌شوند، «جایگاههای» نه. شرطِ دوتایی
+  // جلوی این را می‌گیرد که یک توکن عام مثل «ایران» هر خبری را بیاورد.
+  const KW_STOP = new Set(['برای','درمقابل','مقابل','است','هستند','شده','های','این','امروز','دیروز','خبر','اخبار','زنده','آخرین']);
+  const kwTokens = String(keyword).split(/[\s\u200c]+/)
+    .filter(t => t.length >= 4 && !KW_STOP.has(t))
+    .slice(0, 6);
+
   let news = [];
   try {
     const from = prof.first_day;
     const to = new Date(new Date(prof.last_day + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10);
-    news = markNews(newsRO.prepare(`
+    const exact = newsRO.prepare(`
       SELECT n.*, c.title AS channel_title, c.username AS channel_username
       FROM news n LEFT JOIN channels c ON c.id = n.channel_id
       WHERE COALESCE(n.blocked,0)=0
         AND n.published_at >= ? AND n.published_at < ?
         AND (n.text_fa LIKE ? OR n.text LIKE ?)
       ORDER BY n.published_at DESC LIMIT 6
-    `).all(from, to, '%' + keyword + '%', '%' + keyword + '%'));
+    `).all(from, to, '%' + keyword + '%', '%' + keyword + '%');
+
+    if (exact.length) {
+      news = markNews(exact);
+    } else if (kwTokens.length >= 2) {
+      // بازه‌ی تاریخ همان محافظِ سرعتِ قبلی است. LIMIT بالا فقط نامزد
+      // جمع می‌کند؛ انتخاب نهایی پایین‌تر و در جاوااسکریپت انجام می‌شود.
+      const ors = kwTokens.map(() => '(n.text_fa LIKE ? OR n.text LIKE ?)').join(' OR ');
+      const args = [from, to];
+      for (const t of kwTokens) { args.push('%' + t + '%', '%' + t + '%'); }
+      const cand = newsRO.prepare(`
+        SELECT n.*, c.title AS channel_title, c.username AS channel_username
+        FROM news n LEFT JOIN channels c ON c.id = n.channel_id
+        WHERE COALESCE(n.blocked,0)=0
+          AND n.published_at >= ? AND n.published_at < ?
+          AND (${ors})
+        ORDER BY n.published_at DESC LIMIT 120
+      `).all(...args);
+
+      const scored = cand.map(r => {
+        const hay = String(r.text_fa || '') + ' ' + String(r.text || '');
+        let hits = 0;
+        for (const t of kwTokens) if (hay.indexOf(t) !== -1) hits++;
+        return { r, hits };
+      }).filter(x => x.hits >= 2);
+
+      scored.sort((x, y) => y.hits - x.hits ||
+        String(y.r.published_at).localeCompare(String(x.r.published_at)));
+      news = markNews(scored.slice(0, 6).map(x => x.r));
+    }
   } catch (e) { news = []; }
 
   const active = prof.latest && prof.latest.active;
@@ -3161,8 +3216,14 @@ app.get('/robots.txt', (req, res) => {
     // robots مسدودش کند گوگل نه آن تگ را می‌بیند و نه — مهم‌تر — لینک‌های داخل
     // صفحه‌بندی را دنبال می‌کند، یعنی سایت‌مپ تنها مسیر کشف نوشته‌ها می‌ماند.
     'Disallow: /news/page/\n' +
+    // پارامتر هم به‌شکل «اولِ کوئری» (?sort=) می‌آید هم «وسط» (&sort=).
+    // قانون قبلی فقط دومی را داشت، پس /trends/keywords?sort=days ایندکس شد.
     'Disallow: /*?q=\n' +
-    'Disallow: /*&sort=\n\n' +
+    'Disallow: /*&q=\n' +
+    'Disallow: /*?sort=\n' +
+    'Disallow: /*&sort=\n' +
+    'Disallow: /*?cat=\n' +
+    'Disallow: /*&cat=\n\n' +
     // خزنده‌های تحلیل بک‌لینک و اسکرپ تجاری. هیچ بازدیدکننده‌ای نمی‌آورند
     // ولی ظرفیت یک سرور دوهسته‌ای را می‌خورند: در ۲۴ مرداد ~۵۰ هزار درخواست
     // به /news/<id> خورد و همان روز نرخ خزش گوگل از ~۱۸۰۰ به ۷۲ افتاد، چون
