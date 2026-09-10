@@ -99,7 +99,7 @@
           <section class="panel mb4">
             <div class="panel-head">
               <h2 class="panel-title">آخرین فعالیت جمع‌آورنده‌ها</h2>
-              <span class="panel-link">زمان آخرین نوشتن در پایگاه داده</span>
+              <span class="panel-link">آخرین ردیف واقعی در جدول</span>
             </div>
             <div class="panel-body">
               <% dbs.forEach(function (d) { %>
@@ -107,7 +107,7 @@
                 <div class="drow-main">
                   <span class="drow-rank" style="background:<%= d.stale ? 'var(--down-bg)' : 'var(--up-bg)' %>;color:<%= d.stale ? 'var(--down)' : 'var(--up)' %>;">●</span>
                   <span class="drow-name"><%= d.label %></span>
-                  <span class="dim" style="font-size:var(--fs-xs);">هر <%= fa(d.maxAgeH) %> ساعت</span>
+                  <span class="dim" style="font-size:var(--fs-xs);"><%= d.every ? d.every : ('آستانه ' + fa(d.maxAgeH || 6) + ' ساعت') %></span>
                 </div>
                 <div class="drow-val">
                   <span class="<%= d.stale ? 'down' : '' %>"><%= timeAgo(d.mtime) %></span>
@@ -125,7 +125,7 @@
               <% if (!dbs.length) { %><div class="drow"><span class="dim">پایگاه داده‌ای پیدا نشد</span></div><% } %>
             </div>
             <div class="panel-foot">
-              آستانه‌ی هر بخش با دوره‌ی زمان‌بند خودش تنظیم شده (کنار نامش نوشته شده) — قرمز یعنی
+              این عدد «آخرین ردیف واقعیِ جدول» است، نه زمان لمس‌شدن فایل؛ پس با ری‌استارت سبز نمی‌شود. قرمز یعنی
               بیش از آن مقدار چیزی ننوشته، نشانه‌ی توقف واقعی. دکمه‌ی «اجرا» همان کرال زمان‌بند را
               همین حالا در پس‌زمینه شروع می‌کند؛ چند دقیقه بعد صفحه را تازه کنید.
             </div>

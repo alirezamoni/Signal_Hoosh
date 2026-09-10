@@ -36,6 +36,7 @@ const blogWriter = require('./blog-writer');
 const mdown      = require('./lib/markdown');
 const backupLib  = require('./lib/backup');
 const sitemapNews = require('./lib/sitemap-news');
+const crawlerHealth = require('./lib/crawler-health');
 const blogFacts  = require('./blog-facts');
 const imageGen   = require('./lib/image-gen');
 const txt       = require('./lib/clean-text');
@@ -2070,6 +2071,26 @@ function dbFiles() {
       } catch (e) {}
     }
   }
+  // روکشِ سلامتِ واقعی. mtime فایل بعد از هر ری‌استارت تازه به نظر می‌رسد،
+  // چون ‎-shm با هر بار *باز شدن* اتصال لمس می‌شود — حتی یک خواندن ساده.
+  // نمونه‌ی ۱۰ سپتامبر: property.db-shm همان روز لمس شده بود ولی آخرین
+  // ردیف واقعی مربوط به ده روز قبل بود و نقطه سبز می‌ماند.
+  // برای دیتابیس‌هایی که جدول زمان‌دارشان را می‌شناسیم، «آخرین ردیف
+  // واقعی» جای mtime می‌نشیند؛ بقیه (کاربران، پیام‌ها، وبلاگ) همان‌طور
+  // که بودند می‌مانند چون جمع‌آورنده ندارند.
+  try {
+    const health = crawlerHealth.byFile();
+    for (const row of out) {
+      const h = health[row.file];
+      if (!h || h.status === 'unknown') continue;
+      if (h.lastAt) row.mtime = h.lastAt;
+      row.stale = h.status === 'down';
+      row.maxAgeH = h.maxAgeH;
+      row.every = h.every;
+      row.real = true;
+    }
+  } catch (e) {}
+
   return out.sort((a, b) => b.sizeMB - a.sizeMB);
 }
 
