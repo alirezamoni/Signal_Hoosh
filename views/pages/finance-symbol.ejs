@@ -1,0 +1,150 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/finance">ترند بازارهای مالی</a> <span>/</span>
+      <% if (mode === 'day') { %>
+      <a href="/finance/<%= info.symbol %>"><%= info.name %></a> <span>/</span>
+      <span><%= dayLabel %></span>
+      <% } else { %>
+      <span><%= info.name %></span>
+      <% } %>
+    </nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title"><%= h1 %></h1>
+        <p class="page-sub"><%= sub %></p>
+      </div>
+      <div class="row" style="gap:var(--s2);">
+        <% if (mode === 'day') { %>
+        <%# RTL: اولین دکمه سمت راست می‌نشیند، پس «روز قبل» اول می‌آید %>
+        <% if (nb.prev) { %><a class="btn btn-sm" href="/finance/<%= info.symbol %>/<%= nb.prev %>">→ <%= nb.prevLabel %></a><% } %>
+        <% if (nb.next) { %><a class="btn btn-sm" href="/finance/<%= info.symbol %>/<%= nb.next %>"><%= nb.nextLabel %> ←</a><% } %>
+        <% } else { %>
+        <a class="btn btn-sm" href="/finance">همه‌ی بازارها ←</a>
+        <% } %>
+      </div>
+    </div>
+
+    <blockquote class="desc">
+      <%= intro %>
+    </blockquote>
+
+    <!-- ══ شاخص‌ها ══ -->
+    <div class="grid g4 mb4">
+      <% kpis.forEach(function (k) { %>
+      <div class="kpi">
+        <div class="kpi-label"><%= k.label %></div>
+        <div class="kpi-val"><%= k.val %></div>
+        <div class="kpi-note"><%= k.note %></div>
+      </div>
+      <% }); %>
+    </div>
+
+    <!-- ══ نمودار + بازارهای دیگر ══ -->
+    <div class="grid g3 mb4">
+
+      <section class="panel span2">
+        <div class="panel-head">
+          <h2 class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7h-5v5"/></svg>
+            <%= chartTitle %>
+          </h2>
+          <span class="panel-link"><%= unitLabel %></span>
+        </div>
+        <div class="panel-body-pad">
+          <% if (chart.has) { %>
+          <svg class="gold-chart" viewBox="0 0 100 40" preserveAspectRatio="none" role="img"
+               aria-label="<%= chartTitle %>">
+            <% chart.grid.forEach(function (g) { %>
+            <line x1="0" y1="<%= g %>" x2="100" y2="<%= g %>" stroke="var(--border-soft)" stroke-width=".3" vector-effect="non-scaling-stroke"/>
+            <% }); %>
+            <polyline points="<%= chart.poly %>" fill="none" stroke="var(--accent)" stroke-width="0.8" vector-effect="non-scaling-stroke"/>
+          </svg>
+          <!-- ترتیب برعکس: نمودار قدیمی‌ترین نقطه را چپ می‌کشد، RTL اولین
+               عنصر را راست می‌گذارد -->
+          <div class="row between mt3" style="font-size:var(--fs-xs);color:var(--faint);">
+            <span><%= chart.lastLabel %></span>
+            <span><%= chart.firstLabel %></span>
+          </div>
+          <% } else { %>
+          <p class="dim">داده‌ی کافی برای رسم نمودار نیست.</p>
+          <% } %>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">بازارهای دیگر</h2>
+          <a class="panel-link" href="/finance">همه ←</a>
+        </div>
+        <div class="panel-body">
+          <% others.forEach(function (o) { %>
+          <a class="drow" href="/finance/<%= o.symbol %>">
+            <div class="drow-main"><span class="drow-name"><%= o.name %></span></div>
+            <div class="drow-val">
+              <span><%= o.priceTxt %></span>
+              <% if (o.chg != null) { %>
+              <span class="badge <%= o.chg > 0 ? 'badge-up' : (o.chg < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(o.chg) %></span>
+              <% } %>
+            </div>
+          </a>
+          <% }); %>
+        </div>
+      </section>
+
+    </div>
+
+    <% if (mode === 'symbol') { %>
+    <!-- ══ تاریخچه‌ی روزانه — هر ردیف به صفحه‌ی همان روز لینک می‌دهد ══ -->
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">تاریخچه‌ی روزانه‌ی قیمت <%= info.name %></h2>
+        <span class="panel-link">قیمت پایانی هر روز · <%= unitLabel %></span>
+      </div>
+      <div class="panel-body">
+        <% rows.forEach(function (r) { %>
+        <a class="drow" href="/finance/<%= info.symbol %>/<%= r.day %>">
+          <div class="drow-main">
+            <span class="drow-name"><%= r.label %></span>
+            <% if (r.isToday) { %><span class="badge badge-flat">امروز</span><% } %>
+          </div>
+          <div class="drow-val">
+            <span><%= r.closeTxt %></span>
+            <span class="drow-sub">کف <%= r.lowTxt %> · سقف <%= r.highTxt %></span>
+            <% if (r.chg != null) { %>
+            <span class="badge <%= r.chg > 0 ? 'badge-up' : (r.chg < 0 ? 'badge-down' : 'badge-flat') %>"><%= pct(r.chg) %></span>
+            <% } %>
+          </div>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } else { %>
+    <!-- ══ ساعت‌به‌ساعت ══ -->
+    <section class="panel mb4">
+      <div class="panel-head">
+        <h2 class="panel-title">قیمت ساعت‌به‌ساعت</h2>
+        <span class="panel-link">میانگین هر ساعت به وقت تهران · <%= unitLabel %></span>
+      </div>
+      <div class="panel-body">
+        <% hourly.forEach(function (h) { %>
+        <div class="drow">
+          <div class="drow-main"><span class="drow-name"><%= h.hourTxt %></span></div>
+          <div class="drow-val">
+            <span><%= h.priceTxt %></span>
+            <span class="drow-sub"><%= h.rangeTxt %></span>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <div class="panel-foot">
+        <a href="/finance/<%= info.symbol %>">تاریخچه‌ی کامل روزانه‌ی قیمت <%= info.name %> ←</a>
+      </div>
+    </section>
+    <% } %>
+
+  </div>
+</main>

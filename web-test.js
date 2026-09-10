@@ -38,6 +38,7 @@ const backupLib  = require('./lib/backup');
 const sitemapNews = require('./lib/sitemap-news');
 const crawlerHealth = require('./lib/crawler-health');
 const tgDigest = require('./lib/tg-digest');
+const finHistory = require('./lib/finance-history');
 const subsDB = require('./lib/subs-db');
 const blogFacts  = require('./blog-facts');
 const imageGen   = require('./lib/image-gen');
@@ -1351,6 +1352,220 @@ app.get('/finance', (req, res) => {
   }, { rows, kpi: rows.slice(0, 4), messages, channels, goldRows, goldChart, goldUpdated, goldSpread,
        commodityGroups, commodityStatus,
        range, ranges: FIN_RANGES, goldSim, finSim });
+});
+
+// ════════════ تاریخچه‌ی قیمت هر نماد ════════════
+//
+// «قیمت دلار ۲۵ مرداد» نیت جست‌وجوی پرحجم و همیشگی است و داده‌اش را از
+// ۱۶ ژوئیه با رزولوشن چنددقیقه‌ای داریم — ولی تا امروز هیچ صفحه‌ی
+// قابل‌ایندکسی برایش نبود؛ /finance فقط لحظه‌ی حال را نشان می‌دهد.
+//
+// ⚠️ نمایش قیمت از همان finUnit/finPrice/finText صفحه‌ی /finance می‌آید، نه
+// از ستون unit. آن ستون برای بیت‌کوین «ریال» ثبت شده در حالی که قیمتش
+// دلاری است (۷۷٬۲۱۴)؛ اعتماد به آن یعنی بیت‌کوین به ۷٬۷۲۱ تومان.
+const FIN_SYM_RE = /^[a-z0-9_]{2,24}$/;
+
+function tehranToday() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+  } catch (e) { return new Date().toISOString().slice(0, 10); }
+}
+
+// روز ISO به ظهرِ UTC تعبیر می‌شود تا در هیچ منطقه‌ی زمانی‌ای به روز مجاور نلغزد
+const finDayLabel = d => faDay(d + 'T12:00:00Z');
+
+function finMoney(info, raw) {
+  const v = finPrice(info, raw);
+  return v == null ? '—' : fa(finText(v));
+}
+
+function finOthers(symbol) {
+  return finHistory.symbols().filter(s => s.symbol !== symbol).map(s => {
+    const u = finUnit(s);
+    return {
+      symbol: s.symbol,
+      name: s.name || s.symbol,
+      priceTxt: finMoney(s, s.price) + (u === 'تومان' ? '' : ' ' + u),
+      chg: s.change_pct == null ? null : Number(s.change_pct),
+    };
+  });
+}
+
+app.get('/finance/:symbol', (req, res, next) => {
+  const symbol = String(req.params.symbol || '');
+  if (!FIN_SYM_RE.test(symbol)) return next();
+  const info = finHistory.symbolInfo(symbol);
+  if (!info) return next();
+  const days = finHistory.dailySeries(symbol, 90);            // جدیدترین اول
+  if (!days.length) return next();
+
+  const name = info.name || symbol;
+  const unit = finUnit(info);
+  const today = tehranToday();
+  const cur = days[0];
+
+  const rows = days.map((d, i) => {
+    const prev = days[i + 1];
+    return {
+      day: d.day,
+      label: finDayLabel(d.day),
+      isToday: d.day === today,
+      closeTxt: finMoney(info, d.close),
+      lowTxt: finMoney(info, d.low),
+      highTxt: finMoney(info, d.high),
+      chg: prev && prev.close ? (d.close / prev.close - 1) * 100 : null,
+    };
+  });
+
+  const asc = days.slice().reverse();                          // قدیمی به جدید
+  const poly = datePoly(asc.map(d => ({ date: d.day + 'T12:00:00Z', value: finPrice(info, d.close) })), 100, 40);
+  const minD = asc.reduce((a, b) => (b.close < a.close ? b : a));
+  const maxD = asc.reduce((a, b) => (b.close > a.close ? b : a));
+  const first = asc[0].day;
+  const winChg = asc[0].close ? (asc[asc.length - 1].close / asc[0].close - 1) * 100 : null;
+  const dayChg = rows[0].chg;
+  const curTxt = finMoney(info, info.price);
+  // اگر کرالر عقب مانده باشد، «امروز» دروغ است — برچسب از روزِ واقعی می‌آید
+  const curLabel = cur.day === today ? 'امروز' : finDayLabel(cur.day);
+
+  const intro =
+    'قیمت ' + name + ' همین حالا ' + curTxt + ' ' + unit + ' است' +
+    (dayChg != null ? ' که نسبت به پایان روز قبل ' + pct(dayChg) + ' تغییر کرده' : '') + '. ' +
+    'در ' + fa(asc.length) + ' روز گذشته کمترین قیمت پایانی ' + finMoney(info, minD.close) +
+    ' (' + finDayLabel(minD.day) + ') و بیشترین ' + finMoney(info, maxD.close) +
+    ' (' + finDayLabel(maxD.day) + ') بوده است. فهرست زیر قیمت پایانی، کف و سقف هر روز را از ' +
+    finDayLabel(first) + ' تا امروز نشان می‌دهد و هر روز صفحه‌ی جداگانه‌ای با جزئیات ساعت‌به‌ساعت دارد.';
+
+  const kpis = [
+    { label: 'قیمت فعلی', val: curTxt,
+      note: unit + (dayChg != null ? ' · ' + pct(dayChg) + ' نسبت به دیروز' : '') },
+    { label: 'کف و سقف ' + curLabel, val: finMoney(info, cur.low) + ' – ' + finMoney(info, cur.high), note: unit },
+    { label: 'تغییر در ' + fa(asc.length) + ' روز', val: winChg != null ? pct(winChg) : '—',
+      note: 'از ' + finDayLabel(first) },
+    { label: 'بازه‌ی قیمت پایانی', val: finMoney(info, minD.close) + ' – ' + finMoney(info, maxD.close),
+      note: 'کمترین و بیشترین پایان روز' },
+  ];
+
+  page(res, 'finance-symbol', '/finance', {
+    title: 'قیمت ' + name + ' امروز | نمودار و تاریخچه‌ی روزانه — سیگنال هوش',
+    desc: 'قیمت لحظه‌ای ' + name + ' و تاریخچه‌ی روزانه‌ی آن از ' + finDayLabel(first) +
+          ': قیمت پایانی، کف و سقف هر روز، همراه با نمودار روند.',
+    path: '/finance/' + symbol,
+  }, {
+    mode: 'symbol', info: { symbol, name }, unitLabel: unit, dayLabel: '',
+    h1: 'قیمت ' + name,
+    sub: 'تاریخچه‌ی روزانه از ' + finDayLabel(first) + ' · آخرین بروزرسانی ' + timeAgo(info.timestamp),
+    intro, kpis,
+    chartTitle: 'روند قیمت پایانی ' + name,
+    chart: { has: !!poly, poly, grid: [10, 20, 30],
+             firstLabel: finDayLabel(first), lastLabel: finDayLabel(cur.day) },
+    rows, hourly: [], nb: {}, others: finOthers(symbol),
+  }, [{
+    '@context': 'https://schema.org', '@type': 'Dataset',
+    name: 'تاریخچه‌ی روزانه‌ی قیمت ' + name,
+    description: 'قیمت پایانی، کف و سقف روزانه‌ی ' + name + ' از ' + first + ' تا ' + cur.day +
+                 '، بر پایه‌ی نمونه‌برداری هر چند دقیقه از بازار.',
+    url: SITE + '/finance/' + symbol,
+    inLanguage: 'fa-IR',
+    temporalCoverage: first + '/' + cur.day,
+    isAccessibleForFree: true,
+    variableMeasured: 'قیمت ' + name + ' (' + unit + ')',
+    creator: { '@type': 'Organization', name: 'سیگنال هوش', url: SITE },
+  }, {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'خانه', item: SITE + '/' },
+      { '@type': 'ListItem', position: 2, name: 'ترند بازارهای مالی', item: SITE + '/finance' },
+      { '@type': 'ListItem', position: 3, name: name, item: SITE + '/finance/' + symbol },
+    ],
+  }]);
+});
+
+app.get('/finance/:symbol/:date', (req, res, next) => {
+  const symbol = String(req.params.symbol || '');
+  const date = String(req.params.date || '');
+  if (!FIN_SYM_RE.test(symbol) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return next();
+  const info = finHistory.symbolInfo(symbol);
+  if (!info) return next();
+  // روزِ بی‌داده (آینده، پیش از شروع داده، تاریخ نامعتبر) ۴۰۴ می‌گیرد، نه
+  // صفحه‌ی خالی با کد ۲۰۰ — همان فضای خزش بی‌پایانی که 18c624a بست.
+  const d = finHistory.day(symbol, date);
+  if (!d) return next();
+
+  const name = info.name || symbol;
+  const unit = finUnit(info);
+  const isToday = date === tehranToday();
+  const label = finDayLabel(date);
+  const nb = finHistory.neighbours(symbol, date);
+
+  let prevClose = null;
+  if (nb.prev) { const p = finHistory.day(symbol, nb.prev); if (p) prevClose = p.close; }
+  const chg = prevClose ? (d.close / prevClose - 1) * 100 : null;
+
+  const hours = d.hourly || [];
+  const hourly = hours.map(h => ({
+    hourTxt: 'ساعت ' + fa(h.hour) + ':۰۰',
+    priceTxt: finMoney(info, h.price),
+    rangeTxt: 'کف ' + finMoney(info, h.low) + ' · سقف ' + finMoney(info, h.high),
+  }));
+
+  // نمودار درون‌روزی از میانگین هر ساعت
+  let poly = '';
+  const hv = hours.map(h => finPrice(info, h.price)).filter(v => v != null);
+  if (hv.length > 1) {
+    const mn = Math.min.apply(null, hv), mx = Math.max.apply(null, hv), sp = (mx - mn) || 1;
+    poly = hv.map((v, i) => ((i / (hv.length - 1)) * 100).toFixed(2) + ',' +
+                            (40 - ((v - mn) / sp) * 40).toFixed(2)).join(' ');
+  }
+
+  const intro =
+    'قیمت ' + name + ' در ' + label + ' با ' + finMoney(info, d.open) + ' ' + unit + ' آغاز شد و ' +
+    (isToday ? 'تا این لحظه به ' + finMoney(info, d.close) + ' ' + unit + ' رسیده است'
+             : 'با ' + finMoney(info, d.close) + ' ' + unit + ' به پایان رسید') + '؛ ' +
+    'کمترین قیمت آن روز ' + finMoney(info, d.low) + ' و بیشترین ' + finMoney(info, d.high) + ' بود' +
+    (chg != null ? ' و نسبت به پایان روز قبل ' + pct(chg) + ' تغییر داشت' : '') + '.';
+
+  const kpis = [
+    { label: isToday ? 'آخرین قیمت' : 'قیمت پایانی', val: finMoney(info, d.close),
+      note: unit + (chg != null ? ' · ' + pct(chg) + ' نسبت به روز قبل' : '') },
+    { label: 'قیمت آغاز روز', val: finMoney(info, d.open), note: unit },
+    { label: 'کمترین قیمت', val: finMoney(info, d.low), note: unit },
+    { label: 'بیشترین قیمت', val: finMoney(info, d.high), note: unit },
+  ];
+
+  page(res, 'finance-symbol', '/finance', {
+    title: 'قیمت ' + name + ' ' + label + ' | سیگنال هوش',
+    desc: 'قیمت ' + name + ' در ' + label + ': آغاز ' + finMoney(info, d.open) + '، ' +
+          (isToday ? 'آخرین ' : 'پایان ') + finMoney(info, d.close) + ' ' + unit +
+          '، همراه با کمترین و بیشترین قیمت و جزئیات ساعت‌به‌ساعت.',
+    path: '/finance/' + symbol + '/' + date,
+    // روزِ گذشته دیگر عوض نمی‌شود؛ امروز هنوز در جریان است
+    sMaxAge: isToday ? 120 : 86400,
+  }, {
+    mode: 'day', info: { symbol, name }, unitLabel: unit, dayLabel: label,
+    h1: 'قیمت ' + name + ' در ' + label,
+    sub: isToday ? 'امروز — هنوز در جریان' : 'بر پایه‌ی ' + fa(d.n) + ' نمونه در طول روز',
+    intro, kpis,
+    chartTitle: 'روند درون‌روزی ' + name + ' — ' + label,
+    chart: { has: !!poly, poly, grid: [10, 20, 30],
+             firstLabel: hours.length ? 'ساعت ' + fa(hours[0].hour) : '',
+             lastLabel: hours.length ? 'ساعت ' + fa(hours[hours.length - 1].hour) : '' },
+    rows: [], hourly,
+    nb: { prev: nb.prev, next: nb.next,
+          prevLabel: nb.prev ? finDayLabel(nb.prev) : '',
+          nextLabel: nb.next ? finDayLabel(nb.next) : '' },
+    others: finOthers(symbol),
+  }, {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'خانه', item: SITE + '/' },
+      { '@type': 'ListItem', position: 2, name: 'ترند بازارهای مالی', item: SITE + '/finance' },
+      { '@type': 'ListItem', position: 3, name: name, item: SITE + '/finance/' + symbol },
+      { '@type': 'ListItem', position: 4, name: label, item: SITE + '/finance/' + symbol + '/' + date },
+    ],
+  });
 });
 
 app.get('/cars', (req, res) => {
@@ -3561,6 +3776,24 @@ app.get('/sitemap-main.xml', (req, res) => {
     for (const r of propDB.getRegions()) {
       const rm = r.updated_at ? new Date(r.updated_at) : null;
       items += `<url><loc>${SITE}/property/${r.slug}</loc>` + (rm && !isNaN(rm) ? `<lastmod>${rm.toISOString()}</lastmod>` : '') + `<changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    }
+  } catch (e) {}
+
+  // صفحه‌ی تاریخچه‌ی هر نماد مالی و هر روزِ گذشته‌اش. امروز عمداً نیست:
+  // هنوز تمام نشده و محتوایش تا نیمه‌شب تهران عوض می‌شود.
+  // lastmod هر روز لحظه‌ی نهایی‌شدن آن است — نیمه‌شب تهران در پایان همان
+  // روز، یعنی ۲۰:۳۰ UTC — چون lastmod نادرست از نداشتنش بدتر است.
+  // سقف ۴۰۰ روز: فهرست صفحه‌ی نماد ۹۰ روز را نشان می‌دهد، ولی روزهای
+  // قدیمی‌تر هم باید در سایت‌مپ بمانند وگرنه فقط زنجیره‌ی قبلی/بعدی به آن‌ها می‌رسد.
+  try {
+    const todayT = tehranToday();
+    for (const s of finHistory.symbols()) {
+      items += `<url><loc>${SITE}/finance/${s.symbol}</loc><changefreq>hourly</changefreq><priority>0.8</priority></url>`;
+      for (const d of finHistory.dailySeries(s.symbol, 400)) {
+        if (d.day >= todayT) continue;
+        items += `<url><loc>${SITE}/finance/${s.symbol}/${d.day}</loc>` +
+          `<lastmod>${d.day}T20:30:00+00:00</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>`;
+      }
     }
   } catch (e) {}
 
