@@ -111,6 +111,23 @@
         </section>
         <% } %>
 
+        <% if (typeof blogLinks !== 'undefined' && blogLinks && blogLinks.length) { %>
+        <section class="panel mb4">
+          <div class="panel-head">
+            <h2 class="panel-title">تحلیل روزانه‌ی سیگنال هوش</h2>
+            <a class="panel-link" href="/blog">وبلاگ ←</a>
+          </div>
+          <div class="panel-body">
+            <% blogLinks.forEach(function (b) { %>
+            <a class="drow" href="/blog/<%= encodeURIComponent(b.slug) %>">
+              <div class="drow-main"><span class="drow-name"><%= b.title %></span></div>
+              <div class="drow-val"><span class="drow-sub">خواندن ←</span></div>
+            </a>
+            <% }); %>
+          </div>
+        </section>
+        <% } %>
+
         <% if (fin && fin.length) { %>
         <section class="panel">
           <div class="panel-head"><h2 class="panel-title">بازار در این لحظه</h2><a class="panel-link" href="/finance">همه ←</a></div>

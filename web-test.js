@@ -191,6 +191,10 @@ function mediaOf(media_url) {
   return out;
 }
 
+// واژه‌های پرتکرارِ بی‌بار معنایی. هم صفحه‌ی ترند (تطبیق خبر) و هم صفحه‌ی
+// خبر (تطبیق نوشته‌ی وبلاگ) از همین فهرست استفاده می‌کنند، پس ماژول‌سطح است.
+const KW_STOP = new Set(['برای','درمقابل','مقابل','است','هستند','شده','های','این','امروز','دیروز','خبر','اخبار','زنده','آخرین']);
+
 const TABS = [
   { href: '/',           label: 'خانه' },
   { href: '/trends',     label: 'ترند سرچ' },
@@ -826,6 +830,23 @@ app.get('/news/:id', (req, res, next) => {
   let fin = [];
   try { fin = (financeDB.getLatest() || []).slice(0, 4); } catch (e) {}
 
+  // وبلاگ ۳۸ نوشته دارد و در کل سرچ کنسول صفر کلیک گرفته، در حالی که
+  // صفحات خبر پرترافیک‌ترین دارایی سایت‌اند. این پل، اعتبار و کاربر را
+  // از خبر به تحلیل منتقل می‌کند. اگر تطبیق موضوعی پیدا نشد، تازه‌ترین
+  // نوشته‌ها را می‌گذاریم — هدف اصلی وجودِ مسیر داخلی است، نه دقت کامل.
+  let blogLinks = [];
+  try {
+    const posts = blogDB.listPublished(40, 0);
+    const toks = String(headline).split(/[\s\u200c]+/)
+      .filter(t => t.length >= 4 && !KW_STOP.has(t)).slice(0, 8);
+    const scored = posts.map(p => {
+      const hay = String(p.title || '') + ' ' + String(p.keywords || '');
+      let h = 0; for (const t of toks) if (hay.indexOf(t) !== -1) h++;
+      return { p, h };
+    }).filter(x => x.h > 0).sort((a, b) => b.h - a.h);
+    blogLinks = (scored.length ? scored.slice(0, 2).map(x => x.p) : posts.slice(0, 2));
+  } catch (e) { blogLinks = []; }
+
   page(res, 'news-detail', '/news', {
     title: headline + ' | سیگنال هوش',
     desc: txt.description(text),
@@ -842,7 +863,7 @@ app.get('/news/:id', (req, res, next) => {
     robots: null,
     // خبرِ منتشرشده دیگر عوض نمی‌شود؛ لبه می‌تواند یک روز نگهش دارد
     sMaxAge: 86400
-  }, { n, headline, bodyParas: paras, media, related, fin, kwLinks }, {
+  }, { n, headline, bodyParas: paras, media, related, fin, kwLinks, blogLinks }, {
     '@context': 'https://schema.org', '@type': 'NewsArticle',
     headline,
     datePublished: n.published_at,
@@ -1054,7 +1075,6 @@ app.get('/trends/:slug', (req, res, next) => {
   // بامعنا برمی‌گردیم و خبری را می‌پذیریم که دست‌کم دو تای آن‌ها را دارد:
   // «پرسپولیس» و «استقلال» پیدا می‌شوند، «جایگاههای» نه. شرطِ دوتایی
   // جلوی این را می‌گیرد که یک توکن عام مثل «ایران» هر خبری را بیاورد.
-  const KW_STOP = new Set(['برای','درمقابل','مقابل','است','هستند','شده','های','این','امروز','دیروز','خبر','اخبار','زنده','آخرین']);
   const kwTokens = String(keyword).split(/[\s\u200c]+/)
     .filter(t => t.length >= 4 && !KW_STOP.has(t))
     .slice(0, 6);
@@ -3196,6 +3216,84 @@ function statsPage(req, res) {
 }
 
 app.get('/stats', statsPage);
+
+const SW_SOURCE = `
+// سرویس‌ورکر سیگنال هوش.
+//
+// ⚠️ صفحه‌ها هرگز از کش سرو نمی‌شوند. این سایت قیمت لحظه‌ای نشان می‌دهد و
+// نشان‌دادن نرخ دیروزِ دلار از آفلاین‌بودن بدتر است. فقط دارایی‌های ثابت
+// (CSS، فونت، آیکون، تصویر اشتراک‌گذاری) کش می‌شوند.
+const V = 'sh-v1';
+const STATIC = /\\.(css|js|woff2?|png|jpg|jpeg|svg|ico)$/i;
+
+self.addEventListener('install', e => { self.skipWaiting(); });
+
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== V).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (!STATIC.test(url.pathname)) return;   // HTML و API دست‌نخورده به شبکه می‌روند
+
+  e.respondWith((async () => {
+    const cache = await caches.open(V);
+    const hit = await cache.match(req);
+    if (hit) {
+      // تازه‌سازی در پس‌زمینه، بدون معطل‌کردن کاربر
+      fetch(req).then(r => { if (r && r.ok) cache.put(req, r.clone()); }).catch(() => {});
+      return hit;
+    }
+    try {
+      const res = await fetch(req);
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
+    } catch (err) {
+      return new Response('', { status: 504 });
+    }
+  })());
+});
+`;
+// ── PWA ──
+// بدون این، سایت فقط یک نتیجه‌ی گوگل است. با آن، یک آیکون روی گوشی —
+// که برای محصولی که کارش «هر روز قیمت را چک کن» است تفاوت اصلی است.
+app.get('/manifest.webmanifest', (req, res) => {
+  res.type('application/manifest+json')
+     .set('Cache-Control', 'public, max-age=86400')
+     .send(JSON.stringify({
+       name: 'سیگنال هوش — مانیتور داده‌های ایران',
+       short_name: 'سیگنال هوش',
+       description: 'قیمت لحظه‌ای دلار، طلا و خودرو، ترند جست‌وجوی گوگل و اخبار ایران.',
+       lang: 'fa-IR', dir: 'rtl',
+       start_url: '/?src=pwa',
+       scope: '/',
+       display: 'standalone',
+       background_color: '#050505',
+       theme_color: '#050505',
+       icons: [
+         { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+         { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+         { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+       ],
+       shortcuts: [
+         { name: 'قیمت دلار و طلا', url: '/finance' },
+         { name: 'ترند اخبار',      url: '/news' },
+         { name: 'ترند سرچ',        url: '/trends' }
+       ]
+     }));
+});
+
+// از مسیر سرو می‌شود نه public/، تا هم no-cache بگیرد هم دامنه‌اش ریشه بماند
+app.get('/sw.js', (req, res) => {
+  res.type('application/javascript').set('Cache-Control', 'no-cache').send(SW_SOURCE);
+});
 
 // ── robots و sitemap ──
 app.get('/robots.txt', (req, res) => {

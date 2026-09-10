@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#050505">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="سیگنال هوش">
+<meta name="apple-mobile-web-app-capable" content="yes">
 
 <title><%= seo.title %></title>
 <meta name="description" content="<%= seo.desc %>">
@@ -154,5 +158,14 @@
   gtag('config', 'G-DWN8J1WHYH');
 </script>
 <% } %>
+<script>
+  // ثبت بی‌صدا؛ اگر مرورگر پشتیبانی نکند یا ثبت شکست بخورد، سایت
+  // دقیقاً مثل قبل کار می‌کند. سرویس‌ورکر هیچ صفحه‌ای را کش نمی‌کند.
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>
