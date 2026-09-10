@@ -151,6 +151,20 @@ function saveTrends(region_no, points) {
   tx(points || []);
 }
 
+/**
+ * سری ماهانه‌ی یک منطقه را کامل جایگزین می‌کند، در یک تراکنش.
+ * kilid در اوت ۲۰۲۶ روش شاخص را عوض کرد؛ نقطه‌های روش قدیم کنار نقطه‌های
+ * روش جدید، رشد سالانه‌ی propertyModel را (اولین تا آخرین نقطه) بی‌معنا می‌کرد.
+ */
+function replaceTrends(region_no, points) {
+  const del = db.prepare('DELETE FROM property_trends WHERE region_no=?');
+  const ins = db.prepare('INSERT INTO property_trends (region_no, date, period, value) VALUES (?,?,?,?)');
+  db.transaction(list => {
+    del.run(region_no);
+    for (const p of list) ins.run(region_no, p.date, p.period, p.value);
+  })(points || []);
+}
+
 function setStatus(region_no, s) {
   const prev = db.prepare('SELECT fail_streak FROM property_status WHERE region_no=?').get(region_no);
   const streak = s.ok ? 0 : ((prev && prev.fail_streak) || 0) + 1;
@@ -229,6 +243,7 @@ function cleanup(days) {
 }
 
 module.exports = {
+  replaceTrends,
   db, upsertRegion, setSvgPath, getRegions, getRegion, setMeta, getMeta,
   saveSnapshot, saveTrends, setStatus,
   latest, trendsOf, snapshotsOf, coverage, allStatus, cleanup,

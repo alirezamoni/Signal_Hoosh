@@ -141,76 +141,167 @@ function buildMap() {
   return polys.length;
 }
 
-/* ── یک منطقه ── */
+/* ── یک منطقه ──
+ *
+ * ⚠️ kilid.com در اوت ۲۰۲۶ صفحه‌ی قیمت منطقه را بازطراحی کرد و همه‌ی
+ * کلیدهایی که این کرالر می‌خواند (stats/statsKind، trends/periodSymbol،
+ * polygon، bigAreaRelated) از بار RSC حذف شدند. از ۳۱ اوت هر ۲۲ منطقه
+ * «نه قیمت تخمینی بود نه سری ماهانه» می‌داد و /property ده روز داده‌ی کهنه
+ * نشان می‌داد — در حالی که داشبورد سبز بود (mtime، نه ردیف واقعی).
+ *
+ * ساختار جدید یک «شاخص قیمت مسکن» است. داده‌ی منطقه در شیئی است که کلید
+ * total دارد:
+ *   total.pricePsmMedian    میانه‌ی قیمت هر متر، تومان       → meter
+ *   total.priceTotalMedian  میانه‌ی قیمت کل واحد، تومان      → unit
+ *   rows[]                  محله‌ها، هرکدام با قیمت خودش     → areas
+ *   area.point {lat, lon}   مرکز منطقه (lon، نه lng)
+ * و سری ماهانه در شیء دیگری با همان areaId:
+ *   points[] = {periodCode: "1405-05", value}   ← سال و ماهِ شمسی
+ *
+ * ⚠️ روش هم عوض شده، نه فقط شکل. برآورد قبلی منطقه‌ی ۱ حدود ۲۳۴ میلیون
+ * تومان بر متر بود؛ شاخص جدید برای همان ماه ۴۹۰ میلیون می‌گوید. سری قدیمی
+ * هم در آذر ۱۴۰۳ متوقف شده بود. پس سری هر منطقه جایگزین می‌شود نه الحاق —
+ * propertyModel رشد را از اولین تا آخرین نقطه می‌گیرد و مخلوط دو روش آن را
+ * بی‌معنا می‌کرد.
+ *
+ * مرز جغرافیایی دیگر در صفحه نیست. upsertRegion با COALESCE مرزِ ذخیره‌شده
+ * را نگه می‌دارد، پس نقشه سالم می‌ماند.
+ */
+
+const FA_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+                   'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+
+// تقویم شمسی را ICU خود Node دارد؛ کتابخانه‌ی جدا لازم نیست
+const PERSIAN_FMT = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', {
+  timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric',
+});
+
+function persianParts(ms) {
+  const o = {};
+  for (const p of PERSIAN_FMT.formatToParts(new Date(ms))) {
+    if (p.type === 'year' || p.type === 'month' || p.type === 'day') o[p.type] = parseInt(p.value, 10);
+  }
+  return o;
+}
+
+/** روز اولِ یک ماه شمسی، به میلادی (YYYY-MM-DD) — همان قراردادی که سری قدیمی داشت. */
+function jalaliMonthStart(jy, jm) {
+  // فروردین حدود ۲۱ مارس شروع می‌شود؛ از کمی قبل از تخمین، روزبه‌روز جلو می‌رویم
+  const approx = Date.UTC(jy + 621, 2, 21) + ((jm - 1) * 30.5 - 8) * 86400000;
+  for (let k = 0; k < 50; k++) {
+    const ms = approx + k * 86400000;
+    const p = persianParts(ms);
+    if (p.year === jy && p.month === jm && p.day === 1) return new Date(ms).toISOString().slice(0, 10);
+  }
+  return null;
+}
+
+function findObj(node, test, depth) {
+  depth = depth || 0;
+  if (!node || typeof node !== 'object' || depth > 60) return null;
+  if (!Array.isArray(node) && test(node)) return node;
+  for (const v of (Array.isArray(node) ? node : Object.values(node))) {
+    const r = findObj(v, test, depth + 1);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** هر خطِ بار RSC به شکل «شناسه:JSON» است؛ همه‌ی خط‌های قابل‌پارس. */
+function rscTrees(rsc) {
+  const out = [];
+  for (const line of rsc.split('\n')) {
+    const c = line.indexOf(':');
+    if (c < 1) continue;
+    const body = line.slice(c + 1);
+    if (body[0] !== '{' && body[0] !== '[') continue;
+    try { out.push(JSON.parse(body)); } catch (e) { /* خط ناقص */ }
+  }
+  return out;
+}
+
+const posNum = v => (typeof v === 'number' && isFinite(v) && v > 0) ? v : null;
+
+/** بدون نوشتن در دیتابیس — جدا شده تا روی HTML ذخیره‌شده قابل آزمایش باشد. */
+function parseRegion(html) {
+  const rsc = rscOf(html);
+  if (!rsc) throw new Error('بار RSC خالی بود');
+  const trees = rscTrees(rsc);
+
+  let hub = null;
+  for (const t of trees) {
+    hub = findObj(t, o => o.total && typeof o.total === 'object' && 'pricePsmMedian' in o.total);
+    if (hub) break;
+  }
+  if (!hub) return { meter: null, unit: null, points: [], cLat: null, cLng: null, areas: null, trust: null };
+
+  const total = hub.total;
+  let cLat = null, cLng = null;
+  const pt = hub.area && hub.area.point;
+  if (pt && typeof pt.lat === 'number' && typeof pt.lon === 'number') { cLat = pt.lat; cLng = pt.lon; }
+
+  // محله‌های شاخص — برای پیوند داخلی و توصیف صفحه
+  let areas = null;
+  if (Array.isArray(hub.rows)) {
+    areas = hub.rows.map(r => r && r.name).filter(Boolean).slice(0, 12);
+    if (!areas.length) areas = null;
+  }
+
+  let series = null;
+  for (const t of trees) {
+    series = findObj(t, o => o.areaId === total.areaId && Array.isArray(o.points) &&
+      o.points.length && o.points[0] && 'periodCode' in o.points[0]);
+    if (series) break;
+  }
+  const points = [];
+  for (const p of (series ? series.points : [])) {
+    const m = /^(\d{4})-(\d{1,2})$/.exec(String((p && p.periodCode) || ''));
+    const v = posNum(p && p.value);
+    if (!m || v == null) continue;
+    const jy = +m[1], jm = +m[2];
+    const date = jalaliMonthStart(jy, jm);
+    if (!date) continue;
+    points.push({ date, period: FA_MONTHS[jm - 1] + ' ' + jy, value: v });
+  }
+  points.sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    meter: posNum(total.pricePsmMedian),
+    unit: posNum(total.priceTotalMedian),
+    points, cLat, cLng, areas,
+    trust: total.trust || null,
+  };
+}
 
 async function crawlRegion(n) {
   const t0 = Date.now();
   try {
     const html = await get(BASE + n);
-    const rsc = rscOf(html);
-    if (!rsc) throw new Error('بار RSC خالی بود');
-
-    const extId = (html.match(/region=(\d+)/) || [])[1] || null;
-
-    // قیمت تخمینی — statsKind 72 متری، 71 کل واحد
-    let meter = null, unit = null;
-    const stats = jsonAfter(rsc, '"stats":[', '[');
-    if (stats) {
-      for (const g of stats) for (const c of (g.content || [])) {
-        if (c.statsKind === 72 && c.value > 0) meter = c.value;
-        if (c.statsKind === 71 && c.value > 0) unit = c.value;
-      }
-    }
-
-    // سری ماهانه
-    const trends = jsonAfter(rsc, '"trends":[', '[');
-    const points = (trends || [])
-      .filter(t => t && t.date && t.value > 0)
-      .map(t => ({
-        date: String(t.date).slice(0, 10),
-        period: String(t.periodSymbol || '').replace(/\s*-\s*/, ' ').trim() || null,
-        value: t.value,
-      }));
-
-    // مرز و مرکز
-    let polygon = null, cLng = null, cLat = null;
-    const poly = jsonAfter(rsc, '"polygon"', '{');
-    if (poly && Array.isArray(poly.coordinates) && poly.coordinates.length > 3) {
-      const pts = poly.coordinates.filter(p => Array.isArray(p) && p.length === 2);
-      polygon = simplify(pts, 0.0008).map(p => [Math.round(p[0] * 1e5) / 1e5, Math.round(p[1] * 1e5) / 1e5]);
-    }
-    const pt = jsonAfter(rsc, '"point"', '{');
-    if (pt && Array.isArray(pt.coordinate)) { cLng = pt.coordinate[0]; cLat = pt.coordinate[1]; }
-
-    // محله‌های شاخص — برای پیوند داخلی و توصیف صفحه
-    let areas = null;
-    const rel = jsonAfter(rsc, '"bigAreaRelated"', '[');
-    if (Array.isArray(rel)) {
-      areas = rel.map(a => a && a.nameLocal).filter(Boolean).slice(0, 12);
-      if (!areas.length) areas = null;
-    }
+    const r = parseRegion(html);
+    let meter = r.meter, est = false;
+    const unit = r.unit, points = r.points;
 
     if (meter == null && !points.length) throw new Error('نه قیمت تخمینی بود نه سری ماهانه');
 
-    /* چند منطقه ارزیابی مستقیم ندارند ولی سری ماهانه‌شان به‌روز است. به‌جای
-       اینکه روی نقشه سوراخ بماند، آخرین نقطه‌ی سری را — اگر تازه باشد —
+    /* اگر میانه‌ی دوره نبود ولی سری ماهانه تازه است، آخرین نقطه‌ی سری را
        به‌عنوان تخمین می‌گیریم و علامت می‌زنیم تا در نمایش شفاف بماند. */
-    let est = false;
     if (meter == null && points.length) {
       const last = points[points.length - 1];
       const ageDays = (Date.now() - new Date(last.date).getTime()) / 86400000;
       if (ageDays <= 75) { meter = last.value; est = true; }
     }
 
+    // ext_id و polygon عمداً null — COALESCE مقدار ذخیره‌شده را نگه می‌دارد
     db.upsertRegion({
-      region_no: n, ext_id: extId, name_fa: 'منطقه ' + faNum(n),
-      slug: 'region' + n, center_lng: cLng, center_lat: cLat, polygon, areas,
+      region_no: n, ext_id: null, name_fa: 'منطقه ' + faNum(n),
+      slug: 'region' + n, center_lng: r.cLng, center_lat: r.cLat, polygon: null, areas: r.areas,
     });
     if (meter != null || unit != null) db.saveSnapshot(n, meter, unit, est);
-    if (points.length) db.saveTrends(n, points);
+    // با کمتر از دو نقطه سری قبلی دست نمی‌خورد؛ پارس ناقص نباید تاریخچه را پاک کند
+    if (points.length >= 2) db.replaceTrends(n, points);
     db.setStatus(n, { ok: true, ms: Date.now() - t0 });
 
-    return { n, ok: true, meter, unit, est, trends: points.length, poly: polygon ? polygon.length : 0 };
+    return { n, ok: true, meter, unit, est, trends: points.length, trust: r.trust, areas: r.areas ? r.areas.length : 0 };
   } catch (e) {
     db.setStatus(n, { ok: false, error: e.message, ms: Date.now() - t0 });
     return { n, ok: false, error: e.message };
@@ -247,7 +338,7 @@ function startPropertyScheduler(hours) {
   console.log(`[property] زمان‌بند فعال — هر ${h} ساعت`);
 }
 
-module.exports = { crawlAll, crawlRegion, buildMap, startPropertyScheduler };
+module.exports = { crawlAll, crawlRegion, buildMap, startPropertyScheduler, parseRegion, jalaliMonthStart };
 
 if (require.main === module) {
   crawlAll().then(r => { console.log(JSON.stringify(r, null, 1)); process.exit(0); });
