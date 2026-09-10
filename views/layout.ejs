@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#050505">
 <link rel="manifest" href="/manifest.webmanifest">
+<style>
+  .sub-form{margin-top:14px;max-width:340px}
+  .sub-label{display:block;font-size:12.5px;line-height:1.7;opacity:.75;margin-bottom:7px}
+  .sub-row{display:flex;gap:6px}
+  .sub-input{flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05);color:inherit;font:inherit;font-size:13px}
+  .sub-input::placeholder{opacity:.5}
+  .sub-btn{flex:none;padding:8px 16px;border-radius:8px;border:0;cursor:pointer;font:inherit;font-size:13px;
+    font-weight:600;background:linear-gradient(135deg,#4f83f7,#9b7cfc);color:#fff}
+  .sub-btn:hover{filter:brightness(1.08)}
+  .sub-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  .sub-msg{margin:8px 0 0;font-size:12.5px;opacity:.9}
+</style>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="سیگنال هوش">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -102,6 +115,19 @@
             ترند جستجوی گوگل، اخبار کانال‌های تلگرام، قیمت روز خودرو، پرفروش‌های بازار کالا و
             آمار بازار کار — همه رایگان و بدون ثبت‌نام.
           </p>
+
+          <form class="sub-form" id="newsletter" method="POST" action="/subscribe">
+            <label class="sub-label" for="sub-email">خبرنامه‌ی روزانه — مهم‌ترین ترندها و قیمت‌ها، روزی یک ایمیل</label>
+            <div class="sub-row">
+              <input id="sub-email" class="sub-input" type="email" name="email" required placeholder="ایمیل شما" dir="ltr" autocomplete="email" maxlength="190">
+              <button class="sub-btn" type="submit">عضویت</button>
+            </div>
+            <%# فیلد تله برای ربات‌ها — کاربر واقعی نمی‌بیندش %>
+            <input class="sub-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <% if (typeof subMsg !== 'undefined' && subMsg) { %>
+            <p class="sub-msg"><%= subMsg %></p>
+            <% } %>
+          </form>
         </div>
         <div>
           <h4>بخش‌ها</h4>

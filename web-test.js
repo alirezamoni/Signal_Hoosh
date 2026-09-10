@@ -38,6 +38,7 @@ const backupLib  = require('./lib/backup');
 const sitemapNews = require('./lib/sitemap-news');
 const crawlerHealth = require('./lib/crawler-health');
 const tgDigest = require('./lib/tg-digest');
+const subsDB = require('./lib/subs-db');
 const blogFacts  = require('./blog-facts');
 const imageGen   = require('./lib/image-gen');
 const txt       = require('./lib/clean-text');
@@ -419,6 +420,14 @@ app.use(express.urlencoded({ extended: false, limit: '64kb' }));
 
 // index:false تا public/index.html (اپ قدیمی) روی روت "/" را نگیرد
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', index: false }));
+
+// پیام نتیجه‌ی خبرنامه باید در فوتر *هر* صفحه‌ای دیده شود، پس باید پیش از
+// مسیرهای صفحه ثبت شود؛ اگر پایین‌تر باشد درخواست هرگز به آن نمی‌رسد.
+app.use((req, res, next) => {
+  const k = req.query && req.query.sub;
+  res.locals.subMsg = (k && SUB_MSG[k]) || null;
+  next();
+});
 
 // ════════════ داده ════════════
 
@@ -2240,6 +2249,8 @@ function adminPage(req, res, extra) {
     imageModelsMeta: { fetchedAt: imgCache.fetchedAt, total: imageModels.length, cached: !!imgCache.fetchedAt },
     backupEst: (() => { try { return backupLib.estimate(); } catch (e) { return null; } })(),
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
+    subsStats:  (() => { try { return subsDB.stats(); } catch (e) { return { total: 0, week: 0, today: 0 }; } })(),
+    subsRecent: (() => { try { return subsDB.list(50, 0); } catch (e) { return []; } })(),
     tgDigestCfg: {
       enabled:   !!String(setAll.tg_digest_enabled || '').trim(),
       channel:   String(setAll.tg_public_channel || '@signalHoosh'),
@@ -3290,6 +3301,68 @@ self.addEventListener('fetch', e => {
   })());
 });
 `;
+// ── خبرنامه ──
+// پیام نتیجه از طریق res.locals می‌رود تا در فوتر هر صفحه‌ای دیده شود،
+// بدون اینکه هر مسیر مجبور باشد چیزی پاس بدهد.
+const SUB_MSG = {
+  ok:  'ایمیل شما ثبت شد. خبرنامه به‌زودی شروع می‌شود.',
+  dup: 'این ایمیل از قبل ثبت شده است.',
+  bad: 'ایمیل معتبر نیست.',
+  err: 'ثبت نشد؛ کمی بعد دوباره تلاش کنید.',
+};
+
+// سقف ساده‌ی ثبت‌نام برای هر IP. هدف جلوگیری از پرشدن جدول با ربات است،
+// نه امنیت جدی — فرم عمومی است و کاربر واقعی روزی یک بار بیشتر نمی‌فرستد.
+const _subHits = new Map();
+function subRateOk(ip) {
+  const now = Date.now();
+  const rec = _subHits.get(ip) || { n: 0, since: now };
+  if (now - rec.since > 3600 * 1000) { rec.n = 0; rec.since = now; }
+  rec.n++;
+  _subHits.set(ip, rec);
+  if (_subHits.size > 5000) _subHits.clear();
+  return rec.n <= 5;
+}
+
+app.post('/subscribe', (req, res) => {
+  const b = req.body || {};
+  // فیلد تله: کاربر واقعی نمی‌بیندش، ربات پرش می‌کند. بی‌صدا موفق وانمود
+  // می‌کنیم تا ربات نفهمد رد شده.
+  if (String(b.website || '').trim()) return backToPage(req, res, 'ok');
+  const ip = String(req.headers['cf-connecting-ip'] || req.ip || '');
+  if (!subRateOk(ip)) return backToPage(req, res, 'err');
+  let r = 'err';
+  try { r = subsDB.add(b.email, 'footer', ip); } catch (e) { r = 'err'; }
+  return backToPage(req, res, r);
+});
+
+// بازگشت به همان صفحه‌ای که فرم از آن ارسال شد — ولی فقط اگر هم‌مبدأ باشد،
+// وگرنه referer یک ریدایرکت باز می‌سازد.
+function backToPage(req, res, key) {
+  let p = '/';
+  try {
+    const ref = String(req.get('referer') || '');
+    if (ref) {
+      const u = new URL(ref);
+      if (u.host === (req.get('host') || '')) p = u.pathname || '/';
+    }
+  } catch (e) {}
+  return res.redirect(303, p + '?sub=' + encodeURIComponent(key) + '#newsletter');
+}
+
+app.get('/admin/subscribers.csv', adminGuard, (req, res) => {
+  try {
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', 'attachment; filename="subscribers.csv"');
+    return res.send(subsDB.toCsv());
+  } catch (e) { return res.status(500).send('خطا: ' + e.message); }
+});
+
+app.post('/admin/users/subscriber/:id/delete', adminGuard, (req, res) => {
+  try { subsDB.remove(parseInt(req.params.id, 10)); } catch (e) {}
+  return backFrom(req, res, 'ایمیل حذف شد');
+});
+
 // ── گزارش روزانه‌ی کانال تلگرام ──
 // مسیرها عمداً زیر /admin/channels/ هستند تا backFrom کاربر را به همان
 // بخش «کانال‌های تلگرام» برگرداند.

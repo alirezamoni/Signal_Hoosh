@@ -144,6 +144,44 @@
             نقش <span class="badge badge-acc">سوپرادمین</span> به همه‌ی بخش‌ها دسترسی دارد.
           </blockquote>
 
+          <section class="panel mb4">
+            <div class="panel-head">
+              <h2 class="panel-title">خبرنامه</h2>
+              <a class="panel-link" href="/admin/subscribers.csv">دانلود CSV ←</a>
+            </div>
+            <div class="panel-body">
+              <div class="drow">
+                <div class="drow-main"><span class="drow-name">مجموع ایمیل‌های ثبت‌شده</span></div>
+                <div class="drow-val">
+                  <span><b><%= fa(subsStats.total) %></b></span>
+                  <span class="drow-sub"><%= fa(subsStats.week) %> در ۷ روز · <%= fa(subsStats.today) %> امروز</span>
+                </div>
+              </div>
+              <% subsRecent.forEach(function (sb) { %>
+              <div class="drow">
+                <%# کلادفلر «Email Address Obfuscation» را روی HTML اعمال می‌کند و
+                    نشانی را به [email protected] تبدیل می‌کرد — یعنی ادمین نشانی
+                    واقعی را نمی‌دید و نمی‌توانست کپی کند. email_off همان چیزی است
+                    که کلادفلر برای استثنا کردن یک ناحیه می‌پذیرد. %>
+                <div class="drow-main"><span class="drow-name" dir="ltr"><!--email_off--><%= sb.email %><!--email_on--></span></div>
+                <div class="drow-val">
+                  <span class="drow-sub"><%= timeAgo(sb.created_at) %></span>
+                  <form method="POST" action="/admin/users/subscriber/<%= sb.id %>/delete" style="display:inline;">
+                    <button class="btn btn-sm" type="submit">حذف</button>
+                  </form>
+                </div>
+              </div>
+              <% }); %>
+              <% if (!subsRecent.length) { %>
+              <div class="drow"><span class="dim">هنوز کسی ثبت‌نام نکرده — فرم در فوتر همه‌ی صفحات است.</span></div>
+              <% } %>
+            </div>
+            <div class="panel-foot">
+              فرم فقط ایمیل را <strong>جمع می‌کند</strong>؛ ارسال هنوز راه نیفتاده چون سرویس ارسالی
+              انتخاب نشده. جمع‌آوری از همین حالا شروع شده تا ثبت‌نام‌های این روزها از دست نروند.
+            </div>
+          </section>
+
           <div class="grid g3 mb4">
             <section class="panel">
               <div class="panel-head"><h3 class="panel-title">افزودن کاربر</h3></div>
