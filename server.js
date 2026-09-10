@@ -676,6 +676,8 @@ app.listen(PORT, HOST, () => {
   try { require('./timeline-alerts').startScheduler(5 * 60 * 1000); } catch(e) { console.warn('[warn] timeline-alerts not started:', e.message); }
   // پایش سلامت جمع‌آورنده‌ها: فقط روی تغییر وضعیت پیام می‌دهد، نه در هر بررسی
   try { require('./lib/crawler-health').startHealthScheduler(30 * 60 * 1000); } catch(e) { console.warn('[warn] crawler-health not started:', e.message); }
+  // گزارش روزانه‌ی کانال — تا وقتی tg_digest_enabled در پنل روشن نشود کاری نمی‌کند
+  try { require('./lib/tg-digest').startDigestScheduler(15 * 60 * 1000); } catch(e) { console.warn('[warn] tg-digest not started:', e.message); }
 
   // نگهبان جریان خبر: شنونده می‌تواند «زنده ولی بی‌کار» بماند و PM2 آن را
   // نمی‌بیند. تنها نشانه‌ی قابل اتکا خودِ داده است.

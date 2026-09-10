@@ -215,6 +215,50 @@
           </blockquote>
 
           <section class="panel mb4">
+            <div class="panel-head">
+              <h2 class="panel-title">گزارش روزانه در کانال</h2>
+              <span class="panel-link">تنها کانال توزیعی که به گوگل وابسته نیست</span>
+            </div>
+            <div class="panel-body">
+              <form method="POST" action="/admin/channels/digest/save" class="form-grid">
+                <label class="field">
+                  <span class="field-label">کانال مقصد</span>
+                  <input class="input" name="tg_public_channel" value="<%= tgDigestCfg.channel %>" placeholder="@signalHoosh" dir="ltr">
+                </label>
+                <label class="field">
+                  <span class="field-label">ساعت انتشار (به وقت تهران)</span>
+                  <input class="input" name="tg_digest_hour" value="<%= fa(tgDigestCfg.hour) %>" inputmode="numeric">
+                </label>
+                <label class="field field-inline">
+                  <input type="checkbox" name="tg_digest_enabled" <%= tgDigestCfg.enabled ? 'checked' : '' %>>
+                  <span>انتشار خودکار روزانه فعال باشد</span>
+                </label>
+                <div class="field"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+              </form>
+
+              <div class="drow">
+                <div class="drow-main">
+                  <span class="drow-name">آخرین انتشار</span>
+                </div>
+                <div class="drow-val">
+                  <span><%= tgDigestCfg.lastAt ? timeAgo(tgDigestCfg.lastAt) : 'هنوز چیزی نرفته' %></span>
+                  <form method="POST" action="/admin/channels/digest/send" style="display:inline;">
+                    <button class="btn btn-sm" type="submit">ارسال آزمایشی</button>
+                  </form>
+                </div>
+              </div>
+              <% if (tgDigestCfg.lastError) { %>
+              <div class="drow"><span class="down">خطای آخرین تلاش: <%= tgDigestCfg.lastError %></span></div>
+              <% } %>
+            </div>
+            <div class="panel-foot">
+              ربات <code>@monitrendsbot</code> باید در کانال مقصد <strong>ادمین با اجازه‌ی ارسال پیام</strong> باشد،
+              وگرنه تلگرام خطای «not enough rights» می‌دهد. گزارش شامل قیمت دلار و طلا، پرجست‌وجوترین‌های روز و
+              تحلیل امروز وبلاگ است و هر بخشش به سایت لینک می‌دهد.
+            </div>
+          </section>
+
+          <section class="panel mb4">
             <div class="panel-head"><h3 class="panel-title">افزودن کانال</h3></div>
             <div class="panel-body-pad">
               <form method="POST" action="/admin/channels/add">

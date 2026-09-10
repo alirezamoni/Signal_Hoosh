@@ -37,6 +37,7 @@ const mdown      = require('./lib/markdown');
 const backupLib  = require('./lib/backup');
 const sitemapNews = require('./lib/sitemap-news');
 const crawlerHealth = require('./lib/crawler-health');
+const tgDigest = require('./lib/tg-digest');
 const blogFacts  = require('./blog-facts');
 const imageGen   = require('./lib/image-gen');
 const txt       = require('./lib/clean-text');
@@ -2239,6 +2240,13 @@ function adminPage(req, res, extra) {
     imageModelsMeta: { fetchedAt: imgCache.fetchedAt, total: imageModels.length, cached: !!imgCache.fetchedAt },
     backupEst: (() => { try { return backupLib.estimate(); } catch (e) { return null; } })(),
     commodityAdminRows, commodityAdminStatus, commodityIntervalMin,
+    tgDigestCfg: {
+      enabled:   !!String(setAll.tg_digest_enabled || '').trim(),
+      channel:   String(setAll.tg_public_channel || '@signalHoosh'),
+      hour:      Number(setAll.tg_digest_hour == null ? 21 : setAll.tg_digest_hour) || 21,
+      lastAt:    setAll.tg_digest_last_at || '',
+      lastError: setAll.tg_digest_last_error || '',
+    },
     COMMODITY_MIN: commodityCrawler.MIN_INTERVAL_MIN, COMMODITY_MAX: commodityCrawler.MAX_INTERVAL_MIN,
     sys: systemInfo(dbs),
     stats: {
@@ -3282,6 +3290,35 @@ self.addEventListener('fetch', e => {
   })());
 });
 `;
+// ── گزارش روزانه‌ی کانال تلگرام ──
+// مسیرها عمداً زیر /admin/channels/ هستند تا backFrom کاربر را به همان
+// بخش «کانال‌های تلگرام» برگرداند.
+app.post('/admin/channels/digest/save', adminGuard, (req, res) => {
+  const b = req.body || {};
+  const ch = String(b.tg_public_channel || '').trim();
+  if (ch && !/^@[A-Za-z][A-Za-z0-9_]{3,}$/.test(ch) && !/^-?\d+$/.test(ch)) {
+    return backFrom(req, res, null, 'شناسه‌ی کانال باید مثل @signalHoosh یا یک عدد باشد');
+  }
+  let hour = parseInt(String(b.tg_digest_hour || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) hour = 21;
+  try {
+    settingsDB.set('tg_public_channel', ch || '@signalHoosh');
+    settingsDB.set('tg_digest_hour', String(hour));
+    settingsDB.set('tg_digest_enabled', (b.tg_digest_enabled ? '1' : ''));
+  } catch (e) { return backFrom(req, res, null, 'ذخیره نشد: ' + e.message); }
+  return backFrom(req, res, 'تنظیمات گزارش روزانه ذخیره شد');
+});
+
+app.post('/admin/channels/digest/send', adminGuard, async (req, res) => {
+  try {
+    const r = await tgDigest.sendDigest('admin');
+    if (r.ok) return backFrom(req, res, 'گزارش همین حالا در کانال منتشر شد');
+    // خطای تلگرام عیناً نشان داده می‌شود — «not enough rights» یعنی ربات
+    // هنوز در کانال ادمین نیست، که رایج‌ترین علت است.
+    return backFrom(req, res, null, 'تلگرام: ' + r.error);
+  } catch (e) { return backFrom(req, res, null, e.message); }
+});
+
 // ── PWA ──
 // بدون این، سایت فقط یک نتیجه‌ی گوگل است. با آن، یک آیکون روی گوشی —
 // که برای محصولی که کارش «هر روز قیمت را چک کن» است تفاوت اصلی است.
