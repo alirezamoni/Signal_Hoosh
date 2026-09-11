@@ -1393,6 +1393,141 @@ function finOthers(symbol) {
   });
 }
 
+// ════════════ مقایسه‌ی بازدهی بازارها ════════════
+//
+// «دلار بهتر بود یا طلا؟» پرسش همیشگی خانوار ایرانی است و داده‌اش را داریم.
+//
+// ⚠️ همه‌چیز به تومان مقایسه می‌شود. بازدهی دلاریِ بیت‌کوین یا انس برای کسی
+// که با تومان می‌خرد تصویر ناقصی است، و رتبه‌بندیِ بازدهیِ دو واحد پول
+// مختلف کنار هم گمراه‌کننده بود. پس قیمت دارایی‌های دلاری در نرخ دلار آزادِ
+// همان روز ضرب می‌شود. تشخیص «دلاری بودن» از finUnit می‌آید، نه ستون unit
+// (که برای بیت‌کوین «ریال» ثبت شده).
+const CMP_SYMBOLS = ['usd', 'tether', 'coin', 'gold18', 'ounce', 'bitcoin', 'oil_brent', 'stock_market'];
+const CMP_CHART = ['usd', 'gold18', 'coin', 'bitcoin', 'stock_market', 'ounce'];
+const CMP_COLORS = {
+  usd: '#2f80ed', gold18: '#d4a72c', coin: '#27ae60',
+  bitcoin: '#f2994a', stock_market: '#9b51e0', ounce: '#eb5757',
+};
+const CMP_WINDOWS = [
+  { days: 7, label: '۷ روز' },
+  { days: 30, label: '۳۰ روز' },
+  { days: 0, label: 'کل دوره' },
+];
+
+/** سری تومانی هر نماد روی تقویم روزهای دلار؛ روز بی‌داده آخرین مقدار قبلی را می‌گیرد. */
+function compareModel() {
+  const usdInfo = finHistory.symbolInfo('usd');
+  const usdDays = finHistory.dailySeries('usd', 400).slice().reverse();   // قدیمی به جدید
+  if (!usdInfo || usdDays.length < 2) return null;
+  const calendar = usdDays.map(d => d.day);
+  const usdToman = {};
+  for (const d of usdDays) usdToman[d.day] = finPrice(usdInfo, d.close);
+
+  const series = {};
+  for (const sym of CMP_SYMBOLS) {
+    const info = finHistory.symbolInfo(sym);
+    if (!info) continue;
+    const byDay = {};
+    for (const d of finHistory.dailySeries(sym, 400)) byDay[d.day] = d.close;
+    const inDollars = finUnit(info) === 'دلار';
+    const vals = [];
+    let last = null;
+    for (const day of calendar) {
+      if (byDay[day] != null) last = byDay[day];
+      if (last == null) { vals.push(null); continue; }
+      const v = finPrice(info, last);
+      vals.push(inDollars ? (usdToman[day] != null ? v * usdToman[day] : null) : v);
+    }
+    series[sym] = { sym, name: info.name || sym, inDollars, vals };
+  }
+  return { calendar, series };
+}
+
+/** بازدهی درصدی در n روز آخر (n=0 یعنی کل سری). */
+function cmpReturn(vals, n) {
+  let i = vals.length - 1, endV = null;
+  while (i >= 0 && endV == null) { endV = vals[i]; i--; }
+  let s = n > 0 ? Math.max(0, vals.length - 1 - n) : 0, startV = null;
+  while (s < vals.length && startV == null) { startV = vals[s]; s++; }
+  if (startV == null || endV == null || !startV) return null;
+  return (endV / startV - 1) * 100;
+}
+
+app.get('/finance/compare', (req, res, next) => {
+  const m = compareModel();
+  if (!m) return next();
+  const calendar = m.calendar, series = m.series, n = calendar.length;
+  const syms = CMP_SYMBOLS.filter(s => series[s]);
+
+  const windows = CMP_WINDOWS.map(w => {
+    const rows = syms
+      .map(s => ({ sym: s, name: series[s].name, r: cmpReturn(series[s].vals, w.days) }))
+      .filter(x => x.r != null)
+      .sort((a, b) => b.r - a.r);
+    const fromDay = calendar[w.days > 0 ? Math.max(0, n - 1 - w.days) : 0];
+    return { label: w.label, fromLabel: finDayLabel(fromDay), rows };
+  });
+
+  // نمودار: هر سری روی ۱۰۰ در اولین روز. خط ۱۰۰ همیشه در کادر می‌ماند.
+  const chartSyms = CMP_CHART.filter(s => series[s]);
+  const rebased = {};
+  let lo = 100, hi = 100;
+  for (const s of chartSyms) {
+    const v = series[s].vals;
+    const base = v.find(x => x != null);
+    rebased[s] = v.map(x => (x == null || !base) ? null : (x / base) * 100);
+    for (const x of rebased[s]) if (x != null) { if (x < lo) lo = x; if (x > hi) hi = x; }
+  }
+  const span = (hi - lo) || 1;
+  const yOf = y => (40 - ((y - lo) / span) * 40).toFixed(2);
+  const lines = chartSyms.map(s => ({
+    sym: s,
+    name: series[s].name,
+    color: CMP_COLORS[s] || 'var(--accent)',
+    poly: rebased[s]
+      .map((y, i) => y == null ? null : ((i / Math.max(1, n - 1)) * 100).toFixed(2) + ',' + yOf(y))
+      .filter(Boolean).join(' '),
+    last: rebased[s][n - 1],
+  }));
+
+  const month = windows[1];
+  const best = month.rows[0], worst = month.rows[month.rows.length - 1];
+  const usdRow = month.rows.find(r => r.sym === 'usd');
+  // «جلو زدن» فقط با اختلاف بیش از نیم‌دهم درصد. عددها با یک رقم اعشار نمایش داده
+  // می‌شوند و بدون این آستانه، انس با +۲۵٫۷٪ «جلوتر از» دلار با +۲۵٫۷٪ خوانده می‌شد.
+  const beatUsd = usdRow
+    ? month.rows.filter(r => r.sym !== 'usd' && r.sym !== 'tether' && r.r > usdRow.r + 0.05).map(r => r.name)
+    : [];
+
+  const intro = (best && worst)
+    ? 'در ۳۰ روز گذشته بیشترین بازدهی تومانی مال ' + best.name + ' با ' + pct(best.r) +
+      ' و کمترین مال ' + worst.name + ' با ' + pct(worst.r) + ' بوده است. ' +
+      (usdRow
+        ? 'دلار آزاد در همین مدت ' + pct(usdRow.r) + ' تغییر کرده' +
+          (beatUsd.length ? ' و ' + beatUsd.join('، ') + ' از آن جلو زده‌اند. ' : ' و هیچ دارایی دیگری از آن جلو نزده است. ')
+        : '') +
+      'بازدهی انس، بیت‌کوین و نفت که به دلار قیمت دارند، با نرخ دلار آزادِ همان روز به تومان حساب شده تا مقایسه منصفانه باشد.'
+    : 'مقایسه‌ی بازدهی تومانیِ دارایی‌های اصلی بازار ایران.';
+
+  page(res, 'finance-compare', '/finance', {
+    title: 'مقایسه‌ی بازدهی دلار، طلا، سکه، بورس و بیت‌کوین | سیگنال هوش',
+    desc: 'کدام دارایی در ۷ و ۳۰ روز گذشته بیشترین بازدهی را داشته؟ مقایسه‌ی تومانیِ دلار، تتر، سکه، طلا، انس، بیت‌کوین، نفت و بورس تهران، همراه با نمودار روند نسبی.',
+    path: '/finance/compare',
+  }, {
+    intro, windows, lines, y100: yOf(100),
+    firstLabel: finDayLabel(calendar[0]),
+    lastLabel: finDayLabel(calendar[n - 1]),
+    updated: timeAgo((finHistory.symbolInfo('usd') || {}).timestamp),
+  }, {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'خانه', item: SITE + '/' },
+      { '@type': 'ListItem', position: 2, name: 'ترند بازارهای مالی', item: SITE + '/finance' },
+      { '@type': 'ListItem', position: 3, name: 'مقایسه‌ی بازدهی', item: SITE + '/finance/compare' },
+    ],
+  });
+});
+
 app.get('/finance/:symbol', (req, res, next) => {
   const symbol = String(req.params.symbol || '');
   if (!FIN_SYM_RE.test(symbol)) return next();
@@ -3722,13 +3857,32 @@ function sectionTouchedAt() {
 app.get('/sitemap.xml', (req, res) => {
   const n = sitemapNews.shardCount();
   const now = new Date().toISOString();
-  const parts = ['/sitemap-main.xml'];
+  const parts = ['/sitemap-main.xml', '/sitemap-blog.xml'];
   for (let i = 0; i < n; i++) parts.push('/sitemap-news-' + i + '.xml');
   res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(
     '<?xml version="1.0" encoding="UTF-8"?>' +
     '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
     parts.map(p => `<sitemap><loc>${SITE}${p}</loc><lastmod>${now}</lastmod></sitemap>`).join('') +
     '</sitemapindex>'
+  );
+});
+
+// ── سایت‌مپ وبلاگ ──
+// جدا از sitemap-main تا نرخ ایندکس نوشته‌ها در سرچ کنسول مستقل از هزاران
+// صفحه‌ی خبر و ترند دیده شود. خودِ /blog در sitemap-main می‌ماند.
+// فقط منتشرشده‌ها؛ پیش‌نویس هرگز نباید به گوگل معرفی شود.
+app.get('/sitemap-blog.xml', (req, res) => {
+  let items = '';
+  try {
+    for (const p of blogDB.listPublished(1000, 0)) {
+      items += `<url><loc>${SITE}/blog/${encodeURIComponent(p.slug)}</loc>` +
+        `<lastmod>${new Date(p.updated_at || p.published_at).toISOString()}</lastmod>` +
+        `<changefreq>monthly</changefreq><priority>0.7</priority></url>`;
+    }
+  } catch (e) {}
+  res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + items + '</urlset>'
   );
 });
 
@@ -3748,6 +3902,7 @@ app.get('/sitemap-main.xml', (req, res) => {
     { loc: '/news', pri: '0.9', freq: 'hourly' },
     { loc: '/news/archive', pri: '0.8', freq: 'daily' },
     { loc: '/finance', pri: '0.9', freq: 'hourly' },
+    { loc: '/finance/compare', pri: '0.8', freq: 'daily' },
     { loc: '/property', pri: '0.9', freq: 'daily' },
     { loc: '/cars', pri: '0.8', freq: 'daily' },
     { loc: '/market', pri: '0.8', freq: 'daily' },
@@ -3762,14 +3917,6 @@ app.get('/sitemap-main.xml', (req, res) => {
   ];
   let items = '';
 
-  // نوشته‌های وبلاگ — فقط منتشرشده‌ها؛ پیش‌نویس هرگز نباید به گوگل معرفی شود
-  try {
-    for (const p of blogDB.listPublished(1000, 0)) {
-      items += `<url><loc>${SITE}/blog/${encodeURIComponent(p.slug)}</loc>` +
-        `<lastmod>${new Date(p.updated_at || p.published_at).toISOString()}</lastmod>` +
-        `<changefreq>monthly</changefreq><priority>0.7</priority></url>`;
-    }
-  } catch (e) {}
 
   // صفحه‌ی هر منطقه‌ی تهران — ۲۲ صفحه‌ی مستقل و قابل ایندکس
   try {

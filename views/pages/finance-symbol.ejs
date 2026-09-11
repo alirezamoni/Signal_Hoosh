@@ -23,6 +23,7 @@
         <% if (nb.prev) { %><a class="btn btn-sm" href="/finance/<%= info.symbol %>/<%= nb.prev %>">→ <%= nb.prevLabel %></a><% } %>
         <% if (nb.next) { %><a class="btn btn-sm" href="/finance/<%= info.symbol %>/<%= nb.next %>"><%= nb.nextLabel %> ←</a><% } %>
         <% } else { %>
+        <a class="btn btn-sm" href="/finance/compare">مقایسه‌ی بازارها ←</a>
         <a class="btn btn-sm" href="/finance">همه‌ی بازارها ←</a>
         <% } %>
       </div>
