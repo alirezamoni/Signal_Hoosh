@@ -22,6 +22,15 @@
       نقدینگی در اقتصاد ارائه دهد.
     </blockquote>
 
+    <% if (typeof todayLine !== 'undefined' && todayLine) { %>
+    <blockquote class="desc desc-sm">
+      <b>امروز:</b> <%= todayLine %>
+      <% if (typeof todayLinks !== 'undefined' && todayLinks && todayLinks.length) { %>
+      <% todayLinks.forEach(function (l, i) { %><%= i ? ' · ' : ' ' %><a href="<%= l.href %>"><%= l.label %></a><% }); %>
+      <% } %>
+    </blockquote>
+    <% } %>
+
     <div class="grid g6 mb6">
       <div class="kpi"><div class="kpi-label">مدل‌های رصد شده</div><div class="kpi-val"><%= fa(stats.models || 0) %></div><div class="kpi-note"><%= fa(totalListings) %> آگهی نمونه</div></div>
       <div class="kpi"><div class="kpi-label">بیشترین رشد قیمت</div><div class="kpi-val fa"><%= topGain ? topGain.name_fa : '—' %></div><div class="kpi-note up"><%= topGain ? '▲ ' + fa(Math.abs(topGain.pct_per_day).toFixed(2)) + '٪ در روز' : '' %></div></div>

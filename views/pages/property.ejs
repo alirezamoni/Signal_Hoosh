@@ -16,6 +16,15 @@
       گرانی، بلکه از نظر آنچه در ازای پول به‌دست می‌آید.
     </blockquote>
 
+    <% if (typeof todayLine !== 'undefined' && todayLine) { %>
+    <blockquote class="desc desc-sm">
+      <b>امروز:</b> <%= todayLine %>
+      <% if (typeof todayLinks !== 'undefined' && todayLinks && todayLinks.length) { %>
+      <% todayLinks.forEach(function (l, i) { %><%= i ? ' · ' : ' ' %><a href="<%= l.href %>"><%= l.label %></a><% }); %>
+      <% } %>
+    </blockquote>
+    <% } %>
+
     <blockquote class="desc desc-sm">
       <b>تغییر روش منبع:</b> کیلید، منبع این داده‌ها، از شهریور ۱۴۰۵ قیمت را با روشی تازه —
       میانه‌ی قیمت هر متر مربع — منتشر می‌کند و سری ماهانه‌ی قبلی‌اش را کنار گذاشته است.

@@ -16,6 +16,15 @@
       جمع‌آوری می‌شود.
     </blockquote>
 
+    <% if (typeof todayLine !== 'undefined' && todayLine) { %>
+    <blockquote class="desc desc-sm">
+      <b>امروز:</b> <%= todayLine %>
+      <% if (typeof todayLinks !== 'undefined' && todayLinks && todayLinks.length) { %>
+      <% todayLinks.forEach(function (l, i) { %><%= i ? ' · ' : ' ' %><a href="<%= l.href %>"><%= l.label %></a><% }); %>
+      <% } %>
+    </blockquote>
+    <% } %>
+
     <div class="grid g4 mb4">
       <% kpi.forEach(function (f) {
            var p = sparkPath(f.hist, 200, 42, 4);

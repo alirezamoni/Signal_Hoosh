@@ -303,6 +303,13 @@ function page(res, tpl, active, seo, data, jsonld) {
     clean: txt.clean, rankBadge, sparkPath, sparkArea, trendDir,
     SITE, TABS, active, ASSETS
   }, data);
+  // خلاصه‌ی «امروز» فقط روی خودِ صفحه‌ی تب — توضیح بالای TAB_SUMMARY
+  if (seo && seo.path === active && TAB_SUMMARY[active] && locals.todayLine == null) {
+    try {
+      const t = TAB_SUMMARY[active]();
+      if (t && t.text) { locals.todayLine = t.text; locals.todayLinks = t.links || []; }
+    } catch (e) {}
+  }
   res.render('pages/' + tpl, locals, (err, body) => {
     if (err) { console.error('[render]', tpl, err.message); return res.status(500).send('خطا در رندر صفحه'); }
     const crumb = (seo && seo.crumb) ? breadcrumbLeaf(active, seo.crumb) : breadcrumbFor(active);
@@ -3839,6 +3846,113 @@ app.get('/widget', (req, res) => {
     ],
   });
 });
+
+// ════════════ خلاصه‌ی امروزِ صفحات تب ════════════
+//
+// صفحات تب اصلی (/finance، /cars، /jobs، /market، /property) روی هم ۴۱ ایمپرشن و صفر
+// کلیک در سرچ کنسول داشتند. متن معرفی هر کدام ثابت بود و هرگز عوض نمی‌شد: نه به
+// پرسش «امروز چقدر است؟» جواب می‌داد و نه نشانه‌ی تازگی به گوگل می‌داد. اینجا برای هر
+// تب یک جمله از داده‌ی همان روز ساخته می‌شود که زیر معرفی می‌نشیند.
+//
+// page() فقط روی خودِ صفحه‌ی تب (seo.path === active) صدایش می‌زند، نه زیرصفحه‌ها.
+// هر خطا یعنی «امروز جمله نداریم»، نه صفحه‌ی شکسته.
+// کانکشن فقط‌خواندنی به cars.db برای TAB_SUMMARY — یک‌بار باز می‌شود، نه در هر درخواست
+let _carsRO = null;
+function carsRO() {
+  if (!_carsRO) _carsRO = new (require('better-sqlite3'))(path.join(__dirname, 'data', 'cars.db'), { readonly: true, fileMustExist: true });
+  return _carsRO;
+}
+
+const TAB_SUMMARY = {
+  '/finance': () => {
+    const parts = [];
+    for (const s of ['usd', 'gold18', 'coin']) {
+      const i = finHistory.symbolInfo(s);
+      if (!i) continue;
+      parts.push((i.name || s) + ' ' + finMoney(i, i.price) + ' ' + finUnit(i) +
+                 (i.change_pct != null ? ' (' + pct(Number(i.change_pct)) + ')' : ''));
+    }
+    if (!parts.length) return null;
+    return {
+      text: parts.join('، ') + '.',
+      links: [
+        { href: '/finance/usd', label: 'تاریخچه‌ی قیمت دلار' },
+        { href: '/finance/compare', label: 'کدام بازار بیشتر سود داد؟' },
+      ],
+    };
+  },
+
+  '/cars': () => {
+    // ⚠️ روند ۷ روزه (getMomentum) عمداً استفاده نمی‌شود. میانه‌ی قیمت آگهی‌ها از نوبتی
+    // به نوبت بعد نوسان شدید دارد — سمند در پنج روز بین ۸۶۰ میلیون و ۱٫۳۷ میلیارد
+    // رفت و برگشت — و مقایسه‌ی دو سرِ این سری «+۵۳٪ در یک هفته» درمی‌آورد که تغییر
+    // ترکیب آگهی‌هاست نه بازار. به‌جایش میانه‌ی همه‌ی نوبت‌های هفته گزارش می‌شود.
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const rows = carsRO().prepare(
+      'SELECT m.slug, m.name_fa, s.median_price AS p FROM car_snapshots s ' +
+      'JOIN car_models m ON m.id = s.model_id WHERE s.captured_at >= ? AND s.median_price > 0'
+    ).all(since);
+    const by = {};
+    for (const r of rows) (by[r.slug] = by[r.slug] || { name: r.name_fa, ps: [] }).ps.push(r.p);
+    const med = a => { const s = a.slice().sort((x, y) => x - y), k = s.length >> 1; return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; };
+    const parts = [];
+    for (const slug of ['pride', 'samand', 'peugeot', 'mvm']) {
+      const g = by[slug];
+      if (!g || g.ps.length < 4) continue;          // کمتر از چهار نوبت یعنی میانه‌ای که به آن اعتماد نیست
+      parts.push(g.name + ' حدود ' + fa(toman(med(g.ps))));
+    }
+    if (!parts.length) return null;
+    return {
+      text: 'میانه‌ی قیمت آگهی‌ها در ۷ روز گذشته: ' + parts.join('، ') + ' تومان. عدد هر مدل میانه‌ی همه‌ی ' +
+            'نوبت‌های رصد این هفته است، چون قیمت آگهی‌ها از نوبتی به نوبت بعد نوسان زیادی دارد.',
+      links: [],
+    };
+  },
+
+  '/jobs': () => {
+    const s = jobDB.getSummary() || {};
+    const tot = s.total || {};
+    if (!tot.count) return null;
+    let t = fa(num(tot.count)) + ' آگهی استخدام فعال در جابینجا و جاب‌ویژن';
+    if (tot.vs_week != null) t += '؛ ' + pct(tot.vs_week) + ' نسبت به هفته‌ی پیش';
+    if (tot.vs_month != null) t += ' و ' + pct(tot.vs_month) + ' نسبت به ماه پیش';
+    t += '.';
+    if (s.ehi != null) {
+      // EHI = آگهی‌های امروز نسبت به میانگین ۳۰ روز، ضربدر ۱۰۰
+      t += ' شاخص سلامت اشتغال ' + fa(s.ehi) + ' است' +
+           (s.ehi > 100 ? '، یعنی بالاتر از میانگین ۳۰ روز اخیر.' : (s.ehi < 100 ? '، یعنی پایین‌تر از میانگین ۳۰ روز اخیر.' : '.'));
+    }
+    return { text: t, links: [] };
+  },
+
+  '/market': () => {
+    const sc = marketDB.getSummaryCards('week') || {};
+    const cut = x => { x = String(x || ''); return x.length > 70 ? x.slice(0, 68) + '…' : x; };
+    const hot = sc.hotProduct, cold = sc.coldProduct;
+    if (!hot && !cold) return null;
+    let t = '';
+    if (hot && hot.name) t += 'بیشترین صعود هفته میان پرفروش‌های دیجی‌کالا: «' + cut(hot.name) + '»' +
+                             (hot.diff ? ' (' + fa(Math.abs(hot.diff)) + ' پله)' : '');
+    if (cold && cold.name) t += (t ? '؛ ' : '') + 'بیشترین افت: «' + cut(cold.name) + '»' +
+                               (cold.diff ? ' (' + fa(Math.abs(cold.diff)) + ' پله)' : '');
+    return t ? { text: t + '.', links: [] } : null;
+  },
+
+  '/property': () => {
+    const m = propertyModel();
+    if (!m || !m.city || !m.rows || !m.rows.length) return null;
+    const hi = m.city.max, lo = m.city.min;
+    return {
+      text: 'میانگین قیمت هر متر مسکن در ' + fa(m.rows.length) + ' منطقه‌ی تهران ' + fa(toman(m.city.avg)) +
+            ' تومان است؛ گران‌ترین ' + hi.name_fa + ' با ' + fa(toman(hi.meter)) + ' و ارزان‌ترین ' +
+            lo.name_fa + ' با ' + fa(toman(lo.meter)) + ' تومان.',
+      links: [
+        { href: '/property/' + hi.slug, label: hi.name_fa },
+        { href: '/property/' + lo.slug, label: lo.name_fa },
+      ],
+    };
+  },
+};
 
 // ── PWA ──
 // بدون این، سایت فقط یک نتیجه‌ی گوگل است. با آن، یک آیکون روی گوشی —

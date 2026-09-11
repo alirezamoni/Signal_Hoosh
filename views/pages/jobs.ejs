@@ -15,6 +15,15 @@
       واقعی است و می‌تواند سیگنال‌های اولیه‌ای از رونق یا رکود فعالیت‌های اقتصادی ارائه دهد.
     </blockquote>
 
+    <% if (typeof todayLine !== 'undefined' && todayLine) { %>
+    <blockquote class="desc desc-sm">
+      <b>امروز:</b> <%= todayLine %>
+      <% if (typeof todayLinks !== 'undefined' && todayLinks && todayLinks.length) { %>
+      <% todayLinks.forEach(function (l, i) { %><%= i ? ' · ' : ' ' %><a href="<%= l.href %>"><%= l.label %></a><% }); %>
+      <% } %>
+    </blockquote>
+    <% } %>
+
     <div class="grid g4 mb4">
       <% sources.forEach(function (s) {
            var p = sparkPath(s.hist, 200, 42, 4), a = sparkArea(s.hist, 200, 42, 4);

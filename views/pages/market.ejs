@@ -14,6 +14,15 @@
       سیگنال‌های اولیه‌ای از تغییرات تقاضا، انتظارات تورمی و روندهای اقتصادی ارائه دهد.
     </blockquote>
 
+    <% if (typeof todayLine !== 'undefined' && todayLine) { %>
+    <blockquote class="desc desc-sm">
+      <b>امروز:</b> <%= todayLine %>
+      <% if (typeof todayLinks !== 'undefined' && todayLinks && todayLinks.length) { %>
+      <% todayLinks.forEach(function (l, i) { %><%= i ? ' · ' : ' ' %><a href="<%= l.href %>"><%= l.label %></a><% }); %>
+      <% } %>
+    </blockquote>
+    <% } %>
+
     <div class="grid g5 mb4">
       <div class="kpi"><div class="kpi-label">محصولات رصد شده</div><div class="kpi-val"><%= fa(summary.totalProducts || 0) %></div><div class="kpi-note">در جدول پرفروش‌ها</div></div>
       <div class="kpi"><div class="kpi-label">داغ‌ترین هفته</div><div class="kpi-val fa"><%= summary.hotProduct ? excerpt(summary.hotProduct.name, 26) : '—' %></div><div class="kpi-note up"><%= summary.hotProduct ? '▲ ' + fa(Math.abs(summary.hotProduct.diff)) + ' پله' : '' %></div></div>
