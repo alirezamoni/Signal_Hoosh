@@ -105,7 +105,10 @@ function toman(n) {
 function pct(p) {
   if (p === null || p === undefined || isNaN(p)) return '';
   const v = Number(p);
-  return (v > 0 ? '+' : v < 0 ? '−' : '') + fa(Math.abs(v).toFixed(1)) + '٪';
+  // «−۰٫۰٪» و «+۰٫۰٪» بی‌معنی‌اند — مثلاً روز تعطیل بازار، روی ابزارکی که در
+  // سایت‌های دیگر دیده می‌شود. مقداری که به صفر گرد می‌شود علامت نمی‌گیرد.
+  const r = Math.abs(v).toFixed(1);
+  return (r === '0.0' ? '' : (v > 0 ? '+' : '−')) + fa(r) + '٪';
 }
 function excerpt(t, n) {
   if (!t) return '';
@@ -3742,6 +3745,101 @@ app.post('/admin/channels/digest/send', adminGuard, async (req, res) => {
   } catch (e) { return backFrom(req, res, null, e.message); }
 });
 
+// ════════════ ابزارک قیمت برای سایت‌های دیگر ════════════
+//
+// «کد قیمت دلار برای سایت» جست‌وجوی رایج وب‌مسترهای فارسی است. ابزارک ترافیک
+// ارجاعی می‌آورد و نام برند را روی سایت‌های دیگر می‌برد.
+//
+// ⚠️ لینکِ داخل iframe برای گوگل بک‌لینکِ سایت میزبان حساب نمی‌شود — محتوای
+// iframe مال آدرس خودش است. و سیاست ضداسپم گوگل لینک‌های کلیدواژه‌ای که با
+// ابزارک پخش می‌شوند را صراحتاً «طرح لینک» می‌داند. پس کد پیشنهادی فقط یک لینک
+// انتساب با نام برند («سیگنال هوش») بیرون از iframe دارد، نه متن کلیدواژه‌ای.
+//
+// هلمت روی همه‌ی صفحات X-Frame-Options: SAMEORIGIN و frame-ancestors 'self'
+// می‌گذارد؛ این مسیر عمداً هر دو را برمی‌دارد تا جاسازی‌شدنی باشد، و در عوض
+// هیچ اسکریپت، فرم یا منبع بیرونی‌ای اجازه ندارد.
+const EMBED_SYMBOLS = ['usd', 'tether', 'coin', 'gold18', 'mesghal', 'ounce', 'bitcoin', 'oil_brent', 'stock_market'];
+
+function embedEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function embedHtml(info, theme) {
+  const name = info.name || info.symbol;
+  const unit = finUnit(info);
+  const chg = info.change_pct == null ? null : Number(info.change_pct);
+  const cls = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
+  const themeAttr = (theme === 'dark' || theme === 'light') ? ' data-theme="' + theme + '"' : '';
+  return '<!DOCTYPE html><html lang="fa" dir="rtl"' + themeAttr + '><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">' +
+    '<title>' + embedEsc('قیمت ' + name) + '</title><style>' +
+    "@font-face{font-family:IS;src:url(/assets/fonts/IRANSansWeb.woff2) format('woff2');font-weight:400}" +
+    "@font-face{font-family:IS;src:url(/assets/fonts/IRANSansWeb_Bold.woff2) format('woff2');font-weight:700}" +
+    ':root{--bg:#fff;--ink:#16181d;--mute:#6b7280;--line:#e5e7eb;--up:#12805c;--down:#c2352d}' +
+    '@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111418;--ink:#e8eaed;--mute:#9aa0a6;--line:#2a2f36;--up:#3ecf8e;--down:#f2766b}}' +
+    ':root[data-theme=dark]{--bg:#111418;--ink:#e8eaed;--mute:#9aa0a6;--line:#2a2f36;--up:#3ecf8e;--down:#f2766b}' +
+    '*{box-sizing:border-box;margin:0}html,body{height:100%}' +
+    'body{font-family:IS,Tahoma,sans-serif;background:var(--bg);color:var(--ink);display:flex;align-items:center}' +
+    'a.w{display:flex;flex-direction:column;gap:4px;width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:10px;color:inherit;text-decoration:none}' +
+    '.n{font-size:13px;color:var(--mute)}.p{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}' +
+    '.u{font-size:12px;font-weight:400;color:var(--mute);margin-right:4px}' +
+    '.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}' +
+    '.c{font-size:12px;font-weight:700}.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--mute)}' +
+    '.b{font-size:11px;color:var(--mute)}' +
+    '</style></head><body>' +
+    '<a class="w" href="' + SITE + '/finance/' + encodeURIComponent(info.symbol) + '?src=widget" target="_blank" rel="noopener">' +
+    '<span class="n">' + embedEsc(name) + '</span>' +
+    '<span class="row"><span class="p">' + embedEsc(finMoney(info, info.price)) +
+    '<span class="u">' + embedEsc(unit) + '</span></span>' +
+    (chg == null ? '' : '<span class="c ' + cls + '">' + embedEsc(pct(chg)) + '</span>') + '</span>' +
+    '<span class="b">سیگنال هوش</span></a></body></html>';
+}
+
+app.get('/embed/price/:symbol', (req, res, next) => {
+  const symbol = String(req.params.symbol || '');
+  if (EMBED_SYMBOLS.indexOf(symbol) === -1) return next();
+  const info = finHistory.symbolInfo(symbol);
+  if (!info) return next();
+  res.removeHeader('X-Frame-Options');
+  res.set({
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; img-src data:; frame-ancestors *; base-uri 'none'; form-action 'none'",
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+    // صفحه‌ی ابزارک محتوای مستقلی نیست؛ ایندکس‌شدنش فقط صفحه‌ی نازک می‌سازد
+    'X-Robots-Tag': 'noindex',
+    'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+  });
+  res.type('html').send(embedHtml(info, String(req.query.theme || '')));
+});
+
+app.get('/widget', (req, res) => {
+  const items = EMBED_SYMBOLS.map(s => finHistory.symbolInfo(s)).filter(Boolean).map(info => {
+    const name = info.name || info.symbol;
+    return {
+      symbol: info.symbol,
+      name,
+      code: '<iframe src="' + SITE + '/embed/price/' + info.symbol + '" width="260" height="96" ' +
+            'style="border:0;max-width:100%" loading="lazy" title="قیمت ' + name + '"></iframe>\n' +
+            '<p style="font-size:11px;margin:4px 0 0">قیمت از <a href="' + SITE + '/">سیگنال هوش</a></p>',
+    };
+  });
+  // پیش‌نمایشِ همین صفحه iframeِ هم‌مبدأ است، ولی CSP سراسری frame-src را فقط به
+  // t.me باز کرده. فقط برای این صفحه 'self' اضافه می‌شود.
+  const csp = res.get('Content-Security-Policy');
+  if (csp) res.set('Content-Security-Policy', csp.replace(/frame-src ([^;]*)/, "frame-src 'self' $1"));
+  page(res, 'widget', '', {
+    title: 'ابزارک رایگان قیمت دلار، طلا و سکه برای سایت و وبلاگ | سیگنال هوش',
+    desc: 'کد رایگان نمایش قیمت لحظه‌ای دلار، طلا، سکه، تتر و بیت‌کوین برای سایت و وبلاگ شما — بدون ثبت‌نام، سبک و خودکار به‌روز.',
+    path: '/widget',
+  }, { items }, {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'خانه', item: SITE + '/' },
+      { '@type': 'ListItem', position: 2, name: 'ترند بازارهای مالی', item: SITE + '/finance' },
+      { '@type': 'ListItem', position: 3, name: 'ابزارک قیمت', item: SITE + '/widget' },
+    ],
+  });
+});
+
 // ── PWA ──
 // بدون این، سایت فقط یک نتیجه‌ی گوگل است. با آن، یک آیکون روی گوشی —
 // که برای محصولی که کارش «هر روز قیمت را چک کن» است تفاوت اصلی است.
@@ -3903,6 +4001,7 @@ app.get('/sitemap-main.xml', (req, res) => {
     { loc: '/news/archive', pri: '0.8', freq: 'daily' },
     { loc: '/finance', pri: '0.9', freq: 'hourly' },
     { loc: '/finance/compare', pri: '0.8', freq: 'daily' },
+    { loc: '/widget', pri: '0.6', freq: 'weekly' },
     { loc: '/property', pri: '0.9', freq: 'daily' },
     { loc: '/cars', pri: '0.8', freq: 'daily' },
     { loc: '/market', pri: '0.8', freq: 'daily' },

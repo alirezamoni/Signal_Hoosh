@@ -1,0 +1,59 @@
+<main id="main" class="page">
+  <div class="container">
+
+    <nav class="crumb">
+      <a href="/">خانه</a> <span>/</span>
+      <a href="/finance">ترند بازارهای مالی</a> <span>/</span>
+      <span>ابزارک قیمت</span>
+    </nav>
+
+    <div class="page-head between wrap">
+      <div>
+        <h1 class="page-title">ابزارک رایگان قیمت برای سایت شما</h1>
+        <p class="page-sub">دلار، طلا، سکه، تتر و بیت‌کوین · بدون ثبت‌نام · هر دو دقیقه به‌روز</p>
+      </div>
+      <div class="row" style="gap:var(--s2);">
+        <a class="btn btn-sm" href="/finance/compare">مقایسه‌ی بازارها ←</a>
+      </div>
+    </div>
+
+    <blockquote class="desc">
+      کد هر نماد را کپی کنید و در HTML سایت یا وبلاگ خود بگذارید. ابزارک سبک است، هیچ
+      اسکریپتی روی سایت شما اجرا نمی‌کند و قیمت را خودکار از سیگنال هوش می‌خواند. برای نسخه‌ی
+      تیره، به آخر آدرس ابزارک <code dir="ltr">?theme=dark</code> اضافه کنید.
+    </blockquote>
+
+    <div class="grid g3 mb4">
+      <% items.forEach(function (it) { %>
+      <section class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title"><%= it.name %></h2>
+          <a class="panel-link" href="/finance/<%= it.symbol %>">تاریخچه ←</a>
+        </div>
+        <div class="panel-body-pad">
+          <iframe src="/embed/price/<%= it.symbol %>" width="260" height="96"
+                  style="border:0;max-width:100%;display:block;" loading="lazy"
+                  title="پیش‌نمایش ابزارک <%= it.name %>"></iframe>
+          <pre class="mt3" dir="ltr" style="white-space:pre-wrap;word-break:break-all;font-size:11px;line-height:1.6;padding:8px 10px;border-radius:8px;border:1px solid var(--border-soft);max-height:150px;overflow:auto;"><code id="code-<%= it.symbol %>"><%= it.code %></code></pre>
+          <button class="btn btn-sm mt3" type="button" data-copy="code-<%= it.symbol %>">کپی کد</button>
+        </div>
+      </section>
+      <% }); %>
+    </div>
+
+  </div>
+</main>
+<script>
+  // کپی کد؛ اگر مرورگر clipboard ندارد، کد همچنان قابل انتخاب و کپی دستی است
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-copy]');
+    if (!b) return;
+    var el = document.getElementById(b.getAttribute('data-copy'));
+    if (!el || !navigator.clipboard) return;
+    navigator.clipboard.writeText(el.textContent).then(function () {
+      var t = b.textContent;
+      b.textContent = 'کپی شد';
+      setTimeout(function () { b.textContent = t; }, 1600);
+    });
+  });
+</script>
