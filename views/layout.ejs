@@ -15,7 +15,12 @@
   .sub-btn{flex:none;padding:8px 16px;border-radius:8px;border:0;cursor:pointer;font:inherit;font-size:13px;
     font-weight:600;background:linear-gradient(135deg,#4f83f7,#9b7cfc);color:#fff}
   .sub-btn:hover{filter:brightness(1.08)}
-  .sub-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  /* ⚠️ قبلاً left:-9999px بود. در صفحه‌ی RTL این یعنی سند ۹۹۹۹ پیکسل به چپ
+     کشیده می‌شود و هر صفحه‌ی سایت — موبایل و دسکتاپ — اسکرول افقی می‌گیرد.
+     حالا فیلد با کلیپ پنهان می‌شود، بدون جابه‌جایی: در DOM هست و ربات پُرش
+     می‌کند، ولی هیچ فضایی اشغال نمی‌کند. */
+  .sub-hp{position:absolute;width:1px;height:1px;padding:0;border:0;opacity:0;
+    overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);pointer-events:none}
   .sub-msg{margin:8px 0 0;font-size:12.5px;opacity:.9}
 </style>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">

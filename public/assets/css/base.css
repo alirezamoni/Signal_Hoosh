@@ -85,6 +85,13 @@ button { background: none; border: none; cursor: pointer; }
 .g6 { grid-template-columns: repeat(6, 1fr); }
 .span2 { grid-column: span 2; }
 
+/* ⚠️ ستون 1fr یعنی minmax(auto, 1fr) و آن «auto» کفِ min-content است؛
+   ستون از عرضِ ظرف پهن‌تر می‌شد و کل صفحه اسکرول افقی می‌گرفت. روی
+   صفحات خبر در موبایل دیده شد (ستون ۴۵۸ تا ۵۱۱ پیکسل در صفحه‌ی ۳۷۵).
+   همان کاری که در components.css روی فرزندهای فلکس شده (.drow-main،
+   .nrow-body، .tr-bd)، اینجا برای فرزندهای گرید. */
+.grid > * { min-width: 0; }
+
 /* ── ریسپانسیو ──
    نقاط شکست پلکانی تا هیچ‌جا فشرده یا خالی نماند */
 @media (max-width: 1400px) { .g6 { grid-template-columns: repeat(3, 1fr); } }
