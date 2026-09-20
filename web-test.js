@@ -59,6 +59,14 @@ const SITE = 'https://signalhoosh.site';
 // ── دسترسی مستقیم فقط-خواندنی برای پرس‌وجوهایی که در ماژول‌ها نیست ──
 const newsRO = new Database(path.join(__dirname, 'data', 'news.db'), { readonly: true });
 
+// ⚠️ شناسه‌های کمتر از این، از نسل قبلیِ دیتابیس‌اند و هرگز برنمی‌گردند
+// (کمینه‌ی فعلی ۷۹۱۳۰ است و هیچ ردیفی زیرش نیست). گوگل هنوز ~۱۶۶ تایشان
+// را می‌خزد. ۴۱۰ یعنی «برای همیشه رفته» و سریع‌تر از ۴۰۴ از ایندکس پاک
+// می‌شود. یک بار در بوت خوانده می‌شود چون چیزی خبر را حذف نمی‌کند.
+const MIN_NEWS_ID = (() => {
+  try { return newsRO.prepare('SELECT MIN(id) m FROM news').get().m || 0; } catch (e) { return 0; }
+})();
+
 // نوشتنی — فقط برای عملیات پنل مدیریت (آزادسازی خبر، تغییر قانون)
 const newsRW = new Database(path.join(__dirname, 'data', 'news.db'));
 
@@ -817,7 +825,18 @@ app.get('/news/:id', (req, res, next) => {
   const id = parseInt(req.params.id, 10);
   if (!id) return next();
   const n = getNewsById(id);
-  if (!n) return next();
+  if (!n) {
+    // خبرِ نسل قبل: رفته و برنمی‌گردد. بقیه‌ی ۴۰۴ها ممکن است حفره‌ی موقت باشند.
+    if (MIN_NEWS_ID && id < MIN_NEWS_ID) {
+      res.status(410);
+      return page(res, 'notfound', '', {
+        title: 'این خبر دیگر در دسترس نیست | سیگنال هوش',
+        desc: 'این خبر حذف شده است و بازنمی‌گردد.',
+        path: req.path, noindex: true
+      }, {});
+    }
+    return next();
+  }
 
   const text = (n.text_fa || n.text || '').trim();
   const paras = txt.paragraphs(text);
@@ -1036,7 +1055,10 @@ app.get('/trends/keywords', (req, res) => {
     title: titleBase + (p > 1 ? ` — صفحه ${fa(p)}` : '') + ' | سیگنال هوش',
     desc: `فهرست ${fa(total)} کلیدواژه‌ی ترندشده‌ی گوگل در ایران` + (cat ? ` در دسته‌ی ${cat}` : '') +
           '، با حجم جستجو، بیشترین رشد، بهترین رتبه و تاریخ حضور هر کدام.',
-    path: qs({ p }),
+    // ⚠️ sort فقط ترتیب همان ردیف‌هاست، نه محتوای تازه. canonical را روی
+    //    حالت پیش‌فرض می‌بندیم تا ?sort=days و ?sort=growth نسخه‌ی تکراری نسازند
+    //    (cat می‌ماند چون واقعاً فهرست دیگری است).
+    path: qs({ p, sort: 'vol' }),
     // صفحات دوم به بعد ایندکس نمی‌شوند تا محتوای نازک و تکراری تولید نشود
     noindex: p > 1
   }, {
@@ -2201,7 +2223,10 @@ app.get('/future/chain/:id', (req, res, next) => {
     path: '/future/chain/' + id,
     crumb: chain.topicLabel || 'زنجیره',
     // زنجیره‌ی ضعیف یا کم‌رویداد نباید وارد ایندکس شود — محتوای نازک
-    noindex: !(chain.peak_severity >= 0.5 && events.length >= 3),
+    // ⚠️ ۱۰٬۳۷۹ صفحه‌ی زنجیره قابل ایندکس بود و در شش هفته صفر ایمپرشن گرفت،
+    //    در حالی که بودجه‌ی کراول را می‌خورد. شدت معیار خوبی نیست چون اشباع
+    //    شده؛ «پیش‌بینیِ متصل» یعنی این صفحه ادعایی کرده که دنبالش کرده‌ایم.
+    noindex: !(chain.peak_severity >= 0.5 && events.length >= 3 && preds.length > 0),
   }, { chain, events, preds, related });
 });
 
@@ -4087,9 +4112,13 @@ app.get('/sitemap-blog.xml', (req, res) => {
   let items = '';
   try {
     for (const p of blogDB.listPublished(1000, 0)) {
+      // ⚠️ وبلاگ سه نوبت در روز منتشر می‌شود ولی به گوگل «ماهانه» اعلام می‌شد و
+      //    اولویت همه یکسان بود. در ۱۴ روز گوگل فقط ۴ بار به /blog سر زد.
+      const ageD = (Date.now() - new Date(p.published_at || p.updated_at).getTime()) / 86400000;
       items += `<url><loc>${SITE}/blog/${encodeURIComponent(p.slug)}</loc>` +
         `<lastmod>${new Date(p.updated_at || p.published_at).toISOString()}</lastmod>` +
-        `<changefreq>monthly</changefreq><priority>0.7</priority></url>`;
+        `<changefreq>${ageD < 7 ? 'daily' : ageD < 30 ? 'weekly' : 'monthly'}</changefreq>` +
+        `<priority>${ageD < 7 ? '0.9' : ageD < 30 ? '0.8' : '0.6'}</priority></url>`;
     }
   } catch (e) {}
   res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(
